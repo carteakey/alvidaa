@@ -12,9 +12,10 @@
 <canvas id="c" width="960" height="540"></canvas>
 <script>
 "use strict";
-// alvidaa v1.1: clock, inputs row, apps row (scrolling), self-install,
-// pointer + keyboard navigation. Stateless — config/state pushed over /ws.
-// Targets the TV's Chrome 77: ES2018 only, one canvas, no DOM/CSS effects.
+// alvidaa v1.2: logos (proxied by the server), animated focus, scrolling rows,
+// self-install, pointer + keyboard navigation. Stateless — everything pushed
+// over /ws. Targets the TV's Chrome 77: ES2018 only, one canvas, no DOM/CSS
+// effects, no offscreen canvases (they render empty on this TV).
 
 var cv = document.getElementById("c");
 var ctx = cv.getContext("2d");
@@ -29,7 +30,6 @@ var S = {
   busy: false
 };
 
-// TV browser bridge functions (exposed to any page the TV browser opens).
 var BRIDGE = { hiutils: false, legacy: false, checked: false };
 function detectBridge() {
   if (BRIDGE.checked) return BRIDGE;
@@ -40,13 +40,13 @@ function detectBridge() {
 }
 
 var ROWS = ["inputs", "apps"];
-var PAGE = 5;                // visible tiles per row
+var PAGE = 5;
 
 // ---------------------------------------------------------------- websocket
 var ws = null, wsRetry = 0;
 
 function connect() {
-  var host = location.host || window.location.hostname + ":8765";
+  var host = location.host || window.location.hostname + ":8770";
   try { ws = new WebSocket("ws://" + host + "/ws"); } catch (e) { scheduleReconnect(); return; }
   ws.onopen = function () { S.online = true; wsRetry = 0; draw(); };
   ws.onmessage = function (ev) {
@@ -58,14 +58,10 @@ function connect() {
       S.sources = m.sources || [];
       S.state = m.state;
       S.busy = false;
+      preloadIcons();
       clampFocus(); draw();
     } else if (m.t === "tvstate") {
       S.state = m.state; draw();
-    } else if (m.t === "result") {
-      S.busy = false;
-      S.toast = m.ok ? "" : (m.error || "failed");
-      S.toastUntil = Date.now() + 2500;
-      draw();
     }
   };
   ws.onclose = function () { S.online = false; scheduleReconnect(); draw(); };
@@ -88,24 +84,41 @@ function act(type, val) {
   send({ t: type === "launch" ? "launch" : "source", name: val, id: val });
 }
 
-// ---------------------------------------------------------------- drawing
+// ---------------------------------------------------------------- icons
+var ICONS = {};
+function preloadIcons() {
+  var list = S.apps || [];
+  for (var i = 0; i < list.length; i++) {
+    var src = list[i].icon;
+    if (!src || ICONS[src]) continue;
+    var im = new Image();
+    im.onload = function () { draw(); };
+    im.src = src;
+    ICONS[src] = im;
+  }
+}
+
+// ---------------------------------------------------------------- layout
 var F = {
-  big: "28px sans-serif", mid: "20px sans-serif", small: "14px sans-serif",
-  label: "13px sans-serif"
+  clock: "56px sans-serif", mid: "20px sans-serif", small: "14px sans-serif",
+  label: "13px sans-serif", letter: "44px sans-serif"
 };
 
-function tileW() { return 150; }
-function tileH() { return 84; }
+function tileW() { return 160; }
+function tileH() { return 88; }
 function gap() { return 12; }
 function left() { return 48; }
 
 function items(row) {
   if (row === 0) {
     return (S.sources || []).map(function (s) {
-      return { label: s.name || s.id, sub: s.signal ? "signal" : "no signal", val: s.id };
+      return { label: s.name || s.id, sub: s.signal ? "signal" : "no signal",
+               signal: s.signal, val: s.id };
     });
   }
-  return (S.apps || []).map(function (a) { return { label: a.name, sub: "", val: a.name }; });
+  return (S.apps || []).map(function (a) {
+    return { label: a.name, sub: "", icon: a.icon, val: a.name };
+  });
 }
 
 function installVisible() {
@@ -126,7 +139,6 @@ function rowStart(idx) {
   return Math.max(0, Math.min(S.col - 2, n - PAGE));
 }
 
-// deterministic tile hue from the label so rows look stable
 function hue(s) {
   var h = 0;
   for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
@@ -143,110 +155,169 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
-var HIT = [];  // rebuilt every draw: {x, y, w, h, row, col}
+var HIT = [];
 
-function drawTile(x, y, focused, fillL, label, sub) {
+// focus animation (scale the focused tile up with an ease-out)
+var focusAnim = 1, lastFocusKey = "";
+var rafPending = false;
+function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+function bumpFocus() {
+  if (rafPending) return;
+  rafPending = true;
+  function tick() {
+    focusAnim = Math.min(1, focusAnim + 0.14);
+    draw();
+    if (focusAnim < 1) requestAnimationFrame(tick);
+    else rafPending = false;
+  }
+  requestAnimationFrame(tick);
+}
+
+function drawTile(x, y, focused, it) {
+  var scale = focused ? 1 + 0.07 * easeOut(focusAnim) : 1;
+  ctx.save();
+  if (scale !== 1) {
+    var cx = x + tileW() / 2, cy = y + tileH() / 2;
+    ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
+  }
+  // focused tiles get a fake shadow (offset dark roundrect) + light border
   if (focused) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    roundRect(x + 1, y + 5, tileW(), tileH(), 14);
+    ctx.fill();
     ctx.fillStyle = "#f2f4f8";
-    roundRect(x - 2, y - 2, tileW() + 4, tileH() + 4, 12);
+    roundRect(x - 2, y - 2, tileW() + 4, tileH() + 4, 14);
     ctx.fill();
   }
-  ctx.fillStyle = fillL;
-  roundRect(x, y, tileW(), tileH(), 10);
-  ctx.fill();
-  ctx.fillStyle = focused ? "#0e1116" : "#e8eaee";
-  ctx.font = F.mid;
-  var t = label;
-  while (t.length > 3 && ctx.measureText(t).width > tileW() - 20) t = t.slice(0, -1);
-  ctx.fillText(t, x + 14, y + 38);
-  if (sub) {
+  if (it.install) {  // setup tile: two-line label, no icon
+    ctx.fillStyle = focused ? "#f2f4f8" : "#c8cdd4";
     ctx.font = F.small;
-    ctx.fillStyle = focused ? "#3d4552" : "#6b7280";
-    ctx.fillText(sub, x + 14, y + 62);
+    ctx.textAlign = "center";
+    ctx.fillText("＋ INSTALL", x + tileW() / 2, y + tileH() / 2 - 4);
+    ctx.fillText("AS APP", x + tileW() / 2, y + tileH() / 2 + 16);
+    ctx.textAlign = "left";
+    ctx.restore();
+    return;
   }
+  var base = it.icon && ICONS[it.icon] && ICONS[it.icon].complete && ICONS[it.icon].naturalWidth;
+  ctx.fillStyle = focused ? "#182028" : (base ? "#1a2027" : "hsl(" + hue(it.label) + ",30%," + (focused ? 22 : 14) + "%)");
+  roundRect(x, y, tileW(), tileH(), 12);
+  ctx.fill();
+  if (focused) {  // accent underline
+    ctx.fillStyle = "#4cc2ff";
+    roundRect(x + 14, y + tileH() - 6, tileW() - 28, 3, 1.5);
+    ctx.fill();
+  }
+  if (base) {
+    var im = ICONS[it.icon];
+    var boxW = tileW() - 24, boxH = tileH() - (it.sub ? 40 : 28);
+    var s = Math.min(boxW / im.naturalWidth, boxH / im.naturalHeight);
+    var dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+    ctx.drawImage(im, x + (tileW() - dw) / 2, y + (boxH - dh) / 2 + 4, dw, dh);
+  } else {
+    ctx.fillStyle = focused ? "rgba(232,234,238,0.85)" : "rgba(232,234,238,0.25)";
+    ctx.font = F.letter;
+    ctx.textAlign = "center";
+    ctx.fillText((it.label || "?").charAt(0).toUpperCase(), x + tileW() / 2, y + tileH() / 2 + 12);
+    ctx.textAlign = "left";
+  }
+  // label
+  ctx.fillStyle = focused ? "#f2f4f8" : "#aeb4bd";
+  ctx.font = F.small;
+  var label = it.label || "";
+  while (label.length > 3 && ctx.measureText(label).width > tileW() - 18) label = label.slice(0, -1);
+  ctx.textAlign = "center";
+  ctx.fillText(label, x + tileW() / 2, y + tileH() - (it.sub ? 8 : 8));
+  ctx.textAlign = "left";
+  if (it.sub) {  // signal state: dot + text
+    ctx.fillStyle = it.signal ? "#4ade80" : "#6b7280";
+    ctx.beginPath();
+    ctx.arc(x + 16, y + tileH() - 24, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = it.signal ? "#4ade80" : "#6b7280";
+    ctx.fillText(it.sub, x + 26, y + tileH() - 20);
+  }
+  ctx.restore();
 }
 
 function drawRow(idx, y, title) {
   ctx.font = F.label;
-  ctx.fillStyle = "#8a8f98";
-  ctx.fillText(title, left(), y - 10);
+  ctx.fillStyle = "#7d8590";
+  ctx.fillText(title, left(), y - 12);
   var list = items(idx);
   var n = list.length;
   if (!S.hello && S.online) {
     ctx.font = F.mid; ctx.fillStyle = "#555";
-    ctx.fillText("loading…", left(), y + 40);
+    ctx.fillText("loading…", left(), y + 44);
     return;
   }
   if (n === 0) {
-    ctx.font = F.mid; ctx.fillStyle = "#444";
-    ctx.fillText(idx === 0 ? "no inputs reported" : "no apps reported", left(), y + 40);
+    ctx.font = F.mid; ctx.fillStyle = "#3d4552";
+    ctx.fillText(idx === 0 ? "no inputs reported" : "no apps reported", left(), y + 44);
     return;
   }
   var start = rowStart(idx);
   for (var i = start; i < Math.min(n, start + PAGE); i++) {
     var x = left() + (i - start) * (tileW() + gap());
     var focused = (S.row === idx && S.col === i);
-    drawTile(x, y, focused, "hsl(" + hue(list[i].label) + ",32%," + (focused ? 26 : 16) + "%)",
-             list[i].label, list[i].sub);
+    if (!focused) drawTile(x, y, false, list[i]);  // focused tile drawn last (scale overlap)
     HIT.push({ x: x, y: y, w: tileW(), h: tileH(), row: idx, col: i });
   }
-  // scroll indicators
+  if (S.row === idx && S.col >= start && S.col < Math.min(n, start + PAGE)) {
+    drawTile(left() + (S.col - start) * (tileW() + gap()), y, true, list[S.col]);
+  }
   ctx.font = F.small;
-  ctx.fillStyle = "#6b7280";
+  ctx.fillStyle = "#565e69";
   var end = Math.min(n, start + PAGE);
-  if (start > 0) ctx.fillText("‹ " + start, left() - 4, y + 20);
-  if (end < n) ctx.fillText((n - end) + " ›", left() + PAGE * (tileW() + gap()) - 22, y + 20);
+  if (start > 0) ctx.fillText("‹ " + start, left() - 2, y + 24);
+  if (end < n) ctx.fillText((n - end) + " ›", left() + PAGE * (tileW() + gap()) - 30, y + 24);
 }
 
 function draw() {
   HIT = [];
-  ctx.fillStyle = "#0b0d10";
+  var key = S.row + ":" + S.col;
+  if (key !== lastFocusKey) { lastFocusKey = key; focusAnim = 0; }
+  var g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#141a24");
+  g.addColorStop(1, "#0a0d12");
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
   var now = new Date();
   function p2(n) { return (n < 10 ? "0" : "") + n; }
   ctx.fillStyle = "#e8eaee";
-  ctx.font = "44px sans-serif";
-  ctx.fillText(p2(now.getHours()) + ":" + p2(now.getMinutes()), left(), 74);
+  ctx.font = F.clock;
+  ctx.fillText(p2(now.getHours()) + ":" + p2(now.getMinutes()), left(), 82);
   ctx.font = F.mid;
   ctx.fillStyle = "#8a8f98";
-  var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  ctx.fillText(days[now.getDay()] + " " + now.getDate() + "." + (now.getMonth() + 1), left(), 100);
+  var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  var mons = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  ctx.fillText(days[now.getDay()] + ", " + mons[now.getMonth()] + " " + now.getDate(), left(), 110);
 
   ctx.font = F.small;
   ctx.textAlign = "right";
   if (S.online) {
     ctx.fillStyle = "#4ade80";
-    ctx.fillText("●", W - 52, 44);
-    ctx.fillStyle = "#8a8f98";
-    ctx.fillText(S.state === "remote_launcher" ? "vidaa home" : (S.state || "tv"), W - 62, 44);
+    ctx.fillText("●", W - 52, 46);
+    ctx.fillStyle = "#7d8590";
+    ctx.fillText(S.state === "remote_launcher" ? "vidaa home" : (S.state || "tv"), W - 62, 46);
   } else {
     ctx.fillStyle = "#f87171";
-    ctx.fillText("server offline", W - 52, 44);
+    ctx.fillText("server offline", W - 52, 46);
   }
   ctx.textAlign = "left";
 
-  drawRow(0, 180, "INPUTS");
-  drawRow(1, 310, "APPS");
+  drawRow(0, 170, "INPUTS");
+  drawRow(1, 300, "APPS");
 
   if (installVisible()) {
-    var iy = 425;
+    var iy = 436;
     ctx.font = F.label;
-    ctx.fillStyle = "#8a8f98";
-    ctx.fillText("SETUP", left(), iy - 10);
+    ctx.fillStyle = "#7d8590";
+    ctx.fillText("SETUP", left(), iy - 12);
     var focused = (S.row === 2);
-    if (focused) {
-      ctx.fillStyle = "#f2f4f8";
-      roundRect(left() - 2, iy - 2, tileW() + 4, tileH() + 4, 12);
-      ctx.fill();
-    }
-    ctx.fillStyle = focused ? "#0e1116" : "#232a33";
-    roundRect(left(), iy, tileW(), tileH(), 10);
-    ctx.fill();
-    ctx.fillStyle = "#e8eaee";
-    ctx.font = F.small;
-    ctx.fillText("＋ INSTALL", left() + 14, iy + 36);
-    ctx.fillText("AS APP", left() + 14, iy + 56);
+    drawTile(left(), iy, focused,
+      { label: "INSTALL AS APP", install: true, sub: "", icon: null, val: null });
     HIT.push({ x: left(), y: iy, w: tileW(), h: tileH(), row: 2, col: 0 });
   }
 
@@ -254,13 +325,11 @@ function draw() {
     ctx.font = F.mid;
     ctx.fillStyle = "#e8eaee";
     ctx.textAlign = "center";
-    ctx.fillText(S.toast === "…" ? "working…" : S.toast, W / 2, H - 34);
+    ctx.fillText(S.toast === "…" ? "working…" : S.toast, W / 2, H - 12);
     ctx.textAlign = "left";
   }
 
-  ctx.font = F.small;
-  ctx.fillStyle = "#3d4552";
-  ctx.fillText("navigate · OK open · ▲▼ rows", left(), H - 10);
+  if (focusAnim < 1) { /* mid-animation frames already drawn by tick() */ }
 }
 
 setInterval(function () { draw(); }, 1000);
@@ -275,16 +344,14 @@ function activate(row, col) {
 document.addEventListener("keydown", function (e) {
   var rows = installVisible() ? 3 : 2;
   var list = items(S.row);
-  if (e.key === "ArrowRight") { if (S.col < list.length - 1) { S.col++; draw(); } }
-  else if (e.key === "ArrowLeft") { if (S.col > 0) { S.col--; draw(); } }
-  else if (e.key === "ArrowUp") { if (S.row > 0) { S.row--; clampFocus(); draw(); } }
-  else if (e.key === "ArrowDown") { if (S.row < rows - 1) { S.row++; clampFocus(); draw(); } }
+  if (e.key === "ArrowRight") { if (S.col < list.length - 1) { S.col++; bumpFocus(); draw(); } }
+  else if (e.key === "ArrowLeft") { if (S.col > 0) { S.col--; bumpFocus(); draw(); } }
+  else if (e.key === "ArrowUp") { if (S.row > 0) { S.row--; clampFocus(); bumpFocus(); draw(); } }
+  else if (e.key === "ArrowDown") { if (S.row < rows - 1) { S.row++; clampFocus(); bumpFocus(); draw(); } }
   else if (e.key === "Enter") { activate(S.row, S.col); }
   e.preventDefault();
 });
 
-// pointer support: the VIDAA browser D-pad moves an on-screen cursor and OK
-// delivers a click. Hit-test tiles so pointer mode navigates the same UI.
 function hitAt(cx, cy) {
   var r = cv.getBoundingClientRect();
   var x = (cx - r.left) * (W / r.width);
@@ -304,7 +371,7 @@ cv.addEventListener("click", function (e) {
 cv.addEventListener("mousemove", function (e) {
   var t = hitAt(e.clientX, e.clientY);
   if (t && t.row !== 2 && (S.row !== t.row || S.col !== t.col)) {
-    S.row = t.row; S.col = t.col; draw();
+    S.row = t.row; S.col = t.col; bumpFocus(); draw();
   }
 });
 
@@ -320,7 +387,6 @@ function installAsApp() {
       var cur = HiUtils_createRequest("fileRead", { path: "websdk/Appinfo.json", mode: 6 });
       var list = cur.ret ? JSON.parse(cur.msg) : { AppInfo: [] };
       if (!list.AppInfo) list.AppInfo = [];
-      // purge stale duplicates of ourselves (e.g. entries pointing at old hosts)
       var kept = [];
       for (var k = 0; k < list.AppInfo.length; k++) {
         var e0 = list.AppInfo[k];

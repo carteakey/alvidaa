@@ -33,6 +33,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import paho.mqtt.client as mqtt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ICONCACHE = os.path.join(HERE, "iconcache")
 ROOT = os.path.join(HERE, "..", "launcher")
 KEYS = os.path.join(HERE, "keys")
 TOKENS_FILE = os.path.join(KEYS, "tokens.json")
@@ -83,6 +84,51 @@ def tls_context():
     ctx.verify_mode = ssl.CERT_NONE
     ctx.load_cert_chain(certfile=cert, keyfile=key)
     return ctx
+
+def icon_url(app):
+    """httpIcon fields look like 'data:image/png;base64,iconDownloadhttps://…'."""
+    raw = app.get("httpIcon") or ""
+    marker = "iconDownload"
+    if raw.startswith("data:image") and marker in raw:
+        return raw.split(marker, 1)[1]
+    return raw if raw.startswith("http") else None
+
+_icon_locks = {}
+_icon_locks_guard = threading.Lock()
+
+def icon_bytes(app_id, url):
+    """Fetch (and disk-cache) an app icon; returns (bytes, content_type) or None."""
+    os.makedirs(ICONCACHE, exist_ok=True)
+    safe = "".join(c for c in app_id if c.isalnum()) or "x"
+    data_path = os.path.join(ICONCACHE, safe + ".img")
+    type_path = os.path.join(ICONCACHE, safe + ".type")
+    try:
+        with open(data_path, "rb") as f:
+            with open(type_path) as tf:
+                return f.read(), tf.read().strip()
+    except OSError:
+        pass
+    with _icon_locks_guard:
+        lock = _icon_locks.setdefault(safe, threading.Lock())
+    with lock:
+        try:  # re-check cache after acquiring the lock
+            with open(data_path, "rb") as f:
+                with open(type_path) as tf:
+                    return f.read(), tf.read().strip()
+        except OSError:
+            pass
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "alvidaa/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                data = r.read()
+                ctype = (r.headers.get("Content-Type") or "image/png").split(";")[0]
+            with open(data_path, "wb") as f:
+                f.write(data)
+            with open(type_path, "w") as f:
+                f.write(ctype)
+            return data, ctype
+        except Exception:
+            return None
 
 def refresh_tokens():
     """Synchronous token refresh using the stored refresh token. Returns new dict or None."""
@@ -291,7 +337,10 @@ class TVBridge:
             name = a.get("name", "")
             if not name or name.strip().lower() in hidden:
                 continue
-            out.append({"name": renames.get(name.strip().lower(), name)})
+            entry = {"name": renames.get(name.strip().lower(), name)}
+            if icon_url(a):
+                entry["icon"] = f"/icon/{a.get('appId')}"
+            out.append(entry)
         return out
 
     def launch(self, name):
@@ -476,6 +525,29 @@ class Handler(SimpleHTTPRequestHandler):
             except ValueError:
                 pass
             self.close_connection = True  # socket timeout killed keep-alive
+            return
+
+        if u.path.startswith("/icon/"):
+            app_id = u.path[len("/icon/"):]
+            url = None
+            for a in self.bridge.apps_list():
+                if str(a.get("appId")) == app_id and icon_url(a):
+                    url = icon_url(a)
+                    break
+            if not url:
+                self.send_error(404)
+                return
+            got = icon_bytes(app_id, url)
+            if not got:
+                self.send_error(404)
+                return
+            body, ctype = got
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Cache-Control", "max-age=604800")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         if u.path == "/api/state":

