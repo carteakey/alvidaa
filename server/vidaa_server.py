@@ -397,7 +397,9 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*a, directory=ROOT, **kw)
 
     def log_message(self, fmt, *args):
-        pass
+        # access log to the journal: client, Host header, request line
+        print(f"{self.client_address[0]} host={self.headers.get('Host')} "
+              f"{fmt % args}", flush=True)
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
