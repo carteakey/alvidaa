@@ -328,19 +328,39 @@ class TVBridge:
         return self.sources
 
     def visible_apps(self):
-        """applist with config.json filtering applied."""
+        """applist with config.json filtering applied ("only" allowlist wins)."""
         cfg = load_config()
+        only = [o.strip().lower() for o in cfg.get("only", []) if o.strip()]
         hidden = {h.strip().lower() for h in cfg.get("hidden", [])}
         renames = {k.lower(): v for k, v in cfg.get("rename", {}).items()}
         out = []
         for a in self.apps_list():
             name = a.get("name", "")
-            if not name or name.strip().lower() in hidden:
+            if not name:
                 continue
-            entry = {"name": renames.get(name.strip().lower(), name)}
+            key = name.strip().lower()
+            if only and key not in only:
+                continue
+            if not only and key in hidden:
+                continue
+            entry = {"name": renames.get(key, name)}
             if icon_url(a):
                 entry["icon"] = f"/icon/{a.get('appId')}"
             out.append(entry)
+        return out
+
+    def visible_sources(self):
+        """sourcelist with config.json input renames/glyphs applied."""
+        cfg = load_config()
+        inputs = {k.lower(): v for k, v in cfg.get("inputs", {}).items()}
+        out = []
+        for s in self.sources_list():
+            key = (s.get("sourcename") or "").lower()
+            over = inputs.get(key, {})
+            out.append({"id": s.get("sourceid"),
+                        "name": over.get("name") or s.get("displayname") or s.get("sourcename"),
+                        "glyph": over.get("glyph", ""),
+                        "signal": s.get("is_signal") == "1" or s.get("has_signal") == "1"})
         return out
 
     def launch(self, name):
@@ -363,14 +383,18 @@ class TVBridge:
     def snapshot(self):
         out = {"t": "hello", "state": (self.state or {}).get("statetype")}
         try:
+            apps_raw = self.apps_list()
+            out["installed"] = any(a.get("appId") == "vidaa-home" for a in apps_raw)
+            self.apps = apps_raw  # refresh TTL cache with this fresh fetch
+            self.apps_at = time.time()
+        except Exception as e:
+            out["installed"], out["apps"], out["apps_error"] = False, None, str(e)
+        try:
             out["apps"] = self.visible_apps()
         except Exception as e:
             out["apps"], out["apps_error"] = None, str(e)
         try:
-            out["sources"] = [{"id": s.get("sourceid"),
-                               "name": s.get("displayname") or s.get("sourcename"),
-                               "signal": s.get("is_signal") == "1" or s.get("has_signal") == "1"}
-                              for s in self.sources_list()]
+            out["sources"] = self.visible_sources()
         except Exception as e:
             out["sources"], out["sources_error"] = None, str(e)
         return out
@@ -392,18 +416,33 @@ class TVBridge:
     # ---- home watcher: the de-facto default launcher
 
     def watcher_loop(self):
+        cycle = 0
+        last_sources_json = ""
         while True:
             try:
-                cfg = load_config().get("watcher", {})
-                if cfg.get("enabled", True) and self.connected.is_set():
+                cfg = load_config()
+                w = cfg.get("watcher", {})
+                if self.connected.is_set():
                     # this firmware does not push state reliably — poll it
                     self.call("ui_service", "gettvstate")
                     st = (self.state or {}).get("statetype")
-                    if st == "remote_launcher" and time.time() - self.last_launch > cfg.get("cooldown", 6):
+                    if w.get("enabled", True) and st == "remote_launcher" \
+                            and time.time() - self.last_launch > w.get("cooldown", 6):
                         self.last_launch = time.time()
-                        r = self.launch_home(cfg.get("app", "Home"))
+                        r = self.launch_home(w.get("app", "Home"))
                         print(f"watcher: VIDAA home detected -> {r}", flush=True)
-                time.sleep(cfg.get("interval", 3))
+                    # live source signal refresh every ~9s
+                    if cycle % 3 == 0:
+                        try:
+                            srcs = self.visible_sources()
+                            sj = json.dumps(srcs, sort_keys=True)
+                            if sj != last_sources_json:
+                                last_sources_json = sj
+                                self._emit({"t": "sources", "sources": srcs})
+                        except Exception:
+                            pass
+                cycle += 1
+                time.sleep(w.get("interval", 3))
             except Exception as e:
                 print(f"watcher: {e.__class__.__name__}: {e}", flush=True)
                 time.sleep(5)
@@ -416,6 +455,7 @@ class WS:
     def __init__(self, rfile, wfile):
         self.rfile, self.wfile = rfile, wfile
         self.open = True
+        self.lock = threading.Lock()  # pushes (mqtt thread) vs replies (handler)
 
     @staticmethod
     def accept_key(key):
@@ -450,8 +490,9 @@ class WS:
             header += bytes([126]) + struct.pack(">H", n)
         else:
             header += bytes([127]) + struct.pack(">Q", n)
-        self.wfile.write(header + data)
-        self.wfile.flush()
+        with self.lock:
+            self.wfile.write(header + data)
+            self.wfile.flush()
 
 # ---------------------------------------------------------------- HTTP server
 
@@ -493,7 +534,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Connection", "Upgrade")
             self.send_header("Sec-WebSocket-Accept", WS.accept_key(key))
             self.end_headers()
-            self.connection.settimeout(0.5)
+            # NOTE: no settimeout here — a timed-out read poisons the buffered
+            # rfile and kills the connection ~1s later. select() instead.
+            self.connection.settimeout(None)
             ws = WS(self.rfile, self.wfile)
             ws.send_text(json.dumps(self.bridge.snapshot()))
             def push(event):
@@ -503,11 +546,13 @@ class Handler(SimpleHTTPRequestHandler):
                     try: self.bridge.listeners.remove(push)
                     except ValueError: pass
             self.bridge.listeners.append(push)
+            import select
             while ws.open:
+                r, _, _ = select.select([self.connection], [], [], 0.5)
+                if not r:
+                    continue  # idle; keep the connection open
                 try:
                     text = ws.recv_text()
-                except socket.timeout:
-                    continue
                 except Exception:
                     break
                 if text is None:
@@ -524,7 +569,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.bridge.listeners.remove(push)
             except ValueError:
                 pass
-            self.close_connection = True  # socket timeout killed keep-alive
+            self.close_connection = True
             return
 
         if u.path.startswith("/icon/"):

@@ -23,7 +23,7 @@ var W = cv.width, H = cv.height;
 
 // ---------------------------------------------------------------- state
 var S = {
-  apps: null, sources: null, state: null,
+  apps: null, sources: null, state: null, serverInstalled: false,
   online: false, hello: false,
   row: 0, col: 0,            // focus: row 0 = inputs, row 1 = apps, row 2 = install
   toast: "", toastUntil: 0,
@@ -54,6 +54,7 @@ function connect() {
     try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (m.t === "hello") {
       S.hello = true;
+      S.serverInstalled = !!m.installed;
       S.apps = m.apps || [];
       S.sources = m.sources || [];
       S.state = m.state;
@@ -62,6 +63,9 @@ function connect() {
       clampFocus(); draw();
     } else if (m.t === "tvstate") {
       S.state = m.state; draw();
+    } else if (m.t === "sources") {
+      S.sources = m.sources || S.sources;
+      clampFocus(); draw();
     }
   };
   ws.onclose = function () { S.online = false; scheduleReconnect(); draw(); };
@@ -113,7 +117,7 @@ function items(row) {
   if (row === 0) {
     return (S.sources || []).map(function (s) {
       return { label: s.name || s.id, sub: s.signal ? "signal" : "no signal",
-               signal: s.signal, val: s.id };
+               signal: s.signal, glyph: s.glyph || "", val: s.id };
     });
   }
   return (S.apps || []).map(function (a) {
@@ -122,6 +126,7 @@ function items(row) {
 }
 
 function installVisible() {
+  if (S.serverInstalled && !/[?&]setup/.test(location.search)) return false;
   var b = detectBridge();
   return (b.hiutils || b.legacy) && !S.installed;
 }
@@ -154,6 +159,11 @@ function roundRect(x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
+
+var BG = null;
+var bgim = new Image();
+bgim.onload = function () { BG = bgim; draw(); };
+bgim.src = "/bg/bg" + (new Date().getDate() % 3 + 1) + ".png";
 
 var HIT = [];
 
@@ -208,7 +218,13 @@ function drawTile(x, y, focused, it) {
     roundRect(x + 14, y + tileH() - 6, tileW() - 28, 3, 1.5);
     ctx.fill();
   }
-  if (base) {
+  if (it.glyph) {
+    ctx.font = "38px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = focused ? "#f2f4f8" : "#c8cdd4";
+    ctx.fillText(it.glyph, x + tileW() / 2, y + tileH() / 2 + 8);
+    ctx.textAlign = "left";
+  } else if (base) {
     var im = ICONS[it.icon];
     var boxW = tileW() - 24, boxH = tileH() - (it.sub ? 40 : 28);
     var s = Math.min(boxW / im.naturalWidth, boxH / im.naturalHeight);
@@ -277,11 +293,19 @@ function draw() {
   HIT = [];
   var key = S.row + ":" + S.col;
   if (key !== lastFocusKey) { lastFocusKey = key; focusAnim = 0; }
-  var g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, "#141a24");
-  g.addColorStop(1, "#0a0d12");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+  if (BG && BG.complete && BG.naturalWidth) {
+    var sc = Math.max(W / BG.naturalWidth, H / BG.naturalHeight);
+    ctx.drawImage(BG, (W - BG.naturalWidth * sc) / 2, (H - BG.naturalHeight * sc) / 2,
+                  BG.naturalWidth * sc, BG.naturalHeight * sc);
+    ctx.fillStyle = "rgba(5,8,12,0.55)";
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#141a24");
+    g.addColorStop(1, "#0a0d12");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   var now = new Date();
   function p2(n) { return (n < 10 ? "0" : "") + n; }

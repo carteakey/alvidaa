@@ -1,8 +1,10 @@
 {
-  "hidden": ["VIDAA Kids", "VIDAA Art", "APP STORE"],
+  "only": ["Spotify : Music & Podcasts", "YouTube", "TV Channels▶"],
+  "hidden": [],
   "rename": {
     "tv channels▶": "Live TV"
   },
+  "inputs": {},
   "watcher": {
     "enabled": true,
     "app": "Home",
