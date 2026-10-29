@@ -14,9 +14,9 @@ W, H = 960, 540
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "launcher", "bg")
 
 THEMES = [
-    {"top": (16, 26, 46), "bot": (4, 6, 11), "glow": (38, 98, 160)},    # deep blue
-    {"top": (14, 32, 28), "bot": (4, 7, 9), "glow": (30, 130, 110)},    # teal
-    {"top": (30, 20, 44), "bot": (7, 5, 10), "glow": (110, 60, 150)},   # dusk purple
+    {"top": (30, 52, 92), "bot": (8, 12, 22), "glow": (70, 160, 255)},    # deep blue
+    {"top": (24, 66, 56), "bot": (6, 14, 18), "glow": (60, 220, 190)},    # teal
+    {"top": (58, 38, 88), "bot": (14, 9, 20), "glow": (190, 110, 255)},   # dusk purple
 ]
 
 def png(rows):
@@ -42,7 +42,7 @@ def render(theme, seed):
             g = theme["top"][1] * (1 - u) + theme["bot"][1] * u
             b = theme["top"][2] * (1 - u) + theme["bot"][2] * u
             d = math.hypot(x - gx, y - gy) / gr
-            glow = max(0.0, 1.0 - d) ** 2 * 0.35
+            glow = max(0.0, 1.0 - d) ** 2 * 0.6
             r += theme["glow"][0] * glow
             g += theme["glow"][1] * glow
             b += theme["glow"][2] * glow

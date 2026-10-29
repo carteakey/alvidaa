@@ -358,3 +358,19 @@ backend can die mid-run (§10.3).
 - `/proc/uptime` read: 26.3 h — no reboot has occurred during the session, so
   cross-reboot `/APPS` persistence (marker test) is still formally unverified;
   `/APPS` is an e2fsck'd ext4 data partition, so it persists.
+
+### 10.10 Driving the TV remotely; hook armed
+
+- **`launchapp` accepts an arbitrary `http` URL** (`urlType: "1"`): the server's
+  new `/api/open?url=…` endpoint loads any page on the TV through the existing
+  MQTT session — recon no longer needs the physical remote. The TV browser
+  executing attacker/server-chosen URLs is also the silent-load version of the
+  Bananamafia install attack: DNS-block the TV from the open web.
+- The broker permits **one session per credential set**: a second client dies at
+  publish time with the same username/password, whether its client_id matches or
+  not. Publish through the running server's connection instead.
+- **ICMP echo is disabled by firmware** (`rc.local`: `icmp_echo_ignore_all`) —
+  reachability checks must use TCP (36669 MQTT is the reliable probe).
+- Root hook status: `/var/local/otaTest.sh` written and readback-verified.
+  `/proc/uptime` proved the first "reboot" was a standby cycle — the hook fires
+  on the first real power cycle (wall-plug pull or Settings → restart).

@@ -308,7 +308,7 @@ function draw() {
     var sc = Math.max(W / BG.naturalWidth, H / BG.naturalHeight);
     ctx.drawImage(BG, (W - BG.naturalWidth * sc) / 2, (H - BG.naturalHeight * sc) / 2,
                   BG.naturalWidth * sc, BG.naturalHeight * sc);
-    ctx.fillStyle = "rgba(5,8,12,0.55)";
+    ctx.fillStyle = "rgba(5,8,12,0.35)";
     ctx.fillRect(0, 0, W, H);
   } else {
     var g = ctx.createLinearGradient(0, 0, 0, H);
