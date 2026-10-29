@@ -167,11 +167,15 @@ class TVBridge:
         self.c.on_connect = self._on_connect
         self.c.on_message = self._on_message
         self.last_launch = 0.0
+        self.apps_at = 0.0
+        self._recovering = False
 
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         rc = int(getattr(reason_code, "value", reason_code))
         if rc != 0:
-            print(f"MQTT rejected (rc={rc}) — token expired? restart to refresh", flush=True)
+            print(f"MQTT rejected (rc={rc}) — refreshing tokens in background", flush=True)
+            if self.session and not self._recovering:
+                threading.Thread(target=self._recover_auth, daemon=True).start()
             return
         # exact topics only — this firmware denies wildcard subscriptions
         base = f"/remoteapp/mobile/{self.device}/"
@@ -222,6 +226,25 @@ class TVBridge:
         with open(os.path.join(HERE, ".host"), "w") as f:
             f.write(self.host)
 
+    def _recover_auth(self):
+        """Access token expired mid-run: refresh and reconnect the shared client."""
+        if self._recovering:
+            return
+        self._recovering = True
+        try:
+            if refresh_tokens():
+                t = load_tokens()
+                self.session = t
+                self.c.username_pw_set(username=t["_username"], password=t["accesstoken"])
+                self.c.reconnect()
+                print("recovered auth after token refresh", flush=True)
+            else:
+                print("token refresh failed — TV offline? will retry on next reject", flush=True)
+        except Exception as e:
+            print(f"auth recovery failed: {e}", flush=True)
+        finally:
+            self._recovering = False
+
     def disconnect(self):
         try:
             self.c.disconnect()
@@ -247,8 +270,10 @@ class TVBridge:
         raise TimeoutError(f"no answer for {service}/{action}")
 
     def apps_list(self):
-        if self.apps is None:
+        # TTL cache: TV-side app installs/uninstalls propagate within a minute
+        if self.apps is None or time.time() - self.apps_at > 60:
             self.apps = self.ask("ui_service", "applist")
+            self.apps_at = time.time()
         return self.apps
 
     def sources_list(self):
