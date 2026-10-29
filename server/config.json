@@ -1,8 +1,9 @@
 {
-  "only": ["Spotify : Music & Podcasts", "YouTube", "TV Channels▶"],
+  "only": ["Spotify : Music & Podcasts", "YouTube", "TV Channels▶", "TV Browser"],
   "hidden": [],
   "rename": {
-    "tv channels▶": "Live TV"
+    "tv channels▶": "Live TV",
+    "tv browser": "Browser"
   },
   "inputs": {},
   "watcher": {
