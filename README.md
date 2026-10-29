@@ -78,3 +78,21 @@ Everything here runs on a TV you own, through the TV's own APIs. Nothing is
 written to system partitions; deleting the "Home" app entry (or a factory
 reset) fully reverts it. The certificates and tokens in `server/keys/` are
 device credentials — never commit them.
+
+## Deployment (Pi)
+
+Production home: Raspberry Pi, `alvidaa.service` (systemd, `Restart=always`),
+listening on **port 8770** (8765 is taken by the camera-wall service there).
+
+```sh
+rsync -a --exclude venv --exclude .git ~/repos/alvidaa/ pi:alvidaa/
+ssh pi 'cd ~/alvidaa/server && python3 -m venv venv && ./venv/bin/pip install paho-mqtt'
+# unit: /etc/systemd/system/alvidaa.service -> venv/bin/python vidaa_server.py <tv-ip> 8770
+```
+
+**Run only ONE server instance against a TV at a time** — the paired MQTT
+client identity is shared, and two servers will kick each other off the broker.
+
+After moving hosts, re-point the installed TV app: open
+`http://<new-host>:8770/` in the TV browser and use "+ INSTALL AS APP" (same
+app Id overwrites the old entry), then restart the TV.
