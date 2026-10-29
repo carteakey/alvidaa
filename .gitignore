@@ -1,4 +1,5 @@
 server/keys/
+server/recon-report.json
 server/.paired
 server/.host
 server/.home_watch_off

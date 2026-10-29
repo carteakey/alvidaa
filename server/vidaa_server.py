@@ -37,6 +37,7 @@ ROOT = os.path.join(HERE, "..", "launcher")
 KEYS = os.path.join(HERE, "keys")
 TOKENS_FILE = os.path.join(KEYS, "tokens.json")
 CONFIG_FILE = os.path.join(HERE, "config.json")
+RECON_FILE = os.path.join(HERE, "recon-report.json")
 HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HISENSE_HOST", "192.168.0.12")
 PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8765
 MQTT_PORT = 36669
@@ -325,6 +326,20 @@ class TVBridge:
             out["sources"], out["sources_error"] = None, str(e)
         return out
 
+    def launch_home(self, name="Home"):
+        """Launch our launcher entry — match by content, not name-first:
+        stale duplicates of 'Home' (e.g. pointing at an old host) otherwise win."""
+        apps = self.apps_list()
+        app = next((a for a in apps if f":{PORT}/" in (a.get("url") or "")), None)
+        if app is None:
+            app = next((a for a in apps if a.get("appId") == "vidaa-home"), None)
+        if app is None:
+            app = next((a for a in apps if a.get("name", "").lower() == name.lower()), None)
+        if app is None:
+            return {"ok": False, "error": "launcher app not found in applist"}
+        self.call("ui_service", "launchapp", {k: app[k] for k in ("appId", "name", "url", "urlType", "storeType") if k in app})
+        return {"ok": True, "launched": app.get("name"), "url": app.get("url")}
+
     # ---- home watcher: the de-facto default launcher
 
     def watcher_loop(self):
@@ -332,10 +347,12 @@ class TVBridge:
             try:
                 cfg = load_config().get("watcher", {})
                 if cfg.get("enabled", True) and self.connected.is_set():
+                    # this firmware does not push state reliably — poll it
+                    self.call("ui_service", "gettvstate")
                     st = (self.state or {}).get("statetype")
                     if st == "remote_launcher" and time.time() - self.last_launch > cfg.get("cooldown", 6):
                         self.last_launch = time.time()
-                        r = self.launch(cfg.get("app", "Home"))
+                        r = self.launch_home(cfg.get("app", "Home"))
                         print(f"watcher: VIDAA home detected -> {r}", flush=True)
                 time.sleep(cfg.get("interval", 3))
             except Exception as e:
@@ -467,7 +484,31 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(self.bridge.launch(q.get("name", "")))
         if u.path == "/api/source":
             return self._json(self.bridge.source(q.get("id", "")))
+        if u.path == "/api/recon":
+            try:
+                with open(RECON_FILE) as f:
+                    return self._json(json.load(f))
+            except (OSError, ValueError):
+                return self._json({"ok": False,
+                                   "error": "no recon report yet — open /recon.html on the TV"})
         return super().do_GET()
+
+    def do_POST(self):
+        u = urllib.parse.urlparse(self.path)
+        if u.path == "/api/recon":
+            n = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(n) if n else b"{}"
+            try:
+                data = json.loads(raw.decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                data = {"raw": raw.decode("utf-8", "replace")}
+            try:
+                with open(RECON_FILE, "w") as f:
+                    json.dump(data, f, indent=2)
+                return self._json({"ok": True, "bytes": len(raw)})
+            except OSError as e:
+                return self._json({"ok": False, "error": str(e)})
+        self.send_error(404)
 
 def main():
     bridge = TVBridge(HOST)

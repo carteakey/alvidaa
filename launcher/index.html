@@ -320,6 +320,15 @@ function installAsApp() {
       var cur = HiUtils_createRequest("fileRead", { path: "websdk/Appinfo.json", mode: 6 });
       var list = cur.ret ? JSON.parse(cur.msg) : { AppInfo: [] };
       if (!list.AppInfo) list.AppInfo = [];
+      // purge stale duplicates of ourselves (e.g. entries pointing at old hosts)
+      var kept = [];
+      for (var k = 0; k < list.AppInfo.length; k++) {
+        var e0 = list.AppInfo[k];
+        if (e0.Id === APP_ENTRY_ID) continue;
+        if ((e0.AppName === "Home" || e0.Title === "Home") && e0.URL !== APP_URL) continue;
+        kept.push(e0);
+      }
+      list.AppInfo = kept;
       var entry = {
         Id: APP_ENTRY_ID, AppName: "Home", Title: "Home",
         URL: APP_URL, StartCommand: APP_URL,

