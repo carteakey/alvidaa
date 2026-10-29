@@ -431,6 +431,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.bridge.listeners.remove(push)
             except ValueError:
                 pass
+            self.close_connection = True  # socket timeout killed keep-alive
             return
 
         if u.path == "/api/state":
