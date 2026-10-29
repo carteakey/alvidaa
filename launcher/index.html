@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Home</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c" width="960" height="540"></canvas>
+<script>
+"use strict";
+// vidaa-home v1.1: clock, inputs row, apps row (scrolling), self-install,
+// pointer + keyboard navigation. Stateless — config/state pushed over /ws.
+// Targets the TV's Chrome 77: ES2018 only, one canvas, no DOM/CSS effects.
+
+var cv = document.getElementById("c");
+var ctx = cv.getContext("2d");
+var W = cv.width, H = cv.height;
+
+// ---------------------------------------------------------------- state
+var S = {
+  apps: null, sources: null, state: null,
+  online: false, hello: false,
+  row: 0, col: 0,            // focus: row 0 = inputs, row 1 = apps, row 2 = install
+  toast: "", toastUntil: 0,
+  busy: false
+};
+
+// TV browser bridge functions (exposed to any page the TV browser opens).
+var BRIDGE = { hiutils: false, legacy: false, checked: false };
+function detectBridge() {
+  if (BRIDGE.checked) return BRIDGE;
+  BRIDGE.checked = true;
+  BRIDGE.hiutils = typeof HiUtils_createRequest !== "undefined";
+  BRIDGE.legacy = typeof Hisense_installApp !== "undefined";
+  return BRIDGE;
+}
+
+var ROWS = ["inputs", "apps"];
+var PAGE = 5;                // visible tiles per row
+
+// ---------------------------------------------------------------- websocket
+var ws = null, wsRetry = 0;
+
+function connect() {
+  var host = location.host || window.location.hostname + ":8765";
+  try { ws = new WebSocket("ws://" + host + "/ws"); } catch (e) { scheduleReconnect(); return; }
+  ws.onopen = function () { S.online = true; wsRetry = 0; draw(); };
+  ws.onmessage = function (ev) {
+    var m;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.t === "hello") {
+      S.hello = true;
+      S.apps = m.apps || [];
+      S.sources = m.sources || [];
+      S.state = m.state;
+      S.busy = false;
+      clampFocus(); draw();
+    } else if (m.t === "tvstate") {
+      S.state = m.state; draw();
+    } else if (m.t === "result") {
+      S.busy = false;
+      S.toast = m.ok ? "" : (m.error || "failed");
+      S.toastUntil = Date.now() + 2500;
+      draw();
+    }
+  };
+  ws.onclose = function () { S.online = false; scheduleReconnect(); draw(); };
+  ws.onerror = function () { try { ws.close(); } catch (e) {} };
+}
+function scheduleReconnect() {
+  var d = Math.min(8000, 1000 * Math.pow(2, wsRetry++));
+  setTimeout(connect, d);
+}
+
+function send(obj) {
+  if (!S.online || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify(obj));
+}
+function act(type, val) {
+  if (S.busy) return;
+  S.busy = true;
+  S.toast = "…"; S.toastUntil = Date.now() + 2500;
+  draw();
+  send({ t: type === "launch" ? "launch" : "source", name: val, id: val });
+}
+
+// ---------------------------------------------------------------- drawing
+var F = {
+  big: "28px sans-serif", mid: "20px sans-serif", small: "14px sans-serif",
+  label: "13px sans-serif"
+};
+
+function tileW() { return 150; }
+function tileH() { return 84; }
+function gap() { return 12; }
+function left() { return 48; }
+
+function items(row) {
+  if (row === 0) {
+    return (S.sources || []).map(function (s) {
+      return { label: s.name || s.id, sub: s.signal ? "signal" : "no signal", val: s.id };
+    });
+  }
+  return (S.apps || []).map(function (a) { return { label: a.name, sub: "", val: a.name }; });
+}
+
+function installVisible() {
+  var b = detectBridge();
+  return (b.hiutils || b.legacy) && !S.installed;
+}
+
+function clampFocus() {
+  var rows = installVisible() ? 3 : 2;
+  if (S.row >= rows) S.row = rows - 1;
+  var n = items(S.row).length;
+  if (S.col >= n) S.col = Math.max(0, n - 1);
+}
+
+function rowStart(idx) {
+  var n = items(idx).length;
+  if (n <= PAGE) return 0;
+  return Math.max(0, Math.min(S.col - 2, n - PAGE));
+}
+
+// deterministic tile hue from the label so rows look stable
+function hue(s) {
+  var h = 0;
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+var HIT = [];  // rebuilt every draw: {x, y, w, h, row, col}
+
+function drawTile(x, y, focused, fillL, label, sub) {
+  if (focused) {
+    ctx.fillStyle = "#f2f4f8";
+    roundRect(x - 2, y - 2, tileW() + 4, tileH() + 4, 12);
+    ctx.fill();
+  }
+  ctx.fillStyle = fillL;
+  roundRect(x, y, tileW(), tileH(), 10);
+  ctx.fill();
+  ctx.fillStyle = focused ? "#0e1116" : "#e8eaee";
+  ctx.font = F.mid;
+  var t = label;
+  while (t.length > 3 && ctx.measureText(t).width > tileW() - 20) t = t.slice(0, -1);
+  ctx.fillText(t, x + 14, y + 38);
+  if (sub) {
+    ctx.font = F.small;
+    ctx.fillStyle = focused ? "#3d4552" : "#6b7280";
+    ctx.fillText(sub, x + 14, y + 62);
+  }
+}
+
+function drawRow(idx, y, title) {
+  ctx.font = F.label;
+  ctx.fillStyle = "#8a8f98";
+  ctx.fillText(title, left(), y - 10);
+  var list = items(idx);
+  var n = list.length;
+  if (!S.hello && S.online) {
+    ctx.font = F.mid; ctx.fillStyle = "#555";
+    ctx.fillText("loading…", left(), y + 40);
+    return;
+  }
+  if (n === 0) {
+    ctx.font = F.mid; ctx.fillStyle = "#444";
+    ctx.fillText(idx === 0 ? "no inputs reported" : "no apps reported", left(), y + 40);
+    return;
+  }
+  var start = rowStart(idx);
+  for (var i = start; i < Math.min(n, start + PAGE); i++) {
+    var x = left() + (i - start) * (tileW() + gap());
+    var focused = (S.row === idx && S.col === i);
+    drawTile(x, y, focused, "hsl(" + hue(list[i].label) + ",32%," + (focused ? 26 : 16) + "%)",
+             list[i].label, list[i].sub);
+    HIT.push({ x: x, y: y, w: tileW(), h: tileH(), row: idx, col: i });
+  }
+  // scroll indicators
+  ctx.font = F.small;
+  ctx.fillStyle = "#6b7280";
+  var end = Math.min(n, start + PAGE);
+  if (start > 0) ctx.fillText("‹ " + start, left() - 4, y + 20);
+  if (end < n) ctx.fillText((n - end) + " ›", left() + PAGE * (tileW() + gap()) - 22, y + 20);
+}
+
+function draw() {
+  HIT = [];
+  ctx.fillStyle = "#0b0d10";
+  ctx.fillRect(0, 0, W, H);
+
+  var now = new Date();
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  ctx.fillStyle = "#e8eaee";
+  ctx.font = "44px sans-serif";
+  ctx.fillText(p2(now.getHours()) + ":" + p2(now.getMinutes()), left(), 74);
+  ctx.font = F.mid;
+  ctx.fillStyle = "#8a8f98";
+  var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  ctx.fillText(days[now.getDay()] + " " + now.getDate() + "." + (now.getMonth() + 1), left(), 100);
+
+  ctx.font = F.small;
+  ctx.textAlign = "right";
+  if (S.online) {
+    ctx.fillStyle = "#4ade80";
+    ctx.fillText("●", W - 52, 44);
+    ctx.fillStyle = "#8a8f98";
+    ctx.fillText(S.state === "remote_launcher" ? "vidaa home" : (S.state || "tv"), W - 62, 44);
+  } else {
+    ctx.fillStyle = "#f87171";
+    ctx.fillText("server offline", W - 52, 44);
+  }
+  ctx.textAlign = "left";
+
+  drawRow(0, 180, "INPUTS");
+  drawRow(1, 310, "APPS");
+
+  if (installVisible()) {
+    var iy = 425;
+    ctx.font = F.label;
+    ctx.fillStyle = "#8a8f98";
+    ctx.fillText("SETUP", left(), iy - 10);
+    var focused = (S.row === 2);
+    if (focused) {
+      ctx.fillStyle = "#f2f4f8";
+      roundRect(left() - 2, iy - 2, tileW() + 4, tileH() + 4, 12);
+      ctx.fill();
+    }
+    ctx.fillStyle = focused ? "#0e1116" : "#232a33";
+    roundRect(left(), iy, tileW(), tileH(), 10);
+    ctx.fill();
+    ctx.fillStyle = "#e8eaee";
+    ctx.font = F.small;
+    ctx.fillText("＋ INSTALL", left() + 14, iy + 36);
+    ctx.fillText("AS APP", left() + 14, iy + 56);
+    HIT.push({ x: left(), y: iy, w: tileW(), h: tileH(), row: 2, col: 0 });
+  }
+
+  if (Date.now() < S.toastUntil && S.toast) {
+    ctx.font = F.mid;
+    ctx.fillStyle = "#e8eaee";
+    ctx.textAlign = "center";
+    ctx.fillText(S.toast === "…" ? "working…" : S.toast, W / 2, H - 34);
+    ctx.textAlign = "left";
+  }
+
+  ctx.font = F.small;
+  ctx.fillStyle = "#3d4552";
+  ctx.fillText("navigate · OK open · ▲▼ rows", left(), H - 10);
+}
+
+setInterval(function () { draw(); }, 1000);
+
+// ---------------------------------------------------------------- input
+function activate(row, col) {
+  if (row === 2) { installAsApp(); return; }
+  var it = items(row)[col];
+  if (it) act(row === 0 ? "source" : "launch", it.val);
+}
+
+document.addEventListener("keydown", function (e) {
+  var rows = installVisible() ? 3 : 2;
+  var list = items(S.row);
+  if (e.key === "ArrowRight") { if (S.col < list.length - 1) { S.col++; draw(); } }
+  else if (e.key === "ArrowLeft") { if (S.col > 0) { S.col--; draw(); } }
+  else if (e.key === "ArrowUp") { if (S.row > 0) { S.row--; clampFocus(); draw(); } }
+  else if (e.key === "ArrowDown") { if (S.row < rows - 1) { S.row++; clampFocus(); draw(); } }
+  else if (e.key === "Enter") { activate(S.row, S.col); }
+  e.preventDefault();
+});
+
+// pointer support: the VIDAA browser D-pad moves an on-screen cursor and OK
+// delivers a click. Hit-test tiles so pointer mode navigates the same UI.
+function hitAt(cx, cy) {
+  var r = cv.getBoundingClientRect();
+  var x = (cx - r.left) * (W / r.width);
+  var y = (cy - r.top) * (H / r.height);
+  for (var i = 0; i < HIT.length; i++) {
+    var t = HIT[i];
+    if (x >= t.x && x <= t.x + t.w && y >= t.y && y <= t.y + t.h) return t;
+  }
+  return null;
+}
+cv.addEventListener("click", function (e) {
+  var t = hitAt(e.clientX, e.clientY);
+  if (!t) return;
+  S.row = t.row; S.col = t.col; draw();
+  activate(t.row, t.col);
+});
+cv.addEventListener("mousemove", function (e) {
+  var t = hitAt(e.clientX, e.clientY);
+  if (t && t.row !== 2 && (S.row !== t.row || S.col !== t.col)) {
+    S.row = t.row; S.col = t.col; draw();
+  }
+});
+
+// ---------------------------------------------------------------- install
+var APP_ENTRY_ID = "vidaa-home";
+var APP_URL = location.href.split("#")[0];
+
+function installAsApp() {
+  var b = detectBridge();
+  var icon = APP_URL + "icon.png";
+  if (b.hiutils) {
+    try {
+      var cur = HiUtils_createRequest("fileRead", { path: "websdk/Appinfo.json", mode: 6 });
+      var list = cur.ret ? JSON.parse(cur.msg) : { AppInfo: [] };
+      if (!list.AppInfo) list.AppInfo = [];
+      var entry = {
+        Id: APP_ENTRY_ID, AppName: "Home", Title: "Home",
+        URL: APP_URL, StartCommand: APP_URL,
+        IconURL: icon, Icon_96: icon, Image: icon, Thumb: icon,
+        Type: "Browser", InstallTime: new Date().toISOString().split("T")[0],
+        RunTimes: 0, StoreType: "custom", PreInstall: false
+      };
+      var idx = -1;
+      for (var i = 0; i < list.AppInfo.length; i++) {
+        if (list.AppInfo[i].Id === APP_ENTRY_ID) { idx = i; break; }
+      }
+      if (idx >= 0) list.AppInfo[idx] = entry; else list.AppInfo.push(entry);
+      var res = HiUtils_createRequest("fileWrite", {
+        path: "websdk/Appinfo.json", mode: 6, writedata: JSON.stringify(list)
+      });
+      if (res.ret) {
+        S.installed = true;
+        S.toast = "installed! restart the TV, then open Home";
+        S.toastUntil = Date.now() + 8000;
+      } else {
+        S.toast = "install failed: " + (res.msg || "?");
+        S.toastUntil = Date.now() + 5000;
+      }
+    } catch (e) {
+      S.toast = "install error: " + e;
+      S.toastUntil = Date.now() + 5000;
+    }
+  } else if (b.legacy) {
+    try {
+      Hisense_installApp(APP_ENTRY_ID, "Home", icon, icon, icon, APP_URL, "custom", function (r) {
+        S.installed = (r === 0 || r === "0");
+        S.toast = S.installed ? "installed! restart the TV" : "install failed (" + r + ")";
+        S.toastUntil = Date.now() + 8000;
+      });
+    } catch (e) {
+      S.toast = "install error: " + e;
+      S.toastUntil = Date.now() + 5000;
+    }
+  }
+  draw();
+}
+
+connect();
+draw();
+</script>
+</body>
+</html>

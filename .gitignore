@@ -1,0 +1,8 @@
+server/keys/
+server/.paired
+server/.host
+server/.home_watch_off
+server/venv/
+__pycache__/
+*.pyc
+.DS_Store

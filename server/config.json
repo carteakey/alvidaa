@@ -1,0 +1,12 @@
+{
+  "hidden": ["VIDAA Kids", "VIDAA Art", "APP STORE"],
+  "rename": {
+    "tv channels▶": "Live TV"
+  },
+  "watcher": {
+    "enabled": true,
+    "app": "Home",
+    "interval": 3,
+    "cooldown": 6
+  }
+}
