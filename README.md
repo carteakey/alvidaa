@@ -43,7 +43,7 @@ openssl pkcs12 -legacy -in client_mobile_android.p12 \
 
 # 2. pair (TV shows a 4-digit code; type it when asked)
 cd server && python3 -m venv venv && ./venv/bin/pip install paho-mqtt
-./venv/bin/python pair.py <tv-ip>
+TV_MAC=<tv-wifi-mac> ./venv/bin/python pair.py <tv-ip>
 
 # 3. serve
 ./venv/bin/python vidaa_server.py <tv-ip> 8765
@@ -96,3 +96,15 @@ client identity is shared, and two servers will kick each other off the broker.
 After moving hosts, re-point the installed TV app: open
 `http://<new-host>:8770/` in the TV browser and use "+ INSTALL AS APP" (same
 app Id overwrites the old entry), then restart the TV.
+
+## Security research & disclosure
+
+The research behind this project identified weaknesses in VIDAA 2024+ firmware
+(browser-exposed install/file APIs, weakly authenticated telemetry endpoints).
+Findings were reported to Hisense; publication follows the reasoning in
+[SECURITY.md](SECURITY.md) — LAN-local findings, no DRM circumvention, own
+hardware. Firmware dumps and vendor binaries are not published.
+
+If you deploy this, change nothing about your expectation of privacy on a
+smart TV that this does not fix — but you can expect the ads and the
+phone-home to be yours again.

@@ -1,0 +1,48 @@
+# Security & disclosure
+
+## Scope of this project
+
+alvidaa is a custom home-screen launcher for Hisense VIDAA TVs. It uses the
+same RemoteNow control channel as the official mobile app (MQTT/TLS on port
+36669, the app's own client certificate, dynamic credentials and PIN pairing)
+and VIDAA's own web-app installation APIs. It runs entirely on a TV you own,
+on your LAN, and modifies nothing outside the TV's user-writable space.
+
+## Vulnerability disclosure
+
+During the research that produced this launcher, weaknesses in VIDAA
+(2024+ firmware) were identified — most notably the TV browser exposing
+privileged install/file APIs to arbitrary pages, and content-recognition /
+telemetry endpoints reachable without meaningful authentication.
+
+The researcher's position on publication: these findings were reported to
+Hisense, and are being published **without holding a 90-day window**. The
+reasoning, stated openly so you can weigh it yourself:
+
+- Every finding requires the attacker to already be on the victim's LAN.
+  There is no remote, internet-reachable attack path.
+- No DRM or technical protection measure is circumvented; verified boot is
+  untouched, and nothing here helps pirate content.
+- The vendor has a history of not responding to VIDAA research reports.
+- The defensive value (users can block telemetry, remove ads, control their
+  own TVs) outweighs the marginal risk of LAN-local issues remaining
+  unpatched on end-of-support-adjacent firmware.
+
+If you are from Hisense and want to discuss any of this: open an issue here
+or reach the repo owner — details will be updated, and findings will be
+annotated as patched as firmware catches up.
+
+## Reporting issues in this project
+
+If you find a problem in alvidaa itself (not in VIDAA firmware), open a
+GitHub issue. Please do not include tokens, certificates or captures of your
+own TV's traffic in issues.
+
+## Publication hygiene (for maintainers)
+
+- `server/keys/` (client certs, `tokens.json`) and `server/iconcache/` are
+  gitignored — never commit them.
+- No LAN IPs, TV MACs, serials or tokens in committed code or docs; use
+  placeholders (`<tv-ip>`) or env vars.
+- Firmware dumps and extracted vendor binaries stay private — describe
+  behavior, do not redistribute vendor code.

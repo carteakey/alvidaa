@@ -28,7 +28,7 @@ import paho.mqtt.client as mqtt
 HERE = os.path.dirname(os.path.abspath(__file__))
 KEYS = os.path.join(HERE, "keys")
 TOKENS_FILE = os.path.join(KEYS, "tokens.json")
-HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HISENSE_HOST", "192.168.0.12")
+HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HISENSE_HOST", "")
 PIN_ARG = sys.argv[2] if len(sys.argv) > 2 else None
 
 # --- credential derivation (VIDAA dynamic auth) ------------------------------
@@ -36,7 +36,7 @@ CLIENT_ID_PATTERN = "38D65DC30F45109A369A86FCE866A85B"
 MODERN_SALT = "h!i@s#$v%i^d&a*a"
 STANDARD_SALT = "h*i&s%e!r^v0i1c9"
 XOR_MASK = 6239759785777146216
-TV_MAC = "bc:5c:17:bc:46:88"  # TV WiFi MAC from its SSDP descriptor
+TV_MAC = os.environ.get("TV_MAC", "")  # TV WiFi MAC — from its SSDP descriptor (see docs/FINDINGS.md §1)
 
 def creds(profile):
     ts = int(time.time())

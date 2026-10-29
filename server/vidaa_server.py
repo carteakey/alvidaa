@@ -39,7 +39,7 @@ KEYS = os.path.join(HERE, "keys")
 TOKENS_FILE = os.path.join(KEYS, "tokens.json")
 CONFIG_FILE = os.path.join(HERE, "config.json")
 RECON_FILE = os.path.join(HERE, "recon-report.json")
-HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HISENSE_HOST", "192.168.0.12")
+HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HISENSE_HOST", "")
 PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8765
 MQTT_PORT = 36669
 LEGACY_DEVICE = "VIDAALAUNCHER$normal"
@@ -656,6 +656,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_error(404)
 
 def main():
+    if not HOST:
+        sys.exit("usage: vidaa_server.py <tv-ip> [port]   (or set HISENSE_HOST)")
     bridge = TVBridge(HOST)
     try:
         bridge.connect()
