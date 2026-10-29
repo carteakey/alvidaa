@@ -76,6 +76,8 @@ def load_config():
             cfg["watcher"].update(user["watcher"])
         if isinstance(user.get("shortcuts"), list):
             cfg["shortcuts"] = user["shortcuts"]
+        if isinstance(user.get("only"), list):
+            cfg["only"] = user["only"]
     except (OSError, ValueError):
         pass
     return cfg
@@ -626,6 +628,14 @@ class Handler(SimpleHTTPRequestHandler):
             except (OSError, ValueError):
                 return self._json({"ok": False,
                                    "error": "no recon report yet — open /recon.html on the TV"})
+        if u.path == "/api/open":
+            url = q.get("url", "")
+            if not url.startswith("http"):
+                return self._json({"ok": False, "error": "http url required"})
+            self.bridge.call("ui_service", "launchapp",
+                             {"appId": "vidaa-recon", "name": "Recon",
+                              "url": url, "urlType": "1", "storeType": "custom"})
+            return self._json({"ok": True, "opened": url})
         return super().do_GET()
 
     def do_POST(self):
