@@ -1,4 +1,4 @@
-# vidaa-home
+# alvidaa
 
 A self-installed, self-hosted home screen for Hisense **VIDAA** TVs — turn the
 smart TV's ad-laden launcher into a dumb, fast one. No root, no firmware

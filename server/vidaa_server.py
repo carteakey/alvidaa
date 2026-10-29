@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vidaa-home control server: serves the TV page, bridges it to the TV.
+"""alvidaa control server: serves the TV page, bridges it to the TV.
 
 One MQTT/TLS connection to the TV (RemoteNow, port 36669) + one HTTP server
 (port 8765) that serves launcher/ and upgrades GET /ws to WebSocket. The page
