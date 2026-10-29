@@ -1,5 +1,10 @@
 {
-  "only": ["Spotify : Music & Podcasts", "YouTube", "TV Channels▶", "TV Browser"],
+  "only": [
+    "Spotify : Music & Podcasts",
+    "YouTube",
+    "TV Channels▶",
+    "TV Browser"
+  ],
   "hidden": [],
   "rename": {
     "tv channels▶": "Live TV",
@@ -11,5 +16,12 @@
     "app": "Home",
     "interval": 3,
     "cooldown": 6
-  }
+  },
+  "shortcuts": [
+    {
+      "name": "Wake KPC",
+      "url": "http://192.168.0.85:8091",
+      "glyph": "⚡"
+    }
+  ]
 }

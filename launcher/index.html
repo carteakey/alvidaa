@@ -56,6 +56,7 @@ function connect() {
       S.hello = true;
       S.serverInstalled = !!m.installed;
       S.apps = m.apps || [];
+      S.shortcuts = m.shortcuts || [];
       S.sources = m.sources || [];
       S.state = m.state;
       S.busy = false;
@@ -65,6 +66,10 @@ function connect() {
       S.state = m.state; draw();
     } else if (m.t === "sources") {
       S.sources = m.sources || S.sources;
+      clampFocus(); draw();
+    } else if (m.t === "apps") {
+      S.apps = m.apps || S.apps;
+      S.shortcuts = m.shortcuts || S.shortcuts;
       clampFocus(); draw();
     }
   };
@@ -120,9 +125,15 @@ function items(row) {
                signal: s.signal, glyph: s.glyph || "", val: s.id };
     });
   }
-  return (S.apps || []).map(function (a) {
+  var out = (S.apps || []).map(function (a) {
     return { label: a.name, sub: "", icon: a.icon, val: a.name };
   });
+  var scs = S.shortcuts || [];
+  for (var i = 0; i < scs.length; i++) {
+    out.push({ label: scs[i].name, glyph: scs[i].glyph || "\u2605",
+               shortcut: scs[i].url, sub: "", val: null });
+  }
+  return out;
 }
 
 function installVisible() {
@@ -362,7 +373,9 @@ setInterval(function () { draw(); }, 1000);
 function activate(row, col) {
   if (row === 2) { installAsApp(); return; }
   var it = items(row)[col];
-  if (it) act(row === 0 ? "source" : "launch", it.val);
+  if (!it) return;
+  if (it.shortcut) { location.href = it.shortcut; return; }  // web shortcut: navigate
+  act(row === 0 ? "source" : "launch", it.val);
 }
 
 document.addEventListener("keydown", function (e) {

@@ -63,7 +63,8 @@ def save_tokens(t):
     os.chmod(TOKENS_FILE, 0o600)
 
 def load_config():
-    cfg = {"hidden": [], "rename": {}, "watcher": {"enabled": True, "app": "Home", "interval": 3, "cooldown": 6}}
+    cfg = {"hidden": [], "rename": {}, "inputs": {}, "only": [], "shortcuts": [],
+           "watcher": {"enabled": True, "app": "Home", "interval": 3, "cooldown": 6}}
     try:
         with open(CONFIG_FILE) as f:
             user = json.load(f)
@@ -73,6 +74,8 @@ def load_config():
             cfg["rename"] = user["rename"]
         if isinstance(user.get("watcher"), dict):
             cfg["watcher"].update(user["watcher"])
+        if isinstance(user.get("shortcuts"), list):
+            cfg["shortcuts"] = user["shortcuts"]
     except (OSError, ValueError):
         pass
     return cfg
@@ -381,7 +384,9 @@ class TVBridge:
         return {"ok": False, "error": f"source not found: {sid}"}
 
     def snapshot(self):
-        out = {"t": "hello", "state": (self.state or {}).get("statetype")}
+        out = {"t": "hello", "state": (self.state or {}).get("statetype"),
+               "shortcuts": [sc for sc in load_config().get("shortcuts", [])
+                             if sc.get("name") and sc.get("url")]}
         try:
             apps_raw = self.apps_list()
             out["installed"] = any(a.get("appId") == "vidaa-home" for a in apps_raw)
@@ -418,6 +423,7 @@ class TVBridge:
     def watcher_loop(self):
         cycle = 0
         last_sources_json = ""
+        last_apps_json = ""
         while True:
             try:
                 cfg = load_config()
@@ -439,6 +445,18 @@ class TVBridge:
                             if sj != last_sources_json:
                                 last_sources_json = sj
                                 self._emit({"t": "sources", "sources": srcs})
+                        except Exception:
+                            pass
+                    # app list / shortcuts refresh every ~60s (config edits propagate)
+                    if cycle % 20 == 19:
+                        try:
+                            payload = {"apps": self.visible_apps(),
+                                       "shortcuts": [sc for sc in cfg.get("shortcuts", [])
+                                                     if sc.get("name") and sc.get("url")]}
+                            aj = json.dumps(payload, sort_keys=True)
+                            if aj != last_apps_json:
+                                last_apps_json = aj
+                                self._emit({"t": "apps", **payload})
                         except Exception:
                             pass
                 cycle += 1
