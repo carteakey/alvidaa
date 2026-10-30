@@ -133,11 +133,18 @@ Details: [findings/06-ssh-gauntlet.md](findings/06-ssh-gauntlet.md)
 
 ## Operational rules (learned the loud way)
 
-1. **R0 first**: freeze OTA (in-kernel, from the hook) before touching
-   anything else — an update that reseals the hole mid-project is the
-   only true game-over. Note: `/OAD/AppUpgradeSwitch.json` already reads
-   `upgradeFlag: 0` on our TV, but the service rewrites it from the
-   server, so the firewall lane is the real freeze.
+1. **R0 first**: freeze OTA before touching anything else — an update
+   that reseals the hole mid-project is the only true game-over.
+   Applied Oct 30, no hook churn: `/var/local/tvrc` (sourced by the boot
+   hook) now closes the DNS bypass in-kernel — all outbound 53/853 to
+   anywhere but AdGuard is REJECTed, v4 verified live (`1.1.1.1` answers
+   `Operation not permitted`) — and blocks the OTA host
+   (`ota-tv.vidaahub.com` → 131.189.69.51; CDN IPs rotate, so the DNS
+   close is the durable layer). Note: `/OAD/AppUpgradeSwitch.json`
+   already reads `upgradeFlag: 0`, but the service rewrites it from the
+   server. Open item: `ip6tables` doesn't exist on this firmware, so the
+   IPv6 fallback resolvers are closed only by AdGuard being first in
+   `resolv.conf` — router-side RA control would finish the job.
 2. Keep a backup of the previous hook (`otaTest.v1.bak`) on the TV. A
    kill-switch is planned for v11; it is not established for the current hook.
 3. One MQTT session per credential set, one agent on the TV at a time.

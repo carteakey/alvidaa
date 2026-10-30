@@ -2,13 +2,13 @@
   "only": [
     "Spotify : Music & Podcasts",
     "YouTube",
-    "TV Channels▶",
+    "TV Channels\u25b6",
     "TV Browser",
     "Recon"
   ],
   "hidden": [],
   "rename": {
-    "tv channels▶": "Live TV",
+    "tv channels\u25b6": "Live TV",
     "tv browser": "Browser"
   },
   "inputs": {},
@@ -17,5 +17,11 @@
     "app": "Home",
     "interval": 3,
     "cooldown": 6
-  }
+  },
+  "shortcuts": [
+    {
+      "name": "Doom",
+      "url": "http://192.168.0.85:8770/doom"
+    }
+  ]
 }

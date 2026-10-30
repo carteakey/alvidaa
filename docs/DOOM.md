@@ -5,8 +5,20 @@ framebuffer — reproducible end to end. Everything runs from the Pi or
 the Mac over SSH; nothing on the TV is modified except files under
 `/var/local/doom/`.
 
-Status: **works** — E1M1 renders full-screen, the shareware attract demo
-plays itself. Not yet: remote/`/dev/input` controls, sound.
+Status: **works, playable** — E1M1 renders full-screen; the Bluetooth
+remote (standard EV_KEY on `/dev/input/event3` — the MStar IR receiver
+`event1` is silent, the remote is BT) drives the menus: UP/DOWN/LEFT/
+RIGHT map to doom arrows, **OK (keycode 352, `KEY_OK`) to Enter**.
+Unknown keycodes are logged to `doom.log` (`unmapped keycode N`) so the
+map teaches itself — BACK/HOME/volume codes land there the first time
+you press them. Sound: not yet.
+
+**Launcher tile**: the app row has a **Doom** tile (`config.json`
+shortcuts → `http://<pi>:8770/doom`); the server spawns the binary over
+SSH (`/api/doom/start`, auto-kill after 60 min) and the home watcher
+kills it the moment you press HOME back into alvidaa. No Appinfo.json
+surgery — the tile survives OTA channel wipes because it lives in our
+config.
 
 ## 0. Toolchain
 
@@ -34,7 +46,7 @@ md5 /tmp/usr/share/games/doom/doom1.wad
 ## 2. The framebuffer backend
 
 `doomgeneric` ports by implementing five functions. Save as
-`doomgen/doomgeneric/doomgeneric_fb.c`:
+`doomgen/doomgeneric/doomgeneric_fb.c` (the shipped version lives at [tools/doomgeneric_fb.c](../tools/doomgeneric_fb.c) — it includes the remote-input mapping below):
 
 ```c
 // doomgeneric framebuffer backend for Hisense VIDAA (MStar FB0, 32bpp)

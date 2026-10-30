@@ -24,6 +24,7 @@ import queue
 import socket
 import ssl
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -43,6 +44,51 @@ HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HISENSE_HOST", "")
 PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8765
 MQTT_PORT = 36669
 LEGACY_DEVICE = "VIDAALAUNCHER$normal"
+
+# ---- doom: the game tile (spawned over SSH from this host, drawn on fb0)
+
+DOOM_KEY = os.path.join(KEYS, "tv_root_ed25519")
+DOOM_DIR = "/var/local/doom"
+
+def doom_ssh(cmd, timeout=15):
+    """Run a command on the TV over the root SSH channel."""
+    return subprocess.run(
+        ["ssh", "-p", "2222", "-i", DOOM_KEY,
+         "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes",
+         f"root@{HOST}", cmd],
+        capture_output=True, text=True, timeout=timeout)
+
+def doom_running():
+    r = doom_ssh("pidof doom_fb", timeout=10)
+    return r.returncode == 0 and r.stdout.strip()
+
+def doom_start():
+    if doom_running():
+        return {"ok": True, "already": True}
+    # auto-kill after an hour in case the exit path is lost; the watcher
+    # also stops doom the moment the home watcher bounces back to alvidaa
+    r = doom_ssh(f"(cd {DOOM_DIR} && HOME={DOOM_DIR} "
+                 "/var/local/busybox setsid /var/local/busybox timeout 3600 "
+                 "./doom_fb -iwad doom1.wad > doom.log 2>&1 &); sleep 1; pidof doom_fb")
+    pid = r.stdout.strip()
+    if r.returncode == 0 and pid:
+        return {"ok": True, "pid": pid}
+    return {"ok": False, "error": ((r.stderr or r.stdout or "spawn failed")[-200:])}
+
+def doom_stop():
+    r = doom_ssh("kill $(pidof doom_fb) 2>/dev/null; sleep 1; pidof doom_fb")
+    return {"ok": r.returncode == 0 and not r.stdout.strip()}
+
+DOOM_PAGE = (b"<!doctype html><html><head><meta charset=utf-8><title>DOOM</title></head>"
+             b"<body style=\"margin:0;background:#000;color:#333;"
+             b"font:16px monospace;padding:8px\">"
+             b"<div id=s>DOOM</div>"
+             b"<script>fetch('/api/doom/start').then(function(r){return r.json()}).then("
+             b"function(j){document.getElementById('s').textContent="
+             b"j.ok?'DOOM - press HOME to return':'DOOM failed: '+(j.error||'?')});"
+             b"setTimeout(function(){document.body.style.background='#000';"
+             b"document.getElementById('s').textContent=''},4000);</script>"
+             b"</body></html>")
 
 def cert_paths():
     modern = (os.path.join(KEYS, "vidaa_cert.pem"), os.path.join(KEYS, "vidaa_key.pem"))
@@ -426,6 +472,7 @@ class TVBridge:
         if w.get("enabled", True) and st == "remote_launcher" \
                 and time.time() - self.last_launch > w.get("cooldown", 6):
             self.last_launch = time.time()
+            threading.Thread(target=doom_stop, daemon=True).start()
             r = self.launch_home(w.get("app", "Home"))
             print(f"watcher: VIDAA home detected -> {r}", flush=True)
 
@@ -654,6 +701,18 @@ class Handler(SimpleHTTPRequestHandler):
                              {"appId": "vidaa-recon", "name": "Recon",
                               "url": url, "urlType": "1", "storeType": "custom"})
             return self._json({"ok": True, "opened": url})
+        if u.path == "/doom":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(DOOM_PAGE)))
+            self.end_headers()
+            self.wfile.write(DOOM_PAGE)
+            return
+        if u.path == "/api/doom/start":
+            threading.Thread(target=lambda: doom_start(), daemon=True).start()
+            return self._json({"ok": True, "spawning": True})
+        if u.path == "/api/doom/stop":
+            return self._json(doom_stop())
         return super().do_GET()
 
     def do_POST(self):
