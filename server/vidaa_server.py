@@ -595,6 +595,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
     def _json(self, obj):
@@ -717,6 +719,20 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         u = urllib.parse.urlparse(self.path)
+        if u.path == "/api/probe":
+            n = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(n) if n else b"{}"
+            try:
+                data = json.loads(raw.decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                data = {"raw": raw.decode("utf-8", "replace")}
+            try:
+                with open(os.path.join(HERE, "probe-report.json"), "a") as f:
+                    f.write(json.dumps(data) + "\n")
+                self._json({"ok": True})
+            except OSError as e:
+                self._json({"ok": False, "error": str(e)})
+            return
         if u.path == "/api/recon":
             n = int(self.headers.get("Content-Length") or 0)
             raw = self.rfile.read(n) if n else b"{}"

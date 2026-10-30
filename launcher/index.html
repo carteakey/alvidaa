@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <title>Home</title>
 <style>
-  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
-  canvas { display: block; width: 100vw; height: 100vh; }
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; height: 100%; }
+  canvas { display: block; width: 100%; height: 100%; }
 </style>
 </head>
 <body>
@@ -686,6 +686,21 @@ function installAsApp() {
 }
 
 loadCache();
+window.onerror = function (msg, src, line) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "http://" + (location.host || "192.168.0.85:8770") + "/api/probe", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify({ tag: "tv-error", msg: String(msg), line: line, t: Date.now() }));
+    } catch (e2) {}
+    try {
+      ctx.fillStyle = "#e11d48";
+      ctx.font = "18px sans-serif";
+      ctx.fillText("ERR: " + String(msg).slice(0, 60) + " @" + line, 20, 30);
+    } catch (e3) {}
+    return false;
+  };
+
 connect();
 draw();
 </script>
