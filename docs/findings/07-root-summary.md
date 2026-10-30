@@ -47,7 +47,14 @@ Wed Aug 13 14:09:29 CST 2025 armv7l
   (exact size match, zero mismatches). Archive: `pi:~/firmware/` mirrored to
   `fx:~/alvidaa-backup/images/`; code trees extracted to
   `pi:~/firmware/extract/` and staged for the internal Forgejo.
-- **p42 (/OAD) is partial — deliberately abandoned.** The 900 MB staging
+- **p42 (/OAD): COMPLETE (Oct 30, evening).** After Quick Start was enabled
+  (standby no longer naps the network) and one power cycle cleared the
+  wedged controller, the chunked re-dump landed the remaining 320 MB with
+  chunks 03/05/06 first-try (vs 8 retries each in the wedged era) — the
+  "hang" was the controller, confirmed by the before/after. Assembled to
+  exactly 943,718,400 bytes, archived to fx505. **The backup is 42/42,
+  byte-verified, mirrored on two machines.**
+- **p42 original saga (superseded — kept for the lessons).** The 900 MB staging
   partition kills sustained reads: whole-file transfers died repeatedly in
   the 937–943 MB band; later, targeted reads at p42 offsets 240 MB+ hung
   the block layer hard enough to drop the SSH session (reads at offset 0
