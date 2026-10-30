@@ -15,9 +15,11 @@ During the research that produced this launcher, weaknesses in VIDAA
 privileged install/file APIs to arbitrary pages, and content-recognition /
 telemetry endpoints reachable without meaningful authentication.
 
-The researcher's position on publication: **a disclosure to Hisense is being
-prepared, and this repository is published in parallel rather than waiting on
-a 90-day window.** If/when Hisense patches, findings will be annotated here.
+The researcher's position on publication: **a vulnerability report was sent to
+VIDAA and Hisense Product Security (`VIDAASecurity@vidaa.com`,
+`report@connectlife.io`) on 2026-10-29, and this repository is published in
+parallel rather than waiting on a 90-day window.** If/when Hisense patches or
+responds, findings and status will be annotated here.
 The reasoning, stated openly so you can weigh it yourself:
 
 - The documented MQTT control path requires LAN access and pairing. Separately,
