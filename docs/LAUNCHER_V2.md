@@ -210,3 +210,41 @@ We follow a phased hybrid roadmap so every step is reversible (`index.html.alvid
      - Keep `security-dac-partition-apps.sh` ownership (`UhisApp:UGhisApp`, `chmod 750`) intact and freeze OTA in `otaTest.sh` (`R0`) so `deploy.sh` never wipes `/APPS/channelA`.
 3. **Stage 3 — Self-Contained On-TV Daemon (`R4`, retiring the Pi):**
    - Run the MQTT/WebSocket bridge directly on the TV (`127.0.0.1:8770`) under the bundled `phoenix` Node.js runtime (or a static helper started from `/var/local/otaTest.sh`), reading credentials and `config.json` from `/var/local/alvidaa/`.
+
+## R2b — the native service gateway (2026-10-30, from sdk.js analysis)
+
+The stock home's backend is a **local phoenix service gateway at
+`http://localhost:9009`**. Everything the home does — app launches, sources,
+settings, ads, EPG, the home screen itself — is HTTP to this gateway. No MQTT
+required for an on-TV launcher; the Pi's control role evaporates.
+
+- Client (decoded from sdk.js): GET/POST `http://localhost:9009/{service|faas}/<path>`
+  with `args` as URL-encoded JSON (GET params) or JSON body (POST); handle
+  paths are namespaced `basic|system|normal/...`. Gateway responds JSON with
+  `ret`/`msg` and sends **`Access-Control-Allow-Origin: *`** — any page
+  (including our file:// loader) can call it, CORS-free.
+- Raw GET currently returns `{"ret":false,"msg":"service register failed"}` —
+  the exact request shape (registration/session) is being recovered from
+  live traffic; `/var/log/log.txt` (ui-biz log) is the source.
+- Service catalog so far (from `me.req("<name>")` in sdk.js): **launcher**
+  (`open("launcherHome", {focusArea: "heroBanner"...})` — the HOME key itself!),
+  **ads** (`startUpAds`, `heroBanner` — the startup/banner ads), **apc-service**
+  (`getAppStartParam`, power-on app restore), **setting**, **live-tv**, **epg**,
+  **kids-mode**, **hotel-mode**, **vidaa-plus**, plus cloud endpoints all on
+  `*.vidaahub.com` (voice, recommend-ui, ota-tv, odinstore, oauth-auth) —
+  the complete R0 iptables/AdGuard target list.
+- The home engine injects native globals into pages it loads: `log`,
+  `modeljs`, `guijs`, and the `hisense.*` bridge (`hisense.file.write` seen
+  in sdk.js) — our index.html runs in the same context and inherits them.
+- UI log: `/var/log/log.txt` (ui-biz lines; root-readable).
+- UI engine restart (for picking up index.html edits without full reboot):
+  TBD — `kill <pidof hisenseUI>` should trigger a supervisor restart; test
+  before relying on it.
+
+### Consequence for v2
+
+The launcher page can be fully self-sufficient **on the TV**: UI from
+`file:///hisenseUI/index.html` (our file), control via `localhost:9009`
+gateway calls, files via the `hisense.file` bridge. The Pi's remaining role
+shrinks to nothing for day-to-day operation; the bridge-on-Pi stays only as
+a remote-management convenience.
