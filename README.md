@@ -115,3 +115,6 @@ teardown has not been verified: it also requires restoring any edited UI files
 and removing the root hook and its associated tools and configuration. The certificates and tokens in
 `server/keys/` are device credentials — never commit them. Disclosure
 status and reasoning: [SECURITY.md](SECURITY.md).
+
+
+question? is this work for all versions of vidaa os and Hisense tv
