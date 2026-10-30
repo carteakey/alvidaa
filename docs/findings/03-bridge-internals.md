@@ -62,3 +62,76 @@ backend can die mid-run (§10.3).
 - `phoenix.server.js` — the backend's own source, on our writable `/APPS` — is
   readable via `../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/phoenix.server.js`;
   see [04-privilege-map.md](04-privilege-map.md) (§10.4, §10.6–10.8) for the privilege map, lane assessment, and the v5/v6 dump results.
+
+## The hiutils service, decoded (Oct 30 — from the p41 extract)
+
+`tv.vidaa.jsservice.basic/CHA/services/hiutils/` — index.js + fileOperation.js
++ hiSecurity.js. The full authoritative API table and both "security" layers.
+
+### The "sandbox" is a mode-indexed prefix list, not a sandbox
+
+```js
+const path_list = [
+    '/tmp/',                               // mode 0  ← the UART-key tmpfs
+    '/APPS/varlocal/applications/UI/',     // mode 1
+    '/APPS/channelA/',                     // mode 2  ← the stock home UI
+    '/APPS/varlocal/',                     // mode 3
+    '/data/',                              // mode 4
+    '/vddt/',                              // mode 5
+    '/APPS/',                              // mode 6  ← our Appinfo lane
+    '/OAD/'                                // mode 7  ← OTA staging
+]
+const full_path = path_list[params.mode] + params.path
+```
+
+The `mode` parameter is a **base-directory selector with eight whitelisted
+mounts** — including the stock home UI, the OTA staging partition, and the
+tmpfs the console gate reads. The `../` escape was just unfiltered
+concatenation; a firmware that filters `..` still leaves every one of these
+prefixes writable from any page. On patched firmware: `fileWrite` with
+`mode: 2, path: "hisenseUI/index.html"` replaces the stock home with **no
+traversal at all** — it's a designed-in capability, presumably for the UI's
+own updater.
+
+### The full supported API table (authoritative)
+
+`fileRead, fileWrite, installApplication, hiSdkSignCreate,
+hiSdkSignCreateSoundbar, hiSdkJsonVerifyHeap, writeTvRunLog,
+createRandomString, getDefaultCDNInfo, securityEncrypt, securityDecrypt,
+setDebugPort, getDebugPort, deviceCode, checkAccessCode, getVersionStatus,
+getFrameTvSupport, getUIVersion, getOSVersion, openModuleLog, getDabTool,
+setDabTool, setDns` — plus `serviceinfo.json` parsing. Notables:
+`setDns` (remote DNS rewrite from a page), `setDebugPort` (Chromium devtools
+switch), `securityEncrypt/Decrypt` (vendor crypto via the native lib).
+
+### The security-code system, forged
+
+`hiSecurity.js` — the successor to the "05328087" serial-console era:
+
+- `checkAccessCode(code)`: codes ≥17 chars are checked directly; shorter
+  codes read `/tmp/lo_*/securecode.key` (a tmpfs **mode 0** of the file
+  bridge writes).
+- The code embeds: offset1, a 12-char pack (valid-date digits interleaved
+  around an 8-char auth code), the **security level digit**, offset2.
+- auth = `HMAC-SHA1(key = base64(md5(GetDeviceCode)[:6]), msg = mac +
+  "2015-01-01" + level)[5..8] % 1e8`. Every input is public: the MAC rides
+  the SSDP descriptor, `GetDeviceCode` returns a constant we already know.
+- Level 9 = "develop devtool" in `setDebugPort` (levels 2–6 = limited, >6 =
+  full) and the `setDabTool` factory debugger.
+- **Live-tested**: the service logs the computed `local_access_code` on
+  mismatch — an oracle that hands over the correct value (we found ours in
+  `/var/log/log.txt` after two failed tries; the forge itself only needs
+  the MAC and a ≥17-char structure). Forged code accepted:
+  `{"ret":true,"result":"success"}` → `setDebugPort(1)` → `getDebugPort`
+  = **2 (develop devtool)**. No 9222 listener yet — the running browser
+  applies the switch on restart, and the EULA firewall guards the port
+  externally (our hook can open it; that decision is documented).
+
+### Impact on patched firmware (MTK9603 report)
+
+If the 2026-07 build kept the mode-list design and only filtered `..`:
+`mode 2` reopens the stock-home write, `mode 7` reopens `/OAD`, `mode 0`
+reopens the console-key tmpfs — and the security-code forge (if the
+algorithm is unchanged) reopens devtools. The reporter's probe list gains:
+`fileWrite` with `mode: 2`, and `checkAccessCode` with the forged-code
+structure above.
