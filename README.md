@@ -101,8 +101,8 @@ app Id overwrites the old entry), then restart the TV.
 
 The research behind this project identified weaknesses in VIDAA 2024+ firmware
 (browser-exposed install/file APIs, weakly authenticated telemetry endpoints).
-Findings were reported to Hisense; publication follows the reasoning in
-[SECURITY.md](SECURITY.md) — LAN-local findings, no DRM circumvention, own
+Findings are being disclosed to Hisense; publication runs in parallel per the
+reasoning in [SECURITY.md](SECURITY.md) — LAN-local findings, no DRM circumvention, own
 hardware. Firmware dumps and vendor binaries are not published.
 
 If you deploy this, change nothing about your expectation of privacy on a

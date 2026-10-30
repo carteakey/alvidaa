@@ -15,9 +15,10 @@ During the research that produced this launcher, weaknesses in VIDAA
 privileged install/file APIs to arbitrary pages, and content-recognition /
 telemetry endpoints reachable without meaningful authentication.
 
-The researcher's position on publication: these findings were reported to
-Hisense, and are being published **without holding a 90-day window**. The
-reasoning, stated openly so you can weigh it yourself:
+The researcher's position on publication: **a disclosure to Hisense is being
+prepared, and this repository is published in parallel rather than waiting on
+a 90-day window.** If/when Hisense patches, findings will be annotated here.
+The reasoning, stated openly so you can weigh it yourself:
 
 - Every finding requires the attacker to already be on the victim's LAN.
   There is no remote, internet-reachable attack path.
