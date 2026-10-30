@@ -40,3 +40,30 @@ Wed Aug 13 14:09:29 CST 2025 armv7l
   (the CLI decrypt key) is in the image, and `/etc/shells` does not exist —
   confirming the dropbear shell-check post-mortem.
 - Reboots are now remote (`reboot` over SSH); the wall plug is retired.
+
+### Backup completeness (Oct 30)
+
+- **41/42 partitions dumped and byte-verified** against `/proc/partitions`
+  (exact size match, zero mismatches). Archive: `pi:~/firmware/` mirrored to
+  `fx:~/alvidaa-backup/images/`; code trees extracted to
+  `pi:~/firmware/extract/` and staged for the internal Forgejo.
+- **p42 (/OAD) is partial — deliberately abandoned.** The 900 MB staging
+  partition kills sustained reads: whole-file transfers died repeatedly in
+  the 937–943 MB band; later, targeted reads at p42 offsets 240 MB+ hung
+  the block layer hard enough to drop the SSH session (reads at offset 0
+  and the other partitions were still fine at the same moment). 682 MB of
+  it was captured (chunks 0–7 + partial) plus the 272 MB tail separately;
+  both preserved on the Pi. **Decision: not worth hammering a possibly
+  marginal eMMC region for transient staging data** — `/OAD` is rewritten
+  by the updater on every firmware update, so its contents are ephemeral by
+  design. If the hang survives a power cycle, that is a flash-health data
+  point worth logging; if it clears, the dump can be resumed with small
+  chunks and long spacing.
+- **Ops lessons for the next dump** (each learned expensively): (1) the
+  TV's wlan drops sustained transfers — chunk to ≤80 MB with per-chunk
+  retry; (2) never `cat` parts over the target before size-verifying, and
+  keep parts until the concatenation is verified; (3) run exactly ONE
+  transfer script — two racing instances truncate each other's chunks; (4)
+  `tail` is not installed and busybox applets are not symlinked system-wide
+  — use `/usr/local/bin/busybox <applet>`; (5) `ip6tables` does not exist
+  on this firmware — guard policy scripts.
