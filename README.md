@@ -7,6 +7,11 @@ changes, fully reversible.
 Clock, HDMI inputs (live signal), your real apps — and nothing else. The TV
 installs the page itself as a native app through its own hidden APIs.
 
+Built with — and designed for — AI coding sessions: point your agent at this
+repo and it will find its briefing in [AGENTS.md](AGENTS.md). The staged
+ladder to run on your own TV (with the actual prompts that worked) is in
+[docs/HACK-YOUR-OWN.md](docs/HACK-YOUR-OWN.md).
+
 ![what it is](docs/hero-placeholder.png)
 
 ## How it works
