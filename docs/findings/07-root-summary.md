@@ -67,3 +67,9 @@ Wed Aug 13 14:09:29 CST 2025 armv7l
   `tail` is not installed and busybox applets are not symlinked system-wide
   — use `/usr/local/bin/busybox <applet>`; (5) `ip6tables` does not exist
   on this firmware — guard policy scripts.
+
+**Before/after (Oct 30, post power-cycle):** targeted reads at both hung
+offsets (p42 @240 MB, @878 MB) return exit 0 — the power cycle cleared it.
+Verdict: **wedged eMMC controller, not failing flash.** The /OAD dump stays
+partial by decision; the region is readable again if ever needed (chunked,
+spaced, and only with a good reason).
