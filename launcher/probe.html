@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>probe</title>
+<style>html,body{margin:0;background:#000;color:#ccc;font:16px sans-serif}</style>
+</head>
+<body>
+<p>STAGE1-HTML-OK</p>
+<canvas id="c" width="960" height="540"></canvas>
+<script>
+"use strict";
+var cv = document.getElementById("c");
+var ctx = cv.getContext("2d");
+var lines = [];
+function draw() {
+  ctx.fillStyle = "#10151d";
+  ctx.fillRect(0, 0, 960, 540);
+  ctx.font = "24px sans-serif";
+  ctx.fillStyle = "#e8eaee";
+  for (var i = 0; i < lines.length; i++) ctx.fillText(lines[i], 30, 50 + i * 40);
+}
+function mark(t) { lines.push(t); draw(); }
+
+mark("S2-JS-OK");
+mark("S3-UTF8: \u25b2\u25bc\u25cf OK");
+draw();
+
+// S4: WebSocket
+try {
+  var ws = new WebSocket("ws://192.168.0.85:8770/ws");
+  ws.onopen = function () { mark("S4-WS-OPEN-OK"); };
+  ws.onerror = function () { mark("S4-WS-FAIL"); };
+  ws.onmessage = function (ev) { mark("S4-WS-MSG:" + ev.data.slice(0, 40)); };
+} catch (e) { mark("S4-WS-THROW:" + e); }
+
+// S5: XHR
+try {
+  var x = new XMLHttpRequest();
+  x.open("GET", "http://192.168.0.85:8770/api/state", true);
+  x.onload = function () { mark("S5-XHR-OK:" + x.status + " " + x.responseText.slice(0, 40)); };
+  x.onerror = function () { mark("S5-XHR-FAIL"); };
+  x.send();
+} catch (e) { mark("S5-XHR-THROW:" + e); }
+
+// S6: Image
+try {
+  var im = new Image();
+  im.onload = function () { mark("S6-IMG-OK " + im.naturalWidth + "x" + im.naturalHeight); };
+  im.onerror = function () { mark("S6-IMG-FAIL"); };
+  im.src = "http://192.168.0.85:8770/bg/bg1.png";
+} catch (e) { mark("S6-IMG-THROW:" + e); }
+
+// S7: external script from http
+window.PROBE = 0;
+var sc = document.createElement("script");
+sc.src = "http://192.168.0.85:8770/probe.js";
+sc.onload = function () { mark("S7-SCRIPT-LOAD PROBE=" + window.PROBE); };
+sc.onerror = function () { mark("S7-SCRIPT-FAIL"); };
+document.body.appendChild(sc);
+
+// S8: after 6s, summary refresh
+setTimeout(function () { mark("S8-ALIVE-AFTER-6S"); draw(); }, 6000);
+draw();
+</script>
+</body></html>
