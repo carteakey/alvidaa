@@ -34,7 +34,7 @@ var S = {
   row: 0, col: 0,            // focus: row 0 = inputs, row 1 = apps, row 2 = install
   toast: "", toastUntil: 0,
   busy: false,
-  focusPicked: false,
+  focusPicked: false, liveReceived: false, userInteracted: false,
   autoSwitchId: null, autoSwitchName: "", autoSwitchAt: 0
 };
 
@@ -153,7 +153,8 @@ function connect() {
     var m;
     try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (m.t === "hello") {
-      var firstLive = !S.focusPicked;
+      var firstLive = !S.liveReceived;
+      S.liveReceived = true;
       S.hello = true;
       S.serverInstalled = !!m.installed;
       S.apps = m.apps || S.apps || [];
@@ -164,12 +165,16 @@ function connect() {
       S.busy = false;
       saveCache();
       preloadIcons();
-      if (firstLive) pickInitialFocus(true);
+      if (firstLive && !S.userInteracted) pickInitialFocus(true);
       clampFocus(); draw();
     } else if (m.t === "tvstate") {
       S.state = m.state; draw();
     } else if (m.t === "sources") {
       S.sources = m.sources || S.sources;
+      if (S.autoSwitchAt) {
+        var active = (S.sources || []).filter(function (s) { return s.signal; });
+        if (active.length !== 1 || active[0].id !== S.autoSwitchId) cancelAutoSwitch();
+      }
       saveCache();
       clampFocus(); draw();
     } else if (m.t === "apps") {
@@ -178,9 +183,23 @@ function connect() {
       saveCache();
       preloadIcons();
       clampFocus(); draw();
+    } else if (typeof m.ok === "boolean" && S.busy) {
+      S.busy = false;
+      S.toast = m.ok ? "opening…" : (m.error || "could not open");
+      S.toastUntil = Date.now() + 2500;
+      draw();
     }
   };
-  ws.onclose = function () { S.online = false; scheduleReconnect(); draw(); };
+  ws.onclose = function () {
+    S.online = false;
+    if (S.autoSwitchAt) cancelAutoSwitch();
+    if (S.busy) {
+      S.busy = false;
+      S.toast = "connection lost";
+      S.toastUntil = Date.now() + 2500;
+    }
+    scheduleReconnect(); draw();
+  };
   ws.onerror = function () { try { ws.close(); } catch (e) {} };
 }
 function scheduleReconnect() {
@@ -189,16 +208,21 @@ function scheduleReconnect() {
 }
 
 function send(obj) {
-  if (!S.online || !ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify(obj));
+  if (!S.online || !ws || ws.readyState !== 1) return false;
+  try { ws.send(JSON.stringify(obj)); return true; } catch (e) { return false; }
 }
 function act(type, val) {
   if (S.busy) return;
+  if (!send({ t: type === "launch" ? "launch" : "source", name: val, id: val })) {
+    S.toast = "server offline - reconnecting";
+    S.toastUntil = Date.now() + 2500;
+    draw();
+    return;
+  }
   S.busy = true;
   saveLastUsed(type === "source" ? 0 : 1, val);
   S.toast = "…"; S.toastUntil = Date.now() + 2500;
   draw();
-  send({ t: type === "launch" ? "launch" : "source", name: val, id: val });
 }
 
 // ---------------------------------------------------------------- icons
@@ -541,6 +565,7 @@ function activate(row, col) {
 }
 
 document.addEventListener("keydown", function (e) {
+  S.userInteracted = true;
   if (S.autoSwitchAt) {
     cancelAutoSwitch();
     e.preventDefault();
@@ -580,6 +605,7 @@ function hitAt(cx, cy) {
   return null;
 }
 cv.addEventListener("click", function (e) {
+  S.userInteracted = true;
   if (S.autoSwitchAt) { cancelAutoSwitch(); return; }
   var t = hitAt(e.clientX, e.clientY);
   if (!t) return;
@@ -590,6 +616,8 @@ cv.addEventListener("click", function (e) {
 cv.addEventListener("mousemove", function (e) {
   var t = hitAt(e.clientX, e.clientY);
   if (t && t.row !== 2 && (S.row !== t.row || S.col !== t.col)) {
+    S.userInteracted = true;
+    if (S.autoSwitchAt) cancelAutoSwitch();
     S.focusPicked = true;
     S.row = t.row; S.col = t.col; bumpFocus(); draw();
   }

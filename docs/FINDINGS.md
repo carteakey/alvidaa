@@ -41,20 +41,49 @@ the blog and [STORY.md](STORY.md) draw from these files. Split into modules:
 
 ## Next actions
 
-1. **Wiretap window** — let the `TVOUT`/`TVDNS` log accumulate ~3 days,
-   then resolve IPs → confirm the telemetry upload host → finalize the
-   block tiers in `firmware/ENDPOINTS.md`.
-2. **`tvfw` canary** — push a `/var/local/tvfw` drop-in (sourced by the
+0. **Finish p42 (/OAD, 900 MB)** — the only unverified image. The TV's wlan
+   drops sustained ~900 MB transfers (5 attempts, all dead in the 937–943 MB
+   band), and the whole network naps in deep standby when the panel is off.
+   The chunked method (12 × 80 MB, per-chunk retry) works, but a re-dump of
+   chunks 0–7 is still owed — the 272 MB tail (bytes 671,088,640→end) is
+   preserved on the Pi as `mmcblk0p42.tail`. **Ops lesson, twice learned the
+   hard way**: never `cat` parts over the target before size-verification,
+   and keep every part file until the concatenation is verified
+   byte-count-complete.
+1. **Wiretap persistence** — the LOG rules write to the kernel ring buffer,
+   which wraps; deep standby pauses everything. Add a collector to `tvrc`
+   (hourly `dmesg | grep TVOUT >> /var/local/wiretap.log`) in hook v11
+   before trusting the multi-day window.
+2. **Wiretap window** — resolve IPs → confirm the telemetry upload host →
+   finalize the block tiers in `firmware/ENDPOINTS.md`.
+3. **`tvfw` canary** — push a `/var/local/tvfw` drop-in (sourced by the
    hook like `tvrc`) blocking ONE ad domain (`recommend-ui.vidaahub.com`),
    reboot remotely, verify the TV still works, then roll out the tier-1 set.
-3. **Hook v11** — dedup the stacked iptables ACCEPT rules, source `tvfw`,
+4. **Hook v11** — dedup the stacked iptables ACCEPT rules, source `tvfw`,
    and add a kill-switch file check (`/var/local/hook.off`) so a bad
    iteration can never boot-loop the TV.
-4. **Tailscale on the TV** — static armv7 `tailscaled` in
+5. **Tailscale on the TV** — static armv7 `tailscaled` in
    userspace-networking mode (no `/dev/net/tun` dependency), state on
    `/var/local`, started by the hook; TV becomes reachable over the
    tailnet from anywhere, MagicDNS name, no firewall exposure. Login URL
    can even be opened on the TV via `/api/open`.
-5. **GitHub publish decision** — the repo would genuinely help 2024+ VIDAA
-   owners stuck on the "app no longer compatible" wall; scrub keys/tokens
-   first.
+6. **GitHub publish — done.** Repo public (github.com/carteakey/alvidaa),
+   README carries the tested-models matrix with PR-based reporting, agent
+   onboarding (AGENTS.md + docs/HACK-YOUR-OWN.md) shipped.
+
+## Forgejo seed (internal, Oct 30)
+
+Full backup + code extraction staged for the internal Forgejo (m1):
+
+- **Raw images**: 41/42 partitions on the Pi (`pi:~/firmware/`, all
+  byte-verified against `/proc/partitions`; p42 pending head re-dump) and
+  mirrored to `fx:~/alvidaa-backup/images/` (64 GB free — the archive home).
+- **Code trees**: `pi:~/firmware/extract/` — `apps/channelA` (77 MB:
+  hisenseUI + operation-ui + system-ui, including R2's canary
+  `index.html.alvidaa-bak`), `apps/opt-pkgs` (155 MB), `apps/opt-hisenseUI`
+  (72 MB), `usr-local/{bin,etc,scripts,configuration,kilby,manifests}`
+  (94 MB) — plus the unpacked rootfs (`firmware/rootfs/` on the Mac).
+- **Seed tar**: `fx:~/alvidaa-backup/alvidaa-opensource-seed.tar.gz`
+  (225 MB, 5,261 files) — pull to m1, `git init` in the unpacked tree; the
+  first commit is the pristine vendor state, tag it `vendor-v09.01` so
+  every future modification diffs against something.

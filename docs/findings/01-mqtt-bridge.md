@@ -137,3 +137,16 @@ not browse the open web on the TV.)
   stale pages after you fix bugs.
 - Full-screen offscreen canvases render empty; pre-render shadows/sprites if
   you need effects.
+
+### Launcher startup and action handling (code review, Oct 30)
+
+- Cached tiles can set the initial focus before the first live server snapshot.
+  Using that focus flag to identify the first snapshot prevented the optional
+  HDMI auto-switch from starting. Track the first live snapshot separately and
+  leave the user's focus alone if they have already navigated.
+- A launch/source command could silently fail while offline, and WebSocket
+  action responses were ignored. The launcher now reports offline and server
+  errors and clears its busy state on a response or lost connection.
+- Cancel a pending auto-switch if the user navigates or the sole active input
+  changes before the countdown expires. These changes were exercised in a
+  simulated browser; they have not yet been verified on the TV.
