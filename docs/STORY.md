@@ -922,6 +922,12 @@ screwdrivers. The TV wasn't flashed, jailbroken, or bricked. Verified
 boot stays green. Delete the Home app entry, or factory-reset, and it's
 stock again — every step reversible by design.
 
+And when this story closes, the last photo is already chosen:
+`ls /var/local/` with the hook deleted, a fresh boot counting from
+uptime zero, the stock home on screen — verified boot still green, stock
+in every way that matters. Every step of the weekend was designed
+backwards from that shot.
+
 It just said alvida to its ads.
 
 [📷 PHOTO 13: the living room. TV on the alvidaa home screen. Nothing sponsored.]
