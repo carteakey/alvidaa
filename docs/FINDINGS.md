@@ -54,8 +54,13 @@ the blog and [STORY.md](STORY.md) draw from these files. Split into modules:
    which wraps; deep standby pauses everything. Add a collector to `tvrc`
    (hourly `dmesg | grep TVOUT >> /var/local/wiretap.log`) in hook v11
    before trusting the multi-day window.
-2. **Wiretap window** — resolve IPs → confirm the telemetry upload host →
-   finalize the block tiers in `firmware/ENDPOINTS.md`.
+2. **Wiretap window — two-phase methodology** (collection is OFF in TV
+   settings, so the running window measures the *floor*): (a) baseline —
+   what still phones home with every consent toggle off; (b) later, a
+   deliberate ON-window — flip the euladpp consent switches
+   (`/APPS/euladpp/current/eula_dpp_status.ini`, sections pn1–pn7) for
+   24–48 h, capture the full firehose, flip back. Kill-list = union of
+   both windows → finalize tiers in `firmware/ENDPOINTS.md`.
 3. **`tvfw` canary** — push a `/var/local/tvfw` drop-in (sourced by the
    hook like `tvrc`) blocking ONE ad domain (`recommend-ui.vidaahub.com`),
    reboot remotely, verify the TV still works, then roll out the tier-1 set.
