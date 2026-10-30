@@ -151,3 +151,50 @@ invasive rw-space edit in the plan.
 2. (Root lane) 2323 firewall rule + dropbear swap; OTA endpoint freeze.
 3. (Launcher lane, now) this document committed; R4 port skeleton prepared
    behind a flag so it can start the moment R2 reports phoenix's runtime shape.
+
+## R2 map — the home boot chain (mapped 2026-10-30, live root)
+
+```
+boot → /usr/local/scripts/hisense_stage0.sh
+     → /usr/local/bin/tvmain -D &                      (main TV service)
+     → /opt/hisenseUI/startgui.sh &                    (THE shim point)
+         cd /opt/hisenseUI
+         exec ./bin/hisenseUI --remote_debugging_port=9666 \
+              --webdriver_port=4445 --url=file:///hisenseUI/index.html
+```
+
+- `bin/hisenseUI` is an **embedded Cobalt-based web engine** (its own exe,
+  uid UhisUI, PID stays alive for the whole boot session) — the "browser"
+  and the home UI are one process.
+- `file:///hisenseUI/index.html` is **not** a filesystem path (no /hisenseUI
+  at root, no bind mount in the engine's namespace) — the engine maps it to
+  the content tree at **`/APPS/channelA/hisenseUI/`** (index.html + static/ +
+  shared/ + process.env.json). `/APPS` = `/dev/mmcblk0p41`, ext4 **rw**,
+  whole-partition mode 777.
+- The stock home is a webpack SPA: `index.html` (493 bytes, 6-line loader) →
+  `vendor.dll.js`, `sdk.js`, chunk js, `app.js`. Plain editable web code.
+- `--remote_debugging_port=9666` is in the launch line but **not honored**
+  (refused on loopback at boot; no listener) — dead end for live DevTools.
+- Boot-time persistence of channel edits: normal boots never re-extract the
+  channel (deploy.sh fires only on an OTA upgradeversionflag) — but an OTA
+  wipes `/APPS/channelA` entirely (`rm -rf` + re-extract). OTA freeze is the
+  precondition for everything here (R0).
+- Boot-time DAC: `security-dac-partition-apps.sh` chowns channelA to
+  `UhisApp:UGhisApp` and chmods 750 each boot — keep edits readable by that
+  uid.
+
+### Canary (in place, pending reboot)
+
+`index.html.alvidaa-bak` on the TV + `alvidaa_backups/hisenseUI_index.html`
+on the Pi hold the original 493-byte loader. A visible `#alvidaa-canary` chip
+(fixed, top-left, crimson) is appended after `</html>`. If it renders on the
+home screen after a reboot, the shim path is proven: edits to this file are
+what the stock home executes at boot.
+
+### Strategy verdict (modify vs replace)
+
+Hybrid. alvidaa stays the UI (it iterates in seconds and is already built);
+the stock home gets *minimally* patched in place — a redirect shim to the
+on-TV launcher and/or the R6 ad-strip — because that file is what boot and
+HOME natively execute. Full rewrite of hisenseUI is rejected: minified vendor
+code, fragile, and unnecessary once the loader is ours.
