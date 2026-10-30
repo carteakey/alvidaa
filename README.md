@@ -61,10 +61,8 @@ TV_MAC=<tv-wifi-mac> ./venv/bin/python pair.py <tv-ip>
 #    -> OK -> restart TV -> open "Home"
 ```
 
-Harden `server/config.json` (hide preset apps, rename tiles, toggle the
-watcher) — it is read live. Production deployment on an always-on box:
-[docs/DEPLOY.md](docs/DEPLOY.md). One server per TV — the paired MQTT
-identity is exclusive.
+Harden `server/config.json` (hide preset apps, rename tiles, set `"autoSwitch": true` to auto-jump to a single active HDMI input on boot, or toggle the watcher) — it is read live. The launcher renders at 1080p (`?540p` fallback), caches tiles in `localStorage` for instant cold paint, auto-focuses active HDMI signals, and binds remote keys `1`–`9` as tile hotkeys. Production deployment on an always-on box:
+[docs/DEPLOY.md](docs/DEPLOY.md). Roadmap for shimming and modifying the native stock launcher (`/APPS/channelA/hisenseUI/`) directly on rooted TVs: [docs/LAUNCHER_V2.md](docs/LAUNCHER_V2.md). One server per TV — the paired MQTT identity is exclusive.
 
 ## Quickstart — root
 

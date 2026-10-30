@@ -64,6 +64,7 @@ def save_tokens(t):
 
 def load_config():
     cfg = {"hidden": [], "rename": {}, "inputs": {}, "only": [], "shortcuts": [],
+           "autoSwitch": False,
            "watcher": {"enabled": True, "app": "Home", "interval": 3, "cooldown": 6}}
     try:
         with open(CONFIG_FILE) as f:
@@ -72,12 +73,16 @@ def load_config():
             cfg["hidden"] = user["hidden"]
         if isinstance(user.get("rename"), dict):
             cfg["rename"] = user["rename"]
+        if isinstance(user.get("inputs"), dict):
+            cfg["inputs"] = user["inputs"]
         if isinstance(user.get("watcher"), dict):
             cfg["watcher"].update(user["watcher"])
         if isinstance(user.get("shortcuts"), list):
             cfg["shortcuts"] = user["shortcuts"]
         if isinstance(user.get("only"), list):
             cfg["only"] = user["only"]
+        if "autoSwitch" in user:
+            cfg["autoSwitch"] = bool(user.get("autoSwitch"))
     except (OSError, ValueError):
         pass
     return cfg
@@ -251,9 +256,12 @@ class TVBridge:
         self.q.put((msg.topic.rsplit("/", 1)[-1], payload))
         if isinstance(payload, dict):
             topic = msg.topic.rsplit("/", 1)[-1]
-            if topic == "state" and "statetype" in payload:
+            if topic in ("state", "gettvstate") and "statetype" in payload:
                 self.state = payload
-                self._emit({"t": "tvstate", "state": payload.get("statetype")})
+                st = payload.get("statetype")
+                self._emit({"t": "tvstate", "state": st})
+                if st == "remote_launcher":
+                    threading.Thread(target=self._maybe_bounce_home, daemon=True).start()
 
     def _emit(self, event):
         for fn in list(self.listeners):
@@ -322,15 +330,20 @@ class TVBridge:
         raise TimeoutError(f"no answer for {service}/{action}")
 
     def apps_list(self):
-        # TTL cache: TV-side app installs/uninstalls propagate within a minute
+        # TTL cache: TV-side app installs/uninstalls propagate within a minute.
+        # Guard against transient empty lists during boot/pm churn.
         if self.apps is None or time.time() - self.apps_at > 60:
-            self.apps = self.ask("ui_service", "applist")
-            self.apps_at = time.time()
-        return self.apps
+            fresh = self.ask("ui_service", "applist")
+            if fresh or not self.apps:
+                self.apps = fresh
+                self.apps_at = time.time()
+        return self.apps or []
 
     def sources_list(self):
-        self.sources = self.ask("ui_service", "sourcelist")
-        return self.sources
+        fresh = self.ask("ui_service", "sourcelist")
+        if fresh or not self.sources:
+            self.sources = fresh
+        return self.sources or []
 
     def visible_apps(self):
         """applist with config.json filtering applied ("only" allowlist wins)."""
@@ -386,14 +399,14 @@ class TVBridge:
         return {"ok": False, "error": f"source not found: {sid}"}
 
     def snapshot(self):
+        cfg = load_config()
         out = {"t": "hello", "state": (self.state or {}).get("statetype"),
-               "shortcuts": [sc for sc in load_config().get("shortcuts", [])
+               "autoSwitch": bool(cfg.get("autoSwitch", False)),
+               "shortcuts": [sc for sc in cfg.get("shortcuts", [])
                              if sc.get("name") and sc.get("url")]}
         try:
             apps_raw = self.apps_list()
             out["installed"] = any(a.get("appId") == "vidaa-home" for a in apps_raw)
-            self.apps = apps_raw  # refresh TTL cache with this fresh fetch
-            self.apps_at = time.time()
         except Exception as e:
             out["installed"], out["apps"], out["apps_error"] = False, None, str(e)
         try:
@@ -405,6 +418,16 @@ class TVBridge:
         except Exception as e:
             out["sources"], out["sources_error"] = None, str(e)
         return out
+
+    def _maybe_bounce_home(self):
+        cfg = load_config()
+        w = cfg.get("watcher", {})
+        st = (self.state or {}).get("statetype")
+        if w.get("enabled", True) and st == "remote_launcher" \
+                and time.time() - self.last_launch > w.get("cooldown", 6):
+            self.last_launch = time.time()
+            r = self.launch_home(w.get("app", "Home"))
+            print(f"watcher: VIDAA home detected -> {r}", flush=True)
 
     def launch_home(self, name="Home"):
         """Launch our launcher entry — match by content, not name-first:
@@ -431,14 +454,9 @@ class TVBridge:
                 cfg = load_config()
                 w = cfg.get("watcher", {})
                 if self.connected.is_set():
-                    # this firmware does not push state reliably — poll it
+                    # poll gettvstate as fallback; _on_message handles instant bounce on reply/push
                     self.call("ui_service", "gettvstate")
-                    st = (self.state or {}).get("statetype")
-                    if w.get("enabled", True) and st == "remote_launcher" \
-                            and time.time() - self.last_launch > w.get("cooldown", 6):
-                        self.last_launch = time.time()
-                        r = self.launch_home(w.get("app", "Home"))
-                        print(f"watcher: VIDAA home detected -> {r}", flush=True)
+                    self._maybe_bounce_home()
                     # live source signal refresh every ~9s
                     if cycle % 3 == 0:
                         try:

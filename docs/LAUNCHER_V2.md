@@ -7,18 +7,22 @@ boot-time home. Ownership: this document and everything under `launcher/` +
 `server/` belongs to the launcher lane; the firmware/telemetry digging
 (binaries, Ghidra, endpoint mapping) lives in the other session.
 
-## Where v1 stands (the baseline v2 replaces)
+## Where v1.3 stands (the baseline v2 builds on)
 
 - Server: Python (`server/vidaa_server.py`) on the Pi (`alvidaa.service`,
   port 8770) — MQTT/TLS bridge to RemoteNow (token auth + auto-refresh),
   HTTP static + WebSocket + `/icon/*` proxy, config-driven allowlist/renames/
-  glyphs, home watcher (3s `gettvstate` poll → relaunch).
-- TV side: `Home` is a browser app (Type: Browser) written into
-  `websdk/Appinfo.json` via `HiUtils_createRequest` — self-installed from the
-  page. Stateless page, single canvas, ES2018, pointer+keyboard input.
-- Known limitations v2 kills: ~1s stock-home flash before the watcher
-  relaunches; Pi is a SPOF (page dead-degrades when it sleeps); every page
-  load and control action crosses the LAN; watcher is a poll, not a hook.
+  glyphs/`autoSwitch`, event-driven + 3s poll home watcher, and guards against
+  transient empty `applist`/`sourcelist` payloads during boot churn.
+- TV side (`launcher/index.html`, v1.3):
+  - **1080p HiDPI canvas**: renders at `1920×1080` (`SCALE = 2` over logical `960×540` layout coordinates, with `?540p` fallback for older sets).
+  - **0ms cold-paint cache (`localStorage`)**: renders cached inputs, apps, and shortcuts on frame 1 before `/ws` connects, showing `cached · reconnecting…` if the server is restarting.
+  - **Smart initial focus & optional auto-switch**: automatically focuses the first HDMI input with `signal: true` (or the last-launched tile from `localStorage`). When `"autoSwitch": true` in `server/config.json` (or `?autosource` in the URL) and a single HDMI input has active signal on cold boot, starts a 3.5s countdown toast (`Switching to <Input> in 3s… (press any key to stay)`).
+  - **Remote number hotkeys (`1`–`9`)**: pressing `1`–`9` on the remote focuses and activates that tile in the active row; `0` / `Home` resets focus to `row 0, col 0`.
+  - **Idle GPU throttling**: only redraws the canvas when the clock minute changes, a toast expires, or focus/state changes (1 redraw/min idle instead of 60/min).
+- Known limitations v2 (native modification) kills: ~1s stock-home flash before the watcher
+  relaunches; Pi dependency when not running the server on-TV; stock home UI still
+  loading in the background Cobalt process.
 
 ## v1 operational lessons the v2 port must honor
 
@@ -192,10 +196,17 @@ on the Pi hold the original 493-byte loader. A visible `#alvidaa-canary` chip
 home screen after a reboot, the shim path is proven: edits to this file are
 what the stock home executes at boot.
 
-### Strategy verdict (modify vs replace)
+### Strategy verdict & Native Launcher Modification Roadmap
 
-Hybrid. alvidaa stays the UI (it iterates in seconds and is already built);
-the stock home gets *minimally* patched in place — a redirect shim to the
-on-TV launcher and/or the R6 ad-strip — because that file is what boot and
-HOME natively execute. Full rewrite of hisenseUI is rejected: minified vendor
-code, fragile, and unnecessary once the loader is ours.
+We follow a phased hybrid roadmap so every step is reversible (`index.html.alvidaa-bak` on the TV + full `/APPS/channelA/hisenseUI/` backup on the Pi):
+
+1. **Stage 1 — Loader Shim (`R5`, zero stock-UI flash):**
+   - `/opt/hisenseUI/startgui.sh` launches Cobalt (`bin/hisenseUI`) pointing at `file:///hisenseUI/index.html`, which resolves to `/APPS/channelA/hisenseUI/index.html` (493 bytes, `ext4 rw`).
+   - Once the `#alvidaa-canary` chip is verified on reboot, replace or shim `index.html` so boot and the physical `HOME` key render **alvidaa** directly inside the `hisenseUI` Cobalt process (`uid UhisUI`), eliminating the stock home flash entirely.
+2. **Stage 2 — In-Place Stock `hisenseUI` Surgery (`R6`, stripped native launcher):**
+   - Because `hisenseUI` also hosts system overlays and native VIDAA lifecycle hooks in `vendor.dll.js` / `sdk.js` / `app.js`, we can alternatively patch `/APPS/channelA/hisenseUI/static/` in place:
+     - Stub out ad-slot fetchers (`layout-ui-eu.vidaahub.com`, `recommend-ui.vidaahub.com`) and promo-video autoplayers (`file-dl-test.../promovod/`) in `sdk.js`.
+     - Strip sponsored app row injection and forced telemetry beacons (`hi_logreport_service` / `127.0.0.1:1969`) while preserving native HDMI/settings hooks.
+     - Keep `security-dac-partition-apps.sh` ownership (`UhisApp:UGhisApp`, `chmod 750`) intact and freeze OTA in `otaTest.sh` (`R0`) so `deploy.sh` never wipes `/APPS/channelA`.
+3. **Stage 3 — Self-Contained On-TV Daemon (`R4`, retiring the Pi):**
+   - Run the MQTT/WebSocket bridge directly on the TV (`127.0.0.1:8770`) under the bundled `phoenix` Node.js runtime (or a static helper started from `/var/local/otaTest.sh`), reading credentials and `config.json` from `/var/local/alvidaa/`.
