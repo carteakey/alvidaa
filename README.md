@@ -68,9 +68,9 @@ while the launcher only depends on the firmware generation.
 
 **Tested on:**
 
-| Model | Region | SoC | Firmware | `transport_protocol` | Browser | Launcher | Root chain | Tested by |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 50A51HUV | US/CAN | MTK9602 | V0000.09.01O.P0813 (U09.01) | 3290 | Chromium 111 "odin" | ✅ v1.3 | ✅ full chain | [@carteakey](https://github.com/carteakey) |
+| Model | Region | SoC | VIDAA OS | Firmware | `transport_protocol` | Browser | Launcher | Root chain | Tested by |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 50A51HUV | US/CAN | MTK9602 | U09.01 | V0000.09.01O.P0813 | 3290 | Chromium 111 "odin" | ✅ v1.3 | ✅ full chain | [@carteakey](https://github.com/carteakey) |
 
 **Report your test — by PR, not issue.** Fork, add one row to the table
 (edit this README), open a PR. What to include and where to find it:
@@ -81,8 +81,9 @@ while the launcher only depends on the firmware generation.
   [docs/findings/01-mqtt-bridge.md](docs/findings/01-mqtt-bridge.md) §1).
 - **`transport_protocol`**: the single most predictive number — it selects
   the auth generation. From the SSDP descriptor.
-- **Firmware**: Settings → About, or `Hisense_GetFirmWareVersion()` from any
-  page in the TV browser (or the recon page in `launcher/recon.html`).
+- **VIDAA OS / firmware**: Settings → About, or from any page in the TV
+  browser: `Hisense_GetOSVersion()`, `Hisense_GetFirmWareVersion()`
+  (or the recon page in `launcher/recon.html`).
 - **SoC**: `Hisense_GetChipSetName()` — same bridge (needs a page running on
   the TV; HiSilicon vs MTK changes the root chain, not the launcher).
 - **What worked / what didn't**: pairing, install, watcher, canvas
