@@ -248,3 +248,43 @@ The launcher page can be fully self-sufficient **on the TV**: UI from
 gateway calls, files via the `hisense.file` bridge. The Pi's remaining role
 shrinks to nothing for day-to-day operation; the bridge-on-Pi stays only as
 a remote-management convenience.
+
+## R2c — the apm config: we ARE the launcher app (2026-10-30, firmware mining)
+
+The firmware artifacts (41 partition images + opensource seed on fx505,
+`~/alvidaa-backup/`) settle the modify-vs-replace question at the config level.
+`usr-local/etc/apm/application-config-na-sa.ini` defines the launcher app:
+
+```ini
+[launcher]
+path = /opt/hisenseUI/startgui.sh    ; the shim point we already control
+receive_focus = true
+key_priority = 25000                 ; HOME key delivery priority
+app_type = virtualapp
+isKeepAlive = true
+restore_time_when_crash = 10         ; the auto-restart we observed
+```
+
+The TV's own app framework defines "the launcher" as `startgui.sh` → the
+Cobalt engine → `/APPS/channelA/hisenseUI/index.html`. Consequences:
+
+1. **Our index.html is the launcher app's UI by the TV's own config** — HOME
+   key focus, keep-alive, and crash-restore all apply to it automatically.
+   No binary patching, no service replacement.
+2. The HOME key likely arrives as a key event *inside the page* (key_priority
+   routing) — the page can listen and treat it as "I'm already home".
+3. **R6 ad-strip becomes trivial**: the ads render because the stock
+   `app.js`/sdk.js runs. When our loader is in place, that code never
+   executes — the `ads` phoenix service is simply never called.
+4. The seed tar ("pristine vendor state") was captured post-experiments: it
+   contains `channelA/hisenseUI/index.html.alvidaa-bak`. Harmless, but the
+   root lane should know its pristine tag includes that leftover.
+5. Partition map: p26 tvconfig, p37 usrfs, p38 **optfs** (engine + cobalt),
+   p39 varlfs, p40 serialdata, p41 **apps** (channelA). `debugfs` reads them
+   without mounting; `LauncherService` (`/usr/local/bin`) is the native
+   service behind MQTT launchapp.
+
+Sole remaining blocker for full native replacement: the black-screen bug on
+the inlined page. `launcher/probe.html` (staged) reports the engine's
+capability matrix (HTML/JS/UTF8/WS/XHR/img/external-script + native globals
+`log`/`modeljs`/`guijs`/`hisense`) on the next experiment reboot.
