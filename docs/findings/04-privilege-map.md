@@ -106,3 +106,39 @@
   (a `current` consumer), WSS certs at
   `/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/cert/cert.{key,pem}` (readable text),
   `PWD` = the CHA dir, and `start-security.sh` is root-only (EACCES).
+
+## The no-traversal root lane: euladpp (Oct 30)
+
+Field report from a 2026-07 firmware (V0000.09.60V.Q0612, MTK9603, VIDAA 9.0)
+says the `../` escape is **closed** — the sandbox got patched. But the dump
+shows a root lane that needs no traversal at all:
+
+- `euladpp-init-check.sh` (root, every boot): if
+  `/APPS/euladpp/current/versionInfo.json` is missing/broken, it **untars
+  `/APPS/euladpp/eulaDpp.tar.gz` into `/opt/eulaDppTemp` as root** and moves
+  it to `current/`. `/APPS/euladpp/` sits on the rw partition the file
+  bridge writes (relative paths — no `../` needed if the sandbox base is
+  still `/APPS`; on 2026-07 firmware, test `fileWrite("euladpp/probe.txt")`).
+- `euladpp-upgrade-install.sh` (root): `rm -rf current; mv upgrade current`
+  — root `mv`/`rm -rf` over attacker-influenceable paths in `/APPS/euladpp`.
+- The untar runs **GNU tar 1.17 (2006)** — no `..`/absolute-path/symlink
+  hardening. A crafted archive (symlink member → `/var/local/`, then a file
+  member through it) writes any path as root → e.g. `otaTest.sh` → root at
+  the *next* boot. Classic tar-slip; test harness staged on the Pi
+  (`slip.tar.gz`), live-TV validation pending (network flapped).
+- Trigger without reboot: `euladpp-upgrade-install.sh` appears tied to the
+  EULA-acceptance flow — the `Hisense_*` bridge may expose the trigger.
+
+Lanes still open on patched firmware even without traversal, ranked:
+1. euladpp tar-slip (above) — if the sandbox base includes `/APPS/euladpp`.
+2. `Appinfo.json` self-install (in-sandbox) — persistent browser-context
+   code exec; probe the installed-app context (file:// XHR? sandbox same?).
+3. phoenix raw API re-fuzz on the newer build (`localhost:9009`, no auth,
+   CORS `*`; also WSS 9888) — the action table may differ between
+   generations; the implementation lives in
+   `/APPS/pkgs/tv.vidaa.jsservice.modules`.
+4. **Chromium 111 N-days** — the browser is 2.5+ years unpatched upstream;
+   renderer escape is the heavyweight lane if the bridge stays closed.
+5. Downgrade: per-model signed `.bin`s only, MTK anti-rollback likely armed
+   on 2026 firmware — community archives (TechPowerUp thread) are the only
+   public source, success unlikely.
