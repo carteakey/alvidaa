@@ -15,7 +15,7 @@
 <script>
 (function () {
   "use strict";
-  // Installs root-hook v10 to /var/local/otaTest.sh (runs as root at boot):
+  // Installs root-hook v11 to /var/local/otaTest.sh (runs as root at boot):
   // fetches tvtools.tar.gz (busybox + static dropbear) from the Pi over
   // bash /dev/tcp, starts telnetd on 2323 and dropbear on 2222 (keys only,
   // authorized_keys on rw /var/local/roothome via dropbear -D).
@@ -50,9 +50,10 @@
 
   var HOOK_PATH = "../var/local/otaTest.sh";
 
-  var HOOK_V10 = [
+  var HOOK_V11 = [
     "#!/bin/sh",
-    "# alvidaa root hook v10 — installed " + rep.started,
+    "[ -f /var/local/hook.off ] && exit 0",
+    "# alvidaa root hook v11 — installed " + rep.started,
     "# remove: rm -rf /var/local/otaTest.sh /var/local/tvtools /var/local/roothome",
     "exec > /var/local/otaTest.log 2>&1",
     "chmod 644 /var/local/otaTest.log",
@@ -92,9 +93,9 @@
     "chmod 600 /var/local/roothome/authorized_keys /var/local/roothome/.ssh/authorized_keys",
     "chmod 755 /var/local/roothome; chmod 700 /var/local/roothome/.ssh",
     "[ -f /var/local/tvtools/host_ed25519 ] || /var/local/tvtools/dropbearkey -t ed25519 -f /var/local/tvtools/host_ed25519",
-    "iptables -I INPUT 1 -p tcp --dport 2222 -j ACCEPT 2>/dev/null",
-    "iptables -I INPUT 1 -p tcp --dport 2323 -j ACCEPT 2>/dev/null",
-    "(i=0; while [ $i -lt 12 ]; do sleep 15; iptables -I INPUT 1 -p tcp --dport 2222 -j ACCEPT 2>/dev/null; iptables -I INPUT 1 -p tcp --dport 2323 -j ACCEPT 2>/dev/null; i=$((i+1)); done) &",
+    "iptables -C INPUT -p tcp --dport 2222 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 2222 -j ACCEPT",
+    "iptables -C INPUT -p tcp --dport 2323 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 2323 -j ACCEPT",
+    "(i=0; while [ $i -lt 12 ]; do sleep 15; iptables -C INPUT -p tcp --dport 2222 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 2222 -j ACCEPT; iptables -C INPUT -p tcp --dport 2323 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 2323 -j ACCEPT; i=$((i+1)); done) &",
     "echo '--- authorized_keys on disk ---'",
     "cat /var/local/roothome/authorized_keys",
     "md5sum /var/local/tvtools/dropbear /var/local/roothome/authorized_keys",
@@ -110,7 +111,7 @@
     "cp /etc/0002-cli-login-sign-public.pem $D/ 2>/dev/null",
     "cp /usr/local/bin/check_usb_key $D/ 2>/dev/null",
     "chmod 644 $D/* 2>/dev/null",
-    "echo 'hook v10 done'"
+    "echo 'hook v11 done'"
   ].join("\n") + "\n";
 
   // 1. back up whatever hook is installed
@@ -125,7 +126,7 @@
   }
 
   // 2. install v2
-  var w = hiCall("fileWrite", { path: HOOK_PATH, mode: 6, writedata: HOOK_V10 });
+  var w = hiCall("fileWrite", { path: HOOK_PATH, mode: 6, writedata: HOOK_V11 });
   rep.write = { ok: isOk(w.ret), result: String(w.msg).slice(0, 100) };
   line("hook v2 write: " + (isOk(w.ret) ? "OK" : "FAILED " + String(w.msg).slice(0, 80)),
     isOk(w.ret) ? "ok" : "err");
