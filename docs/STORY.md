@@ -87,7 +87,7 @@ became alvidaa.)
 The Fire TV half of day one went the way the guides promise, which was
 almost suspicious after what the VIDAA half would become.
 
-**The pairing saga.** The stick (an AFTKRT on Fire OS 8.1, `192.168.0.82`)
+**The pairing saga.** The stick (an AFTKRT on Fire OS 8.1, `<firetv-ip>`)
 was reachable and ADB debugging was on — but the "Allow USB debugging?"
 dialog refused to render for this Mac, a new ADB host. Roughly *ten
 minutes* of continuous knocking, three polling rounds, an ADB server
@@ -152,7 +152,7 @@ The TV got fingerprinted properly: SSDP finds it as a DLNA MediaRenderer,
 and the device descriptor leaks a gold mine — `mac=`, `region=`, `brand=his`,
 `vidaa_support=1`, and crucially **`transport_protocol=3290`**, a number
 that predicts which authentication generation the TV's MQTT broker speaks.
-"Living Room TV," `192.168.0.12`, WiFi, RemoteNow listening on 36669.
+"Living Room TV," `<tv-ip>`, WiFi, RemoteNow listening on 36669.
 
 The plan: the launcher is a web page installed through VIDAA's hidden
 installer (`hisense://debug`), served by a small Python server that
@@ -348,7 +348,7 @@ TV, or they kick each other off the broker; documented, then personally
 rediscovered twice). Re-pointing the installed app meant one browser
 visit to the Pi's URL and a reinstall — same app Id, overwrites itself —
 plus a TV restart. An access log went in so the Pi's journal could prove
-the TV was asking for the right host. It was: `host=192.168.0.85:8770`.
+the TV was asking for the right host. It was: `host=<pi-ip>:8770`.
 
 [📷 PHOTO 7: the Raspberry Pi running alvidaa.service, with the journal showing the TV's requests]
 
@@ -682,7 +682,7 @@ at boot. And broken SSH configs now get validated on the Pi itself,
 which happily runs the armv7 dropbear in 32-bit compat — no more
 rebooting the TV to test a config line.
 
-**SSH: IN.** `ssh -p 2222 -i server/keys/tv_root_ed25519 root@192.168.0.12`
+**SSH: IN.** `ssh -p 2222 -i server/keys/tv_root_ed25519 root@<tv-ip>`
 lands at a root shell, key-only, from the laptop, at every boot. Five
 locks, five hook versions (v5–v10), zero plug pulls since the root one.
 The jailbreak is done.
@@ -694,7 +694,7 @@ never supposed to administer:
 
 ```
 uid=0(root) gid=0(root) groups=0(root)
-Linux hisensetv-88b863c83aa5 4.19.79+ #1 SMP PREEMPT Wed Aug 13 2025 armv7l
+Linux hisensetv-<ethernet-mac> 4.19.79+ #1 SMP PREEMPT Wed Aug 13 2025 armv7l
 ```
 
 The hostname is the TV's ethernet MAC — it introduced itself. Kernel
@@ -725,7 +725,7 @@ less.
 
 **The journalist's tour.** By midnight even the second window — the one
 writing the story — had the key. A read-only tour, three light batches:
-`hostname` = `hisensetv-88b863c83aa5` (the ethernet MAC); `/proc/cpuinfo`
+`hostname` = `hisensetv-<ethernet-mac>` (the ethernet MAC); `/proc/cpuinfo`
 says ARMv7 rev 4, `free` says 1.2 GB with 808 MB already used (the TV is
 busy being a TV). `/var/local` is a city — the hook lineage on disk
 (`otaTest.sh` v10 at 3.1 KB, `otaTest.v1.bak`, a 14.8 KB `otaTest.log`),

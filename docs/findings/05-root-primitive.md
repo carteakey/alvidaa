@@ -53,8 +53,8 @@
   root at boot. Proof: `/var/local/otaTest.log` exists but is root-owned
   (EACCES for uid 314 — v1 forgot to chmod its own log), and the hook's
   `chmod 644`-ed dumps under `/var/local/rootdumps/` are bridge-readable.
-- **`/etc/shadow` harvested**: `root:$6$gShEqAoltKdxvGmj$…`; `television` and
-  `cli` share one hash (`$6$mLKnVUtfuwMJgvjs$…`).
+- **`/etc/shadow` harvested**: `root:$6$<redacted>$…`; `television` and
+  `cli` share one hash (`$6$<redacted>$…`).
 - **`rootlogin.sh` is a two-liner**: `source /usr/local/scripts/key_check.sh; main`
   — the UART root shell is exactly the USB-key gate; there is no separate root
   password prompt (the shadow hash exists for login(1) paths).

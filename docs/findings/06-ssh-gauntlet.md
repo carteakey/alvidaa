@@ -1,4 +1,4 @@
-# alvidaa findings — SSH: dropbear, the EULA firewall, and the five locks (recon §10.13–10.16)
+# alvidaa findings — SSH: dropbear, the EULA firewall, and the five locks (recon §10.13–10.18)
 
 > Split from the original FINDINGS.md lab notebook. Canonical record; the blog and STORY.md draw from these.
 
@@ -82,3 +82,32 @@
 - Meta-lesson recorded for the next target: when a stock daemon binary
   rejects for unobvious reasons, compile your own — but read the rejection
   path in source first; it was the shell, not the key.
+
+### 10.17 Lock 4: world-writable `/var/local` vs `checkpubkeyperms()` (hook v8)
+
+- Even with the shell check patched out, dropbear still rejected public-key auth.
+- Cause: `start-hisense.sh` runs `chmod 777 /var/local` on every boot (§10.7).
+  Dropbear's `svr-authpubkey.c:checkpubkeyperms()` walks every parent directory of
+  `authorized_keys` (`/var`, `/var/local`, `/var/local/roothome`) and rejects any
+  key sitting beneath a group- or world-writable directory. Because all our
+  persistent rw storage sits under `/var/local`, a stock permissions walk rejects
+  every key placement we control.
+- Fix (hook v8): patch `checkpubkeyperms()` in our static dropbear build to return
+  success unconditionally (alongside diagnostic logging confirming which check fired).
+
+### 10.18 Lock 5: root's login shell is the USB-key gate (hooks v9–v10)
+
+- With `checkpubkeyperms()` bypassed, the SSH handshake finally succeeded and
+  authenticated — then immediately printed `1` and closed the connection.
+- Cause: `1` is the exit/error code of `key_check.sh`. On this firmware, root's
+  login shell in `/etc/passwd` is `/usr/local/scripts/rootlogin.sh`, which is a
+  two-line wrapper that runs the physical USB-key gate (§10.11). Dropbear spawns
+  `pw_shell` on login, so authenticating as root launched the USB gate script,
+  which saw no factory USB stick, printed `1`, and exited.
+- Hook v9 tried adding `command="/bin/sh"` to `authorized_keys`, but shell
+  escaping wrote literal `\"` into the key file (producing "auth OK, zero output"),
+  and dropbear still invokes `pw_shell -c` to run forced commands anyway.
+- Fix (hook v10): drop the forced-command option and patch `get_user_shell()` in
+  our static dropbear build to return `/bin/sh` directly. On the next reboot,
+  `ssh -p 2222 -i server/keys/tv_root_ed25519 root@<tv-ip>` landed straight at a
+  root shell.

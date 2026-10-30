@@ -7,8 +7,8 @@ the blog and [STORY.md](STORY.md) draw from these files. Split into modules:
 | --- | --- |
 | [01-mqtt-bridge.md](findings/01-mqtt-bridge.md) | SSDP discovery, RemoteNow/MQTT channel, the 2024 auth gate (cert + dynamic credentials), pairing quirks (PIN rotation, wildcard-sub denial), broker quirks, app self-install, the VIDAA browser. |
 | [02-operations.md](findings/02-operations.md) | Pi deployment, keys hygiene, one-server-per-TV rule. |
-| [03-bridge-internals.md](findings/03-bridge-internals.md) | Device identity (MTK9602, Chromium 111 armv7), the bridge's three layers (shims → localhost:9009 → phoenix/Node), the `/APPS` sandbox and the `../` escape, raw API (no auth, CORS `*`), lane assessment. |
-| [04-privilege-map.md](findings/04-privilege-map.md) | Who runs what: mounts (dm-verity vs rw+exec), accounts, the boot chain, `deploy_oem_data.sh` (root file deployer), `set_ipk_path.sh`, phoenix's environment. |
+| [03-bridge-internals.md](findings/03-bridge-internals.md) | Device identity (MTK9602, Chromium 111 armv7), the bridge's three layers (shims → localhost:9009 → phoenix/Node), the `/APPS` sandbox and the `../` escape, raw API probing. |
+| [04-privilege-map.md](findings/04-privilege-map.md) | Who runs what: mounts (dm-verity vs rw+exec), accounts, lane assessment, the boot chain, `deploy_oem_data.sh` (root file deployer), `set_ipk_path.sh`, phoenix's environment. |
 | [05-root-primitive.md](findings/05-root-primitive.md) | The UART console gate (`key_check.sh` fully reversed), the `/var/local/otaTest.sh` root boot hook, remote page loading via `/api/open`, root confirmed + the harvest, the toolbox inventory (`iptables`, `opkg`, bash `/dev/tcp`). |
 | [06-ssh-gauntlet.md](findings/06-ssh-gauntlet.md) | Static dropbear via `zig cc`, Hisense's EULA firewall, and the five locks (firewall, key path, `/etc/shells`, perms walk, gate-as-shell) with the hook-version counters. |
 | [07-root-summary.md](findings/07-root-summary.md) | The kill chain end-to-end, working state (`server/tv`), eMMC map, teardown path. |
@@ -33,8 +33,8 @@ the blog and [STORY.md](STORY.md) draw from these files. Split into modules:
 - ~~Boot-time takeover preset slot~~ — superseded: R2 found
   `hisense_stage0.sh` and the stock home's webpack loader; the native-home
   shim is the cleaner answer (LAUNCHER_V2.md R5).
-- ~~Does `HiUtils_createRequest` survive firmware updates~~ — the deeper
-  question is moot while OTA is frozen; the hook re-arms everything else.
+- Does `HiUtils_createRequest` survive firmware updates? OTA blocking is a
+  guardrail in the plan; its deployed and verified status needs confirmation.
 - What domain does `hi_logreport_service` actually upload to? (runtime
   `getDomain` — read it from the `TVOUT` wiretap once a few days of data
   accumulate.)

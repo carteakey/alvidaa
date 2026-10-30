@@ -39,8 +39,9 @@ These cost us real debugging time; the on-TV port inherits them as requirements:
    applist as "keep the previous one", never overwrite cache with `[]`.
 7. **The browser D-pad is a pointer** — tiles are click hit-tested; keyboard
    events are secondary.
-8. **Chrome 77 on a weak GPU**: one canvas at 960×540, no offscreen canvases
-   (they render empty), no layered DOM/CSS, ES2018 only, `Cache-Control:
+8. **Web-app browser on a modest GPU** (Chromium 111 "odin" on this firmware;
+   older VIDAA sets run Chrome 77): one canvas at 960×540, no offscreen canvases
+   (they render empty), no layered DOM/CSS, ES2018-compatible syntax, `Cache-Control:
    no-store` on everything.
 9. **app TTL 60s**: TV-side installs/uninstalls must surface within a minute.
 
@@ -147,7 +148,7 @@ invasive rw-space edit in the plan.
 
 ## Immediate next actions
 
-1. (User) Plug pull → hook v3 activates → `telnet 192.168.0.12 2323`.
+1. (User) Plug pull → hook v3 activates → `telnet <tv-ip> 2323`.
 2. (Root lane) 2323 firewall rule + dropbear swap; OTA endpoint freeze.
 3. (Launcher lane, now) this document committed; R4 port skeleton prepared
    behind a flag so it can start the moment R2 reports phoenix's runtime shape.

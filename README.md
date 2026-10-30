@@ -33,8 +33,9 @@ cert-gated MQTT ─► browser file bridge ─► ../ escape ─► unauth local
     ─► rc.local boot hook ─► root at every boot ─► key-only SSH
 ```
 
-Lane 1 works on any TV of the same firmware generation. Lane 2 is
-**model-specific** (SoC and partition layout bite there) and is documented
+Lane 1 has been tested on the model below; compatibility with other models
+and firmware remains to be established. Lane 2 is **model-specific** (SoC and
+partition layout bite there) and is documented
 stage by stage in [docs/ROOT.md](docs/ROOT.md).
 
 ## Quickstart — the launcher
@@ -73,8 +74,9 @@ the same browser bridge that installs the launcher can be walked past its
 sandbox (`../`), the raw file API behind it is unauthenticated, and a
 production boot script executes a writable file as root — after that it's
 a static dropbear and five lockpick hook versions. The recon probe
-([launcher/recon.html](launcher/recon.html)) is read-only and safe;
-everything past it changes your TV's boot behavior.
+([launcher/recon.html](launcher/recon.html)) includes write probes and a root
+hook installation action; inspect it before use. Installing the hook changes
+your TV's boot behavior.
 
 ## The docs
 
@@ -109,8 +111,9 @@ Built on the shoulders of [Bananamafia's hisensehax](https://bananamafia.dev/pos
 [Zfinix/vidaa-launcher](https://github.com/Zfinix/vidaa-launcher) (mechanism
 reference only — this is an independent implementation).
 
-Nothing is written to system partitions; verified boot stays locked and
-green; deleting the "Home" app entry and the boot hook (or a factory
-reset) fully reverts everything. The certificates and tokens in
+No system partitions were written during this research; verified boot stayed
+locked and green. Changes were designed to be reversible, but a complete
+teardown has not been verified: it also requires restoring any edited UI files
+and removing the root hook and its associated tools and configuration. The certificates and tokens in
 `server/keys/` are device credentials — never commit them. Disclosure
 status and reasoning: [SECURITY.md](SECURITY.md).

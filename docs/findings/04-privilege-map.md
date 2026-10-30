@@ -1,4 +1,4 @@
-# alvidaa findings — who runs what — the privilege map (recon §10.4, 10.7–10.8)
+# alvidaa findings — who runs what — the privilege map (recon §10.4, 10.6–10.8)
 
 > Split from the original FINDINGS.md lab notebook. Canonical record; the blog and STORY.md draw from these.
 
@@ -26,24 +26,14 @@
   `/config/daemon_profile` and `/application/network`) → `rcS.ko.linux`;
   `otaflag=170` in cmdline switches the tail to `rcS.OTA`/`rc.ota` — the `/OAD` lane.
 
-### 10.5 Raw API probing
-
-- The shim's request is reproducible directly from any page: XHR to
-  `localhost:9009` with the captured shape (v4 `report.wire` has it verbatim).
-  Fuzzing api names against that shape cleanly separates supported from
-  unsupported (`"Not supported api"`).
-- `phoenix.server.js` — the backend's own source, on our writable `/APPS` — is
-  readable via `../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/phoenix.server.js`;
-  it contains the complete action table (v5 dump pending).
-
 ### 10.6 Lane assessment
 
 1. **Persistent code exec as uid 314**: phoenix runs JS from our writable `/APPS`.
    If the package isn't re-extracted at boot, augmenting `phoenix.server.js` =
-   arbitrary code exec at every service restart. Pending: the v5 dump + verifying
-   `/APPS` package persistence across reboots.
+   arbitrary code exec at every service restart (see §10.7 below for the v5 dump).
 2. **Root**: needs a root-run service that consumes attacker-controlled files from
-   a rw mount (map pending from `start-hisense.sh`), the `/OAD`/OTA lane
+   a rw mount (mapped in §10.7–10.8 below, leading to the `rc.local` hook in
+   [05-root-primitive.md](05-root-primitive.md)), the `/OAD`/OTA lane
    (`otaflag=170` → `rcS.OTA`/`rc.ota`), a kernel route on the MTK box, or the
    UART gate (physical; scripts are root-only readable).
 3. Everything alvidaa does today minus MQTT: uid-314 read/write already covers

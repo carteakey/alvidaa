@@ -22,7 +22,7 @@ The full chain, in the order each layer fell:
 **Working state**: `server/tv` (PATH-fixing wrapper) →
 
 ```
-uid=0(root) … Linux hisensetv-88b863c83aa5 4.19.79+ #1 SMP PREEMPT
+uid=0(root) … Linux hisensetv-<ethernet-mac> 4.19.79+ #1 SMP PREEMPT
 Wed Aug 13 14:09:29 CST 2025 armv7l
 ```
 

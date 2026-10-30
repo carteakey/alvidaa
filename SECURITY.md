@@ -20,8 +20,11 @@ prepared, and this repository is published in parallel rather than waiting on
 a 90-day window.** If/when Hisense patches, findings will be annotated here.
 The reasoning, stated openly so you can weigh it yourself:
 
-- Every finding requires the attacker to already be on the victim's LAN.
-  There is no remote, internet-reachable attack path.
+- The documented MQTT control path requires LAN access and pairing. Separately,
+  the browser can reach the unauthenticated localhost file bridge: if the TV
+  loads attacker-controlled content, that content may be able to use the bridge
+  without the attacker being on the LAN. The full remote attack path has not
+  been independently verified; do not expose the TV browser to untrusted pages.
 - No DRM or technical protection measure is circumvented; verified boot is
   untouched, and nothing here helps pirate content.
 - The vendor has a history of not responding to VIDAA research reports.

@@ -138,8 +138,8 @@ Details: [findings/06-ssh-gauntlet.md](findings/06-ssh-gauntlet.md)
    only true game-over. Note: `/OAD/AppUpgradeSwitch.json` already reads
    `upgradeFlag: 0` on our TV, but the service rewrites it from the
    server, so the firewall lane is the real freeze.
-2. Every hook version backs up the previous one (`otaTest.v1.bak`) and
-   ships with a kill-switch; keep the lineage on the TV.
+2. Keep a backup of the previous hook (`otaTest.v1.bak`) on the TV. A
+   kill-switch is planned for v11; it is not established for the current hook.
 3. One MQTT session per credential set, one agent on the TV at a time.
 4. Never commit `server/keys/`; never publish vendor binaries.
 5. The endgame is the teardown: delete the hook, fresh boot, verified

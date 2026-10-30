@@ -1,4 +1,4 @@
-# alvidaa findings — the bridge is a local HTTP API (recon §10.1–10.6)
+# alvidaa findings — the bridge is a local HTTP API (recon §10.1–10.3, 10.5)
 
 > Split from the original FINDINGS.md lab notebook. Canonical record; the blog and STORY.md draw from these.
 
@@ -53,30 +53,6 @@ backend can die mid-run (§10.3).
   supervised restart — but everything queued after the crash in one run is lost
   (hence the incremental POSTs).
 
-### 10.4 Who runs what (privilege map)
-
-- **Verified boot is active**: rootfs is dm-verity squashfs (ro), cmdline carries
-  `androidboot.vbmeta.device_state=locked`, `verifiedbootstate=green`, and ro
-  partitions are mounted via MTK `mtk_mount` with a vbmeta reference partition.
-  System partitions are off-limits — the lane is rw mounts only.
-- **rw + exec-flagged**: `/APPS` (p41), `/data` (p27), `/var/local` (p39),
-  `/var/tvservice` (p35), `/OAD` (p42, OTA staging — and `/OAD` sits on
-  `login.sh`'s PATH), plus tmpfs (`/dev/shm`, `/var/run`, `/var/log`).
-  rw + `noexec`: `/cache`, `/certificate`. Everything else ro.
-- Accounts of interest (`/etc/passwd`): `root` shell = `/usr/local/scripts/rootlogin.sh`
-  (root-only readable); **`cli` is UID 0**, shell = `/etc/cli_login.sh` (also
-  root-only) — the classic Hisense debug shell, gate contents unknown;
-  `television` (uid 300, the UI) shell = `/usr/local/scripts/login.sh`;
-  an `sshd` account exists (uid 999) — server presence unconfirmed;
-  phoenix = `UhisPhoenix` uid 314, **no capabilities, no seccomp**, PPid 306.
-- **The UART console is live**: `inittab` respawns `getty -L ttyS0 115200` —
-  a USB-TTL adapter on the service port reaches a real login prompt gated only by
-  the (unreadable) login scripts.
-- Boot chain: `rcS` → `mount -a` → `rcS.utopia.linux` (mounts, insmods, then
-  `/usr/local/scripts/start-hisense.sh`, `setenforce 0`, sources
-  `/config/daemon_profile` and `/application/network`) → `rcS.ko.linux`;
-  `otaflag=170` in cmdline switches the tail to `rcS.OTA`/`rc.ota` — the `/OAD` lane.
-
 ### 10.5 Raw API probing
 
 - The shim's request is reproducible directly from any page: XHR to
@@ -85,17 +61,4 @@ backend can die mid-run (§10.3).
   unsupported (`"Not supported api"`).
 - `phoenix.server.js` — the backend's own source, on our writable `/APPS` — is
   readable via `../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/phoenix.server.js`;
-  it contains the complete action table (v5 dump pending).
-
-### 10.6 Lane assessment
-
-1. **Persistent code exec as uid 314**: phoenix runs JS from our writable `/APPS`.
-   If the package isn't re-extracted at boot, augmenting `phoenix.server.js` =
-   arbitrary code exec at every service restart. Pending: the v5 dump + verifying
-   `/APPS` package persistence across reboots.
-2. **Root**: needs a root-run service that consumes attacker-controlled files from
-   a rw mount (map pending from `start-hisense.sh`), the `/OAD`/OTA lane
-   (`otaflag=170` → `rcS.OTA`/`rc.ota`), a kernel route on the MTK box, or the
-   UART gate (physical; scripts are root-only readable).
-3. Everything alvidaa does today minus MQTT: uid-314 read/write already covers
-   app install and config without the RemoteNow channel.
+  see [04-privilege-map.md](04-privilege-map.md) (§10.4, §10.6–10.8) for the privilege map, lane assessment, and the v5/v6 dump results.

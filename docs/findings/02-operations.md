@@ -12,11 +12,14 @@
 - Preset apps (TV Channels, VIDAA Kids, APP STORE…) cannot be truly deleted
   via known APIs — this launcher hides them via `config.json` instead.
 
-## 9. Open questions
+## 9. Open questions (pre-root baseline, updated post-root)
 
-- True deletion of preset apps (probably `preset.txt`/database territory —
-  brick-adjacent, not attempted).
-- Boot-time takeover is a 3s poll, not a real launcher. A cleaner hook would
-  need the `Appinfo.json` "preset" slot — untested.
-- Whether `HiUtils_createRequest` survives firmware updates (the installed
-  app entry should survive regardless).
+- ~~True deletion of preset apps~~ — superseded once root landed: `Appinfo.json`
+  and the stock UI code on `/APPS/channelA` are directly addressable (see
+  [09-endpoints.md](09-endpoints.md)).
+- ~~Boot-time takeover via `Appinfo.json` "preset" slot~~ — superseded by R2:
+  `hisense_stage0.sh` and `startgui.sh` launch the stock home webpack SPA from
+  `/APPS/channelA/hisenseUI/index.html`, which is the cleaner native-home shim
+  target (see [LAUNCHER_V2.md](../LAUNCHER_V2.md)).
+- Whether `HiUtils_createRequest` survives future firmware updates (freezing OTA
+  via `iptables` in R0 is the planned guardrail).

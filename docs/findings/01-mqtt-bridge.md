@@ -125,11 +125,11 @@ offers a self-install tile, so the TV installs itself from a plain
 Bananamafia post demonstrated — one more reason to DNS-block TV telemetry and
 not browse the open web on the TV.)
 
-## 7. The VIDAA browser (Chrome 77)
+## 7. The VIDAA browser (Chromium 111 "odin" vs. legacy Chrome 77 notes)
 
-- One canvas at 960×540 (720p-class) upscaled by the TV renders fine; layered
-  DOM/CSS effects blank out. Draw everything, repaint cheaply.
-- ES2018 max: no optional chaining, no nullish coalescing.
+- Older community guides assume Chrome 77 (`ES2018` max); on 2024+ firmware (`V0000.09.01O.P0813`), the web-app browser (`odin`) actually reports **Chromium 111** (`armv7l`), while the stock home (`bin/hisenseUI`) runs in an embedded Cobalt engine (see [03-bridge-internals.md](03-bridge-internals.md) §10.1 and [LAUNCHER_V2.md](../LAUNCHER_V2.md)).
+- One canvas at 960×540 (720p-class) upscaled by the TV renders predictably and keeps repaints cheap.
+- Shipping ES2018-compatible JS (avoiding optional chaining / nullish coalescing) keeps pages portable across older VIDAA builds.
 - **The D-pad moves an on-screen pointer** and OK emits a **click** — keyboard
   events are not the primary input. Support both: hit-test `click` on canvas
   tiles *and* `keydown` arrows/Enter.

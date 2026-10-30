@@ -141,8 +141,8 @@ cd /tmp/doomgen/doomgeneric
 
 ```sh
 KEY=server/keys/tv_root_ed25519
-SSH="ssh -p 2222 -i $KEY -o BatchMode=yes root@192.168.0.12"
-ssh -p 2222 -i $KEY root@192.168.0.12 'mkdir -p /var/local/doom'
+SSH="ssh -p 2222 -i $KEY -o BatchMode=yes root@<tv-ip>"
+ssh -p 2222 -i $KEY root@<tv-ip> 'mkdir -p /var/local/doom'
 cat /tmp/doom_fb | $SSH 'cat > /var/local/doom/doom_fb && chmod +x /var/local/doom/doom_fb'
 cat /tmp/usr/share/games/doom/doom1.wad | $SSH 'cat > /var/local/doom/doom1.wad'
 ```
