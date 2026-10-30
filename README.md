@@ -18,8 +18,10 @@ installs the page itself as a native app through its own hidden APIs.
 └─────────────┘                └──────────────────┘                    └─────────┘
 ```
 
-- The **TV page** is one canvas (VIDAA's browser is Chrome 77 — DOM/CSS dies).
-  Stateless: all config and state are pushed by the server.
+- The **TV page** is one canvas — drawn and repainted cheaply, which sidesteps
+  the TV browser's compositing quirks on every generation we've tested
+  (Chrome 77 on older firmware, Chromium 111 on 2024+). Stateless: all config
+  and state are pushed by the server.
 - The **server** (Python, stdlib + paho-mqtt) bridges OK-presses to the TV over
   the same RemoteNow channel the official remote app uses, filters the app
   list (`config.json`: hide/rename), and runs the **home watcher** that
@@ -27,7 +29,7 @@ installs the page itself as a native app through its own hidden APIs.
   UI is inherent — VIDAA has no default-launcher setting).
 - **Pairing** (`pair.py`) walks the modern app handshake: dynamic credentials +
   the 2024 client certificate, and captures long-lived tokens so you pair once.
-  The full reverse-engineering story is in [docs/FINDINGS.md](docs/FINDINGS.md).
+  The full reverse-engineering story is in [docs/findings/](docs/findings/01-mqtt-bridge.md).
 
 ## Setup
 
@@ -55,15 +57,40 @@ TV_MAC=<tv-wifi-mac> ./venv/bin/python pair.py <tv-ip>
 Harden the config in `server/config.json`: hide preset apps, rename tiles,
 toggle the home watcher.
 
-## Status
+## Status & tested models
 
-Working end-to-end on a 2024+ VIDAA firmware (`transport_protocol=3290`):
+**Working end-to-end** (2024+ firmware generation, `transport_protocol=3290`):
 pairing, token auth + refresh, app launch, source switching, self-install,
-home watcher. Pi deployment with systemd units is the next milestone.
+home watcher, Pi deployment (systemd). The root/shell research chain is
+documented separately in [docs/findings/](docs/findings/) — it is
+**model-specific** (armv7/MTK paths and partition layouts differ per SoC),
+while the launcher only depends on the firmware generation.
 
-See [docs/FINDINGS.md](docs/FINDINGS.md) for everything learned on the way —
+**Tested on:**
+
+| Model | Region | SoC | Firmware | `transport_protocol` | Browser | Launcher | Root chain | Tested by |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 50A51HUV | US/CAN | MTK9602 | V0000.09.01O.P0813 (U09.01) | 3290 | Chromium 111 "odin" | ✅ v1.3 | ✅ full chain | [@carteakey](https://github.com/carteakey) |
+
+**Report your test — by PR, not issue.** Fork, add one row to the table
+(edit this README), open a PR. What to include and where to find it:
+
+- **Model / region**: TV Settings → Support → device info, or the SSDP
+  device descriptor (`modelDescription` leaks `region=`, `brand=`,
+  `vidaa_support=`, `transport_protocol=` — see
+  [docs/findings/01-mqtt-bridge.md](docs/findings/01-mqtt-bridge.md) §1).
+- **`transport_protocol`**: the single most predictive number — it selects
+  the auth generation. From the SSDP descriptor.
+- **Firmware**: Settings → About, or `Hisense_GetFirmWareVersion()` from any
+  page in the TV browser (or the recon page in `launcher/recon.html`).
+- **SoC**: `Hisense_GetChipSetName()` — same bridge (needs a page running on
+  the TV; HiSilicon vs MTK changes the root chain, not the launcher).
+- **What worked / what didn't**: pairing, install, watcher, canvas
+  rendering, anything generation-surprising.
+
+See [docs/findings/](docs/findings/) for everything learned on the way —
 the cert gate, the auth cascade, the exact-topic subscription trap, the PIN
-rotation race, and the install APIs.
+rotation race, the install APIs, and (separately) the root chain.
 
 ## Credits & safety
 
