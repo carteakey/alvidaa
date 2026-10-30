@@ -1,0 +1,13 @@
+#!/bin/sh
+# Root shell/one-shot into the TV over dropbear (port 2222).
+#   server/tv                    -> interactive root shell (PATH fixed)
+#   server/tv 'cat /proc/mounts' -> one-shot command
+# The dropbear session does not run /etc/profile, so PATH is set here.
+KEY="$(dirname "$0")/keys/tv_root_ed25519"
+FIX="export PATH=/usr/local/bin:/usr/local/scripts:/bin:/usr/bin:/sbin:/usrbin:/opt/bin:/3rd/bin/wpa_supplicant/common:\$PATH;"
+if [ $# -eq 0 ]; then
+    exec ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -p 2222 -i "$KEY" root@192.168.0.12 "$FIX exec /bin/sh -i"
+fi
+exec ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -p 2222 -i "$KEY" root@192.168.0.12 "$FIX $*"

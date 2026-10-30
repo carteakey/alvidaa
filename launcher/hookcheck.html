@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>hookcheck</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .warn { color: #fd6; }
+</style>
+</head>
+<body>
+<div id="out">hookcheck…</div>
+<script>
+(function () {
+  "use strict";
+  // Fast post-boot check: read the root hook's output and POST immediately.
+  // Built to finish in well under a second so the home watcher can't kill it.
+
+  var el = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), reads: {} };
+
+  function normMsg(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function hiCall(action, params) {
+    try {
+      var r = HiUtils_createRequest(action, params);
+      return r && typeof r === "object" ? { ret: r.ret, msg: normMsg(r.msg) } : { value: String(r) };
+    } catch (e) { return { exception: String(e) }; }
+  }
+  function isOk(ret) {
+    if (ret === true) return true;
+    if (typeof ret === "number") return ret !== 0;
+    if (typeof ret === "string") return ret !== "" && ret !== "0";
+    return false;
+  }
+  function line(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+
+  var PATHS = [
+    "../etc/shells",
+    "../var/local/roothome/authorized_keys",
+    "../var/local/messages",
+    "../var/local/otaTest.log",
+    "../var/local/rootdumps/shadow",
+    "../var/local/rootdumps/rootlogin.sh",
+    "../var/local/rootdumps/cli_login.sh",
+    "../var/local/rootdumps/key_check.sh",
+    "../proc/uptime"
+  ];
+
+  function post(finished) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/recon", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify({ tag: finished ? "hookcheck-final" : "hookcheck-partial",
+                              at: new Date().toISOString(), report: rep }));
+    } catch (e) { /* screen shows it */ }
+  }
+
+  for (var i = 0; i < PATHS.length; i++) {
+    var p = PATHS[i];
+    var r = hiCall("fileRead", { path: p, mode: 6 });
+    rep.reads[p] = { ret: r.ret, len: r.msg ? r.msg.length : 0, msg: r.msg };
+    line((isOk(r.ret) ? "[ok] " : "[--] ") + p + (isOk(r.ret) ? " (" + r.msg.length + " b)" : " " + String(r.msg).slice(0, 80)), isOk(r.ret) ? "ok" : "");
+  }
+
+  line("== posting ==", "warn");
+  post(true);
+  line("== done ==", "warn");
+})();
+</script>
+</body>
+</html>
