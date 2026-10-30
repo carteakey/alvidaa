@@ -288,3 +288,43 @@ Sole remaining blocker for full native replacement: the black-screen bug on
 the inlined page. `launcher/probe.html` (staged) reports the engine's
 capability matrix (HTML/JS/UTF8/WS/XHR/img/external-script + native globals
 `log`/`modeljs`/`guijs`/`hisense`) on the next experiment reboot.
+
+## Write-minimization law (2026-10-30, user directive)
+
+The p42 dump hang (wedged eMMC controller under sustained IO, recovered by
+power cycle — see root lane FINDINGS) plus the user's call: **minimal TV
+writes from now on, batched, even though the flash tested healthy.** Reads
+are free (wear is program/erase); writes are the budget.
+
+Launcher-lane rules that follow:
+
+1. Every TV write is batched: one write + one reboot per experiment window,
+   authorized by the user beforehand. No iterate-and-see deploys.
+2. Results are collected over the network (probe pages POST to
+   `/api/probe` on the bridge; reads are unlimited) — never by extra TV
+   writes.
+3. Steady-state launcher writes on TV: zero (logs to the bridge, config on
+   the Pi, icon cache server-side).
+
+## Canvas hypothesis (black-screen root cause, pending probe)
+
+Pattern across all boots: every page that rendered (canary div, redirect
+trampoline, the stock home itself) is **DOM/CSS**; every page that went black
+(both inline launcher attempts) is **canvas-based**. The stock home runs
+heavy JS with zero canvas, so it's not size or JS capability.
+
+Working hypothesis: this Cobalt build has **2D canvas disabled** (Cobalt is
+built per-platform with feature flags). Consequence if confirmed: the native
+launcher is a DOM implementation (divs + CSS, like the stock home), not a
+canvas painter — a UI rewrite, not a bugfix.
+
+`launcher/probe2.html` (staged, not deployed) tests this in one reboot:
+DOM-based self-reporting (never draws), stages for HTML/JS/UTF8/viewport/
+canvas-presence/native-globals (log, modeljs, guijs, hisense,
+HiUtils_createRequest, Hisense_*)/WS/XHR/img/external-script, every result
+mirrored to the bridge. `probe-report` lands on the Pi via `/api/probe`
+(ACAO: * now enabled server-side), so the window needs no user reading and
+no TV writes for collection.
+
+Restore state after the last experiment: original loader restored
+(md5 fe34aa5d…), watcher re-enabled, TV functional — user watching.

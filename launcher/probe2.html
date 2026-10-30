@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>probe2</title>
+<style>
+  html,body{margin:0;background:#0a0d12;color:#c8cdd4;font:17px/1.5 sans-serif;padding:14px}
+  .ok{color:#4ade80}.fail{color:#f87171}.info{color:#8a8f98}
+  div{margin:2px 0}
+</style>
+</head>
+<body>
+<div class="info">S1-HTML-OK (static)</div>
+<div id="log"></div>
+<script>
+"use strict";
+// probe v2 — DOM-only (no canvas anywhere; S8 *tests* canvas presence without
+// depending on it). Every result is mirrored to the bridge via XHR POST, so
+// nothing needs to render for the data to land on the Pi.
+var el = document.getElementById("log");
+function show(t, cls) {
+  var d = document.createElement("div");
+  d.textContent = t;
+  if (cls) d.className = cls;
+  el.appendChild(d);
+  report({ t: t });
+}
+var batch = [];
+function report(entry) {
+  batch.push(Object.assign({ at: new Date().toISOString() }, entry));
+  try {
+    var x = new XMLHttpRequest();
+    x.open("POST", "http://192.168.0.85:8770/api/probe", true);
+    x.setRequestHeader("Content-Type", "application/json");
+    x.send(JSON.stringify({ tag: "probe2", results: batch }));
+  } catch (e) {}
+}
+
+show("S2-JS-OK", "ok");
+show("S3-UTF8: \u25b2\u25bc\u25cf\u2605 OK", "ok");
+show("S3b-viewport " + window.innerWidth + "x" + window.innerHeight +
+     " dpr " + (window.devicePixelRatio || "?"), "info");
+
+// S8: canvas SUPPORT test (presence only — page never draws with it)
+try {
+  var tc = document.createElement("canvas");
+  var ok2d = !!(tc.getContext && tc.getContext("2d"));
+  show("S8-CANVAS-2D: " + (ok2d ? "SUPPORTED" : "ABSENT"), ok2d ? "ok" : "fail");
+} catch (e) { show("S8-CANVAS-THROW: " + e, "fail"); }
+
+// S9: native globals the home engine injects
+var globals = ["log", "modeljs", "guijs", "hisense", "HiUtils_createRequest",
+               "Hisense_installApp", "Hisense_StartApp", "Hisense_launchAppViaName"];
+for (var i = 0; i < globals.length; i++) {
+  var g = globals[i];
+  var present = false;
+  try { present = typeof window[g] !== "undefined"; } catch (e) { present = false; }
+  show("S9-" + g + ": " + (present ? "PRESENT" : "absent"), present ? "ok" : "info");
+}
+
+// S4: WebSocket to the bridge
+try {
+  var ws = new WebSocket("ws://192.168.0.85:8770/ws");
+  ws.onopen = function () { show("S4-WS-OPEN", "ok"); };
+  ws.onerror = function () { show("S4-WS-FAIL", "fail"); };
+  ws.onmessage = function (ev) { show("S4-WS-MSG: " + ev.data.slice(0, 50), "info"); };
+} catch (e) { show("S4-WS-THROW: " + e, "fail"); }
+
+// S5: XHR to the bridge
+try {
+  var x2 = new XMLHttpRequest();
+  x2.open("GET", "http://192.168.0.85:8770/api/state", true);
+  x2.onload = function () { show("S5-XHR-OK " + x2.status + ": " + x2.responseText.slice(0, 40), "ok"); };
+  x2.onerror = function () { show("S5-XHR-FAIL", "fail"); };
+  x2.send();
+} catch (e) { show("S5-XHR-THROW: " + e, "fail"); }
+
+// S6: image
+try {
+  var im = new Image();
+  im.onload = function () { show("S6-IMG-OK " + im.naturalWidth + "x" + im.naturalHeight, "ok"); };
+  im.onerror = function () { show("S6-IMG-FAIL", "fail"); };
+  im.src = "http://192.168.0.85:8770/bg/bg1.png";
+} catch (e) { show("S6-IMG-THROW: " + e, "fail"); }
+
+// S7: external script
+window.PROBE = 0;
+var sc = document.createElement("script");
+sc.src = "http://192.168.0.85:8770/probe.js";
+sc.onload = function () { show("S7-SCRIPT-OK PROBE=" + window.PROBE, "ok"); };
+sc.onerror = function () { show("S7-SCRIPT-FAIL", "fail"); };
+document.body.appendChild(sc);
+
+setTimeout(function () { show("S10-ALIVE-AFTER-6S", "ok"); }, 6000);
+</script>
+</body></html>
