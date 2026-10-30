@@ -142,3 +142,12 @@ Lanes still open on patched firmware even without traversal, ranked:
 5. Downgrade: per-model signed `.bin`s only, MTK anti-rollback likely armed
    on 2026 firmware — community archives (TechPowerUp thread) are the only
    public source, success unlikely.
+
+**Tar-slip verdict (live-tested Oct 30):** GNU tar 1.17 on this firmware
+refuses BOTH classic vectors — symlink members are created but unlinked
+(not followed) when a file member writes through them, and `..` members are
+detected ("Member name contains '..'") and sanitized to relative paths.
+Combined with the init-check's `chown -R UhisTvm` + `chmod -R 644`
+stripping any setuid bits, the euladpp untar is **file-ops-as-root only —
+no code exec**. The no-traversal root lane needs a different primitive;
+Chromium N-days and the installed-app context remain the open ones.
