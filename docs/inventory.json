@@ -178,6 +178,30 @@
         "root": "achieved",
         "notes": "chain: USB ext4 dangling-symlink (tvi) bypasses IsSubDentry whitelist -> File.download plants libtvsysinfo.so shadow (direct NEEDED, LD_LIBRARY_PATH index 17 = /3rd_rw/loglevel/lib, writable+free) with appended DT_INIT payload (RX segment extended) -> root at load, self-unlink, root_loop channel; dropbear 2022.83 key-only + OpenSSH sftp-server + HamService-wrapper persistence; dead ends documented (factory/AM injection, V8, liblogLevel shadow, FAT32). Repo: git.hanime.zip/angryzero/hisense-root"
       }
+    },
+    {
+      "id": "V0000.09.60W.Q0612 (2026-06, EU_A)",
+      "model": "43Q60SEVS",
+      "region": "EU",
+      "soc": "MTK9603",
+      "vidaa_os": "U09.60",
+      "transport_protocol": "",
+      "browser": "Chromium 111 (multi-shell UAs: WebExplorer/1.2.8, SurfMaster/7.0.0, Weblayer, NetSurfer)",
+      "build_date": "2026-06-12",
+      "tested_by": [
+        "ryjr2ddznn-lab"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "working",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "open",
+        "identity_gate": "no gate observed on the phoenix bridge route layer",
+        "euladpp_untar": "not tested",
+        "devtools_forge": "not tested",
+        "root": "achieved",
+        "notes": "13 verified opkg postinst runs as uid 0 (Architecture 'mtk9603' surfaced from device opkg.conf, not docs); boot-time persistence via vendor serviceList proven across a real power-cycle; details in findings 12"
+      }
     }
   ]
 }

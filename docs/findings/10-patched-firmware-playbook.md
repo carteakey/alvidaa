@@ -16,6 +16,7 @@
 | 09.60V.Q0612 (build date unconfirmed) (?, ?) | MTK9603 | closed | untested | untested | untested | untested | @____dls |
 | V0000.06.29X.P0813 (65U7H, India) | MTK9900 | open | untested | untested | untested | in progress | @pavanjadhaw |
 | V0100.01.00A.N0410 (HE40E5600FFWTS, ? (EU, German-language docs)) | MTK5863-class (MT53xx, armv7 Cortex-A53) | open (browser runs as ROOT uid 0, full CapEff, single-process, no seccomp) | open (File.write text-only EINVAL for binary; binaries via File.download/curl) | n-a | n-a (generation lacks the package) | achieved | @xXLucyNyuXx (angryzero/hisense-root) |
+| V0000.09.60W.Q0612 (2026-06, EU_A) (43Q60SEVS, EU) | MTK9603 | open | open | no gate observed on the phoenix bridge route layer | not tested | achieved | @ryjr2ddznn-lab |
 <!-- INVENTORY:END -->
 
 **Read of the table:** the July EU_A reporter observed `fileWrite` rejected
