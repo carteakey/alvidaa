@@ -132,6 +132,30 @@
       }
     },
     {
+      "id": "V0000.09.60M.Q0611",
+      "model": "58A51HUV_1000 (retail 58A6NV; AirPlay reports 58A6NU)",
+      "region": "CAN (SSDP region=13)",
+      "soc": "MTK9603",
+      "vidaa_os": "U09.60",
+      "transport_protocol": "3290",
+      "browser": "Chromium 111 (PageReader/5.2.8)",
+      "build_date": "2026-06-11",
+      "tested_by": [
+        "gh:WizSoloMaster"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "untested",
+        "file_bridge_traversal": "closed",
+        "file_bridge_write": "untested",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "blocked",
+        "notes": "First-hand 2026-11-04. Fingerprint: AirPlay `:7000/info` (unauthenticated bplist, any path) reports firmwareRevision 09.6022.260611 / firmwareBuildDate 2026-05-14; from the TV browser Hisense_GetFirmWareVersion() = V0000.09.60M.Q0611, Hisense_GetOSVersion() = U09.60, Hisense_GetChipSetName() = MTK9603, Hisense_GetModelName() = 58A51HUV_1000, Hisense_GetDeviceCode() = 000000. Bridge present (HiUtils_createRequest) but all 11 `../` fileRead probes return ret=false `invalid path:...` (../proc/uptime, ../websdk/Appinfo.json, ../var/local/otaTest.sh, FaaS package.json) - rejected at the API layer, not ENOENT. No 1883/9001/10001/16669 listeners; /function/basic/fetch/sw2 404s on 3366/3367, so the 09.60W FaaS-postinst route is not LAN-reachable on this build. 22/23/2323/8008 closed - never rooted. Pairing: modern profile accepted on the first attempt with an uppercase colon-separated TV_MAC (other MAC formats untested); PIN -> gettoken -> tokenissuance issued 2-day access / 30-day refresh."
+      }
+    },
+    {
       "id": "V0000.06.29X.P0813",
       "model": "65U7H",
       "region": "India",
