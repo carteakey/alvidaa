@@ -392,6 +392,30 @@
         "root": "achieved",
         "notes": "Root via browser path traversal + otaTest.sh boot hook; native Node v20 runtime; native UI debloat mapped via hiddenApps.json"
       }
+    },
+    {
+      "id": "V0000.09.09D.P1001 (UK)",
+      "model": "55E7QTUK (internal 55E70QEVS_0002, serial type 55E7QE)",
+      "region": "UK (GBR; bridge region EU_A; SSDP blob region=0)",
+      "soc": "MTK9603",
+      "vidaa_os": "U09.09",
+      "transport_protocol": "3290",
+      "browser": "Chromium 111 \"odin\" (armv7l UA, Odin/111.5563.5.1, api 3.0.1)",
+      "build_date": "?",
+      "tested_by": [
+        "owner (this session)"
+      ],
+      "capabilities": {
+        "pairing": "working (2026-11-08): VidaaAppAndroidV01 client cert + modern profile + colon-formatted macWifi; PIN accepted, tokenissuance 2-day access",
+        "launcher": "open (page-load lane verified via /api/open — fingerprint and identity pages ran and POSTed recon; self-install tile untested)",
+        "file_bridge_traversal": "untested",
+        "file_bridge_write": "untested",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "untested",
+        "notes": "Broker pins the client-cert CA at the TLS layer (self-signed stub -> tlsv1 alert unknown CA; same stance as 55A7KAU, stricter than 50A51HUV). All four credential profiles rc=135 with the 12-hex or colon-formatted ETHERNET MAC; colon-formatted macWifi accepted on modern — the TV is net_type=wireless, so the SSDP mac= field is not the active NIC. pair.py only auto-colonizes on rc=133; format TV_MAC by hand for this gen. LAN surface: :3366 dd.xml stub, :18400 renderer blob, :36669 MQTT; legacy :1195 closed. Findings: docs/models/55E7QTUK/V0000.09.09D.P1001/findings/00-fingerprint.md"
+      }
     }
   ]
 }
