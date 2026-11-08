@@ -25,5 +25,11 @@ tools/u7q/web/pub/
 tools/u7q/web/captures/
 tools/u7q/web/server.log
 
+# tools/ur9s build output and runtime artifacts (no vendor binaries shipped)
+tools/ur9s/bin/
+tools/ur9s/web/pub/
+tools/ur9s/web/captures/
+tools/ur9s/web/server.log
+
 # tools/audio build output (probe binary + pulled libasound)
 tools/audio/dist/

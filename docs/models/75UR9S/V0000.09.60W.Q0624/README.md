@@ -47,10 +47,12 @@ TV browser page
 ## What was done (2026-11-04)
 
 1. Built static ARMv7 EABI5 Dropbear 2022.83 with `arm-linux-gnueabihf-gcc
-   13.3 -static -no-pie` (glibc static; the 09.60I record used musl — both work,
-   the binary is fully static). Patches: `fill_passwd()` fallback/uid-0 override
-   (per the 100U7Q BUILD.md) and the 11-byte `/etc/shells` → `/APPS/shell`
-   field patch (found by `find`, not by fixed offset).
+   13.3 -Os -static` — the U7Q key-only recipe
+   (`tools/ur9s/scripts/build_dropbear_a7k.sh` mirrors
+   `tools/u7q/scripts/build_dropbear_a7k.sh`, differing only in the shell
+   paths). Patches: `fill_passwd()` fallback/uid-0 override (uid 0 →
+   `/APPS/.re_sshd/root_home` + the `/APPS/.re_sshd/sh` profile wrapper) and
+   the `/etc/shells` → `/APPS/shell` literal patch (byte search, same length).
 2. `tools/u7q/web/install.html` updated: `FN_CANDIDATES` (basic first) and
    `TRIGGER_URLS` (basic first); trigger payload now sends
    `uninstall(83)` then `install(82)` in one `list`.
@@ -64,11 +66,16 @@ TV browser page
 
 ```sh
 ssh -p 8008 -i server/keys/tv_root_ed25519 root@<tv-ip>
-# minimal PATH in the session: export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 ```
 
 Key-only; no password auth compiled in. PTY: the postinst `chmod 666`'d
 `/dev/ptmx` (verify with `ssh -tt` if a PTY is needed).
+ **Environment:** the uid-0 shell is the wrapper `/APPS/.re_sshd/sh`
+ (`source /etc/profile; exec /bin/bash`), mirroring the vendor serial
+ login — sessions get the full vendor `PATH` and `LD_LIBRARY_PATH`, so
+ `jq`, `opkg`, `kprop` and the rest of `/usr/local/bin` work out of the
+ box. See findings §6.
+
 
 ## Re-arm after reboot
 
