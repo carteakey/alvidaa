@@ -32,12 +32,20 @@ and the root chain are untested.
 | Bridge surface: 75 `Hisense_*` fns + `HiUtils_createRequest` only, no `WebSDK_*` | `recon-e7qtuk.html` v1 sweep | verified |
 | Sandbox base `/APPS/` leaked by failed reads (full path in errno object); absolute paths join (`/APPS//etc/passwd`) | `recon-e7qtuk.html` v2 | verified |
 | Single `../` escapes the base to `/`; extra `../` clamps; dirs `EISDIR` | `../etc/passwd` read returning real contents | verified |
+| v3 dumps: mounts/inittab/passwd/rcS/profile shapes (partition layout p5/p27/p54/p55/p49-family; `wifitest uid 0`; SELinux labels; `SYS_VERSION=Debug`) | `recon-e7qtuk.html` v3 + `/tmp` bodies | verified |
+| **`/etc/rc.d/rc.local` exists with the otaTest-hook stanza; `/etc/rc.local` absent** | micro-probe at the rcS-referenced paths | verified |
+| `/var/local/otaTest.sh` absent (hook lane free); `versionInfo.json` absent | same micro-probe | verified |
+| v4 wire: `POST localhost:9009/service/hiutils` `{"api","args"}`; phoenix binary under `/APPS`, script `jsservice.basic/phoenix.server.js` | XHR prototype patch + stir | verified |
+| Page host: uid/gid 314, groups with **616 + 713**, `CapEff 0` | `../proc/self/{cmdline,status}` | verified |
 
 ## Where to go next
 
-[findings/00-fingerprint.md](findings/00-fingerprint.md) holds the pairing
-matrix and the descriptor surface; [findings/01-launcher-install.md](findings/01-launcher-install.md)
-holds the install run, the shape-trap that came out of it, and the rollback
-path; [findings/02-recon-ladder.md](findings/02-recon-ladder.md) holds the
-bridge enumeration and traversal measurements. Untested lanes on this
-unit: identity gate, root chain (deliberately not run — separate decision).
+[findings/00-fingerprint.md](findings/00-fingerprint.md) — pairing matrix
+and the descriptor surface; [findings/01-launcher-install.md](findings/01-launcher-install.md)
+— the install run, the shape-trap, the rollback path;
+[findings/02-recon-ladder.md](findings/02-recon-ladder.md) — bridge
+enumeration + traversal; [findings/03-recon-v3-v4.md](findings/03-recon-v3-v4.md)
+— dumps, the rc.d/rc.local hook lane (present, free), the wire capture,
+and the runner trap. Root primitives remain deliberately unrun — the free
+hook lane is the candidate if that decision is made, with `/OAD` frozen
+first per ground rules.

