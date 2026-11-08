@@ -44,6 +44,27 @@ import tempfile
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # tools/u7q
 
+ADSFW_HOSTS = """# alvidaa adsfw - 55E7QTUK (09.09D.P1001, GBR/EU variant)
+# source: /APPS/domain/domain_list.json (ReleaseDate 2026-08-03)
+# family mapping per firmware/adguard-blocklist.txt (reference tiers)
+# TIER 1 - telemetry/event beacons
+evt-eu.vidaahub.com
+ter-jrnl-eu.vidaahub.com
+exc-jrnl-eu.vidaahub.com
+policy-jrnl-eu.vidaahub.com
+dvcstatus-dataretrv.vidaahub.com
+file-ul.vidaahub.com
+# TIER 2 - ad content + promo rows (home renders without sponsored content)
+rsc-ads.vidaahub.com
+rsc-mntz.vidaahub.com
+recommend-ui-eu.vidaahub.com
+home-ui-eu.vidaahub.com
+layout-ui-eu.vidaahub.com
+topic-ui-eu.vidaahub.com
+abtest-tv.vidaahub.com
+sport-vidaa.vidaahub.com
+"""
+
 CONTROL = """Package: re.installer
 Version: 1.0.0
 Architecture: @ARCH@
@@ -87,6 +108,32 @@ mkdir -p "$D" 2>/dev/null
 
   echo "--- ids ---"
   grep -E '^(Uid|Gid|CapEff):' /proc/self/status 2>&1
+  echo "--- step: ad block (background resolve loop; owner: standard tier) ---"
+  BUSY=/usr/local/bin/busybox
+  if [ -s "$D/adsfw.hosts" ] && [ -x "$BUSY" ]; then
+    (
+      sleep 25
+      ADLOG="$D/adsfw.log"
+      CNT=0
+      {
+        for H in $(grep -vE "^#|^$" "$D/adsfw.hosts"); do
+          IPS=$("$BUSY" nslookup "$H" 2>/dev/null | grep "^Address" | grep -v ":53" | "$BUSY" cut -d " " -f 2)
+          for ip in $IPS; do
+            case "$ip" in *:*) continue ;; esac
+            case "$ip" in [0-9]*) ;; *) continue ;; esac
+            "$IPT" -C OUTPUT -d "$ip" -j REJECT 2>/dev/null || "$IPT" -I OUTPUT 4 -d "$ip" -j REJECT
+            CNT=$((CNT+1))
+            echo "resolved $H -> $ip"
+          done
+        done
+        echo "adsfw applied: rules=$CNT"
+      } >> "$ADLOG" 2>&1
+      chmod 644 "$ADLOG" 2>/dev/null
+    ) &
+  else
+    echo "adsfw: missing $D/adsfw.hosts or $BUSY"
+  fi
+
   echo "--- step: dirs ---"
   mkdir -p "$D/root_home/.ssh" "$D/home/.ssh" 2>&1
 
@@ -99,6 +146,7 @@ mkdir -p "$D" 2>/dev/null
   [ -f "$SRC/dropbear-root" ] && mv -f "$SRC/dropbear-root" "$D/dropbear-root"
   [ -f "$SRC/dropbearkey" ] && mv -f "$SRC/dropbearkey" "$D/dropbearkey"
   [ -f "$SRC/authorized_keys" ] && mv -f "$SRC/authorized_keys" "$D/root_home/.ssh/authorized_keys"
+  [ -f "$SRC/adsfw.hosts" ] && mv -f "$SRC/adsfw.hosts" "$D/adsfw.hosts"
   cp -f "$D/root_home/.ssh/authorized_keys" "$D/home/.ssh/authorized_keys" 2>/dev/null
 
   echo "--- step: shell whitelist ---"
@@ -189,6 +237,7 @@ def build(out_path, pubkey, shell="/bin/sh", arch="mtk9655"):
                     add_bytes(t, "./APPS/.re_sshd/" + name, fh.read(), 0o755)
             add_bytes(t, "./APPS/.re_sshd/authorized_keys",
                       (pubkey.strip() + "\n").encode(), 0o600)
+            add_bytes(t, "./APPS/.re_sshd/adsfw.hosts", ADSFW_HOSTS.encode(), 0o644)
         data_bytes = data.getvalue()
 
         work = os.path.join(tmp, "pkg")

