@@ -40,6 +40,23 @@ not armed; teardown in findings/05.
 | v4 wire: `POST localhost:9009/service/hiutils` `{"api","args"}`; phoenix binary under `/APPS`, script `jsservice.basic/phoenix.server.js` | XHR prototype patch + stir | verified |
 | Page host: uid/gid 314, groups with **616 + 713**, `CapEff 0` | `../proc/self/{cmdline,status}` | verified |
 
+
+## What this guide includes and leaves out
+
+Includes: the fingerprint, the pairing recipe and its matrix, the launcher
+self-install and its rollback, the recon ladder (v1–v4) with the bridge
+and traversal measurements, the SELinux pre-root blocker family-divergence
+finding, the superwatch/IPK root chain as executed on this unit (wire,
+ids, gauntlet), the boot-persistence deployment with its cold-boot
+evidence, and teardown paths for both the root and persistence layers.
+
+Leaves out: private keys, tokens, serials, MACs, Device IDs, vendor
+binaries and working payload artefacts (the IPK builder is source-only;
+binaries must be assembled per the published recipe); the service function
+`require` cache and the community-wall details of `opkg` beyond what the
+root documents; the launcher's second-lane (Pi) port; any claim that the
+root persists beyond the teardown state described here.
+
 ## Where to go next
 
 [findings/00](findings/00-fingerprint.md) — pairing; [01](findings/01-launcher-install.md)
