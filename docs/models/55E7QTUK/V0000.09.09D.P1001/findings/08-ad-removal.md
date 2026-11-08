@@ -78,3 +78,9 @@ path** (the persistence stack is intact on disk: `services/re_sshd`,
 pristine serviceList backup, installer IPK, packaged adsfw hosts).
 
 Next boot's adsfw.log (fresh postinst, ownerказыва).
+
+## Boot-native run (verified, owner mains cycle 2026-11-08)
+
+After the power cycle: `uptime 43.94 s`, root session restored (`Uid 0`, `CapEff 000001ffffffffff`), dropbear pid **2485** (fresh), adsfw.log carries the boot-native resolve run (111 lines across deployed history), and the kernel plane measured **15 OUTPUT REJECTs** (3 freeze + 12 ad v4 rules) within the first minute of boot.
+
+The ad-removal state is now boot-native, no-manual-work: every cold boot re-fires resolve + block, so no LAN machine ever has to fight the per-IP movement explicitly.
