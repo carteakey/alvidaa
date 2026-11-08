@@ -27,11 +27,15 @@ EOF
 chmod +x "$CCWRAP"
 
 cd "$SRC"
-cp "$HERE/../a6q/dropbear-aarch64/localoptions.h" localoptions.h
-git status --porcelain | grep -q " M " || patch -p1 < "$HERE/../a6q/dropbear-aarch64/dropbear-tv.patch"
-grep -q "PATCHED" src/svr-auth.c src/svr-authpubkey.c src/common-session.c
-
 CC="$CCWRAP" ./configure --disable-zlib --host=aarch64-linux-musl 2>&1 | tail -2
+# ./configure REGENERATES localoptions.h — the TV patches must land AFTER it,
+# not before (a second run with pre-patched .c files would leave the flags at
+# defaults and the built dropbear answers every connection with
+# "Non-multiuser Dropbear requires a non-multiuser kernel").
+cp "$HERE/../a6q/dropbear-aarch64/localoptions.h" localoptions.h
+patch -p1 < "$HERE/../a6q/dropbear-aarch64/dropbear-tv.patch" || true
+grep -q 'PATCHED' src/svr-auth.c src/svr-authpubkey.c src/common-session.c
+grep -q '#define DROPBEAR_SVR_MULTIUSER 1' localoptions.h || { echo "localoptions MULTIUSER not 1"; exit 1; }
 CC="$CCWRAP" LDFLAGS="-static" make -j8 2>&1 | tail -2 || true
 "$CCWRAP" -c 2>/dev/null || true  # no-op warm
 # the root make leaves single-member .a archives (host ar skips ELF) — rebuild

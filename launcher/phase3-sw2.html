@@ -1,0 +1,85 @@
+<!doctype html>
+<!-- Phase-3 sw2 deployment probe for 55E7QTUK (probe-only function; no
+     install commands exist in this sw2.js). Steps paced ~1.4 s:
+     1) start the fetcher service (wss://localhost:9888 lane),
+     2) fetchFile sw2.js into the basic package functions tree,
+     3) invoke it via POST http://localhost:9009/function/basic/fetch/sw2,
+     4) read /APPS/.sw2probe.json back through hiutils. -->
+<html><head><meta charset="utf-8"><title>sw2 deploy</title></head>
+<body><pre id="out">sw2 deploy…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var report = { started: new Date().toISOString(), steps: {} };
+  function save() { try { var x = new XMLHttpRequest(); x.open("POST", "/api/probe", true); x.setRequestHeader("Content-Type", "application/json"); x.send(JSON.stringify(report)); } catch (e) {} }
+  function line(t) { out.textContent = out.textContent + "\n" + t; }
+  function norm(m) { if (m == null) return ""; if (typeof m === "string") return m; try { return JSON.stringify(m); } catch (e) { return String(m); } }
+  var BASE = location.origin + "/pub/";
+  var FN_TARGET = "/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js";
+  var FN_URL = "http://localhost:9009/function/basic/fetch/sw2";
+
+  function startFetcher() {
+    return new Promise(function (res) {
+      var done = false; function fin(v) { if (!done) { done = true; res(v); } }
+      try {
+        var ws = new WebSocket("wss://localhost:9888");
+        ws.onopen = function () {
+          ws.send(JSON.stringify({ path: "phoenix://service/basic/fetcher", method: "start",
+                                   parameters: {}, session: 901, timeout: 10 }));
+          setTimeout(function () { try { ws.close(); } catch (e) {} fin("fetcher start sent"); }, 1200);
+        };
+        ws.onerror = function () { fin("fetcher start: ws error"); };
+        setTimeout(function () { fin("fetcher start: timeout"); }, 5000);
+      } catch (e) { fin("EXC " + e.message); }
+    });
+  }
+  function hr(path) {
+    try {
+      var r = vowOS.service.syncExecute("hiutils", { api: "fileRead", args: { mode: 6, path: [path] } });
+      var okc = r && r.ret === true;
+      return { ok: okc, body: okc ? norm(r.msg).slice(0, 4000) : null,
+               err: okc ? null : norm(r.msg).slice(0, 160) };
+    } catch (e) { return { ok: false, err: "EXC " + e }; }
+  }
+  function invokeSw2() {
+    return new Promise(function (res) {
+      try {
+        var x = new XMLHttpRequest();
+        x.open("POST", FN_URL, true);
+        x.setRequestHeader("Content-Type", "application/json");
+        x.onload = function () { res({ status: x.status, text: String(x.responseText || "").slice(0, 800) }); };
+        x.onerror = function () { res({ status: 0, text: "XHR error" }); };
+        x.send(JSON.stringify({}));
+      } catch (e) { res({ status: -1, text: "EXC " + e.message }); }
+    });
+  }
+  setTimeout(function () {
+    startFetcher().then(function (s0) {
+      report.steps.start = s0; line(s0);
+      setTimeout(function () {
+        var args = JSON.stringify({ url: BASE + "sw2.js", directory: FN_TARGET, permission: 420 });
+        var r;
+        try { r = vowOS.service.syncExecute("basic/fetcher", { api: "fetchFile", args: args }); }
+        catch (e) { r = { ret: false, msg: "EXC " + e.message }; }
+        report.steps.write = r ? { ret: r.ret, msg: norm(r.msg).slice(0, 120) } : null;
+        line("sw2.js fetch: " + JSON.stringify(report.steps.write));
+        setTimeout(function () {
+          report.steps.readback = hr("pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js");
+          line("sw2.js readback: " + (report.steps.readback.ok ? "OK (" + String(report.steps.readback.body).length + "b)" : String(report.steps.readback.err).slice(0, 90)));
+          setTimeout(function () {
+            invokeSw2().then(function (iv) {
+              report.steps.invoke = iv; line("invoke: " + iv.status + " " + iv.text.slice(0, 300));
+              setTimeout(function () {
+                report.steps.probe = hr(".sw2probe.json");
+                line(".sw2probe.json: " + (report.steps.probe.ok ? (report.steps.probe.body || "").slice(0, 420) : String(report.steps.probe.err).slice(0, 120)));
+                save();
+                out.textContent += out.textContent.indexOf("[reported]") === -1 ? "\n[reported]" : "";
+              }, 1400);
+            });
+          }, 1400);
+        }, 1400);
+      }, 1400);
+    });
+  }, 300);
+})();
+</script></body></html>

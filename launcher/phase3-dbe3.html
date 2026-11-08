@@ -1,0 +1,31 @@
+<html><head><meta charset="utf-8"><title>dbe diag 3</title></head>
+<body><pre id="out">dbe diag 3…</pre><script>
+(function(){
+ "use strict";
+ var report={started:new Date().toISOString(),steps:{}};
+ function save(){try{var x=new XMLHttpRequest();x.open("POST","/api/probe",true);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify(report));}catch(e){}}
+ function line(t){document.getElementById("out").textContent+=t+"\n";}
+ function syncExec(svc,obj){try{return vowOS.service.syncExecute(svc,obj);}catch(e){return{ret:false,msg:"EXC "+e.message};}}
+ var BASE=location.origin+"/pub/";
+ function startFetcher(){return new Promise(function(res){var done=false;function fin(v){if(!done){done=true;res(v);}}
+   try{var ws=new WebSocket("wss://localhost:9888");
+     ws.onopen=function(){ws.send(JSON.stringify({path:"phoenix://service/basic/fetcher",method:"start",parameters:{},session:901,timeout:10}));setTimeout(function(){try{ws.close();}catch(e){}fin("ok");},1200);};
+     ws.onerror=function(){fin("ws err");};setTimeout(function(){fin("timeout");},5000);
+   }catch(e){fin("EXC "+e.message);}});}
+ setTimeout(function(){
+  startFetcher().then(function(){ 
+   setTimeout(function(){
+    report.steps.fetch=syncExec("basic/fetcher",{api:"fetchFile",
+      args:JSON.stringify({url:BASE+"alvdiag.js",directory:"/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/alvdiag.js",permission:420})});
+    line("fetch: "+JSON.stringify(report.steps.fetch));
+    setTimeout(function(){
+     var x=new XMLHttpRequest();x.open("POST","http://localhost:9009/function/basic/fetch/alvdiag",true);x.setRequestHeader("Content-Type","application/json");
+     x.onload=function(){report.steps.diag=String(x.responseText||"").slice(0,5000);line("diag: "+report.steps.diag.slice(0,2400));setTimeout(save,400);};
+     x.onerror=function(){report.steps.diag="xhr err";save();};
+     x.send(JSON.stringify({}));
+    },1800);
+   },1800);
+  });
+ },300);
+})();
+</script></body></html>

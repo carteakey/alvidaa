@@ -20,9 +20,26 @@ except the public key passed on the command line.
 """
 import io
 import os
+import platform
 import subprocess
 import sys
 import tarfile
+
+
+def pick_ar():
+    """macOS LLVM ar silently drops non-mach-o members from `ar rc` archives,
+    yielding 96-byte ipk shells — use GNU binutils' gar when present."""
+    if platform.system() != "Darwin":
+        return "ar"
+    try:
+        prefix = subprocess.check_output(["brew", "--prefix", "binutils"],
+                                         text=True).strip()
+        gar = os.path.join(prefix, "bin", "gar")
+        if os.path.exists(gar):
+            return gar
+    except Exception:
+        pass
+    return "ar"
 import tempfile
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # tools/u7q
@@ -50,6 +67,24 @@ mkdir -p "$D" 2>/dev/null
 {
   echo "INSTALLER"
   echo "POSTINST_RAN"
+
+  echo "--- step: OTA freeze (owner-directed 2026-11-08, FIRST) ---"
+  for p in /usr/local/bin/iptables /sbin/iptables /bin/iptables; do
+      [ -x "$p" ] && IPT="$p" && break
+  done
+  if [ -n "$IPT" ]; then
+      $IPT -C OUTPUT -d 8.8.8.8 -j REJECT 2>/dev/null || $IPT -I OUTPUT 1 -d 8.8.8.8 -j REJECT
+      $IPT -C OUTPUT -d 8.8.4.4 -j REJECT 2>/dev/null || $IPT -I OUTPUT 1 -d 8.8.4.4 -j REJECT
+      # 131.189.69.51 serves ota-tv + upgrade-plc (and shares the CDN host
+      # with auth/file-ul on vendor infra — collateral accepted by owner
+      # 2026-11-08; see findings/04 note)
+      $IPT -C OUTPUT -d 131.189.69.51 -j REJECT 2>/dev/null || $IPT -I OUTPUT 2 -d 131.189.69.51 -j REJECT
+      echo "freeze: ota-ip + doh-lane rejected:"
+      $IPT -L OUTPUT -n | grep -E '8\.8\.8\.8|8\.8\.4\.4|131\.189\.69\.51'
+  else
+      echo "WEAK: no iptables; OTA watch manually on the TV settings"
+  fi
+
   echo "--- ids ---"
   grep -E '^(Uid|Gid|CapEff):' /proc/self/status 2>&1
   echo "--- step: dirs ---"
@@ -98,16 +133,18 @@ mkdir -p "$D" 2>/dev/null
   chmod 666 /dev/ptmx /dev/pts/ptmx 2>/dev/null
   ls -l /dev/ptmx /dev/pts/ptmx 2>&1
 
-  echo "--- step: start dropbear ---"
+  echo "--- step: start dropbear (stderr to dropbear.log for bridge reads) ---"
   cd "$D" || exit 0
-  rm -f "$D/dropbear.pid"
-  ./dropbear-root -s -r "$D/hostkey_ed25519" -p 8008 -P "$D/dropbear.pid" 2>/dev/null
-  sleep 1
+  rm -f "$D/dropbear.pid" "$D/dropbear.log"
+  ./dropbear-root -F -E -s -D "$D/root_home/.ssh" -r "$D/hostkey_ed25519" -p 8008 -P "$D/dropbear.pid" >> "$D/dropbear.log" 2>&1 &
+  sleep 2
   if [ ! -s "$D/dropbear.pid" ]; then
       echo "no -s: this build has no password auth compiled in"
-      ./dropbear-root -r "$D/hostkey_ed25519" -p 8008 -P "$D/dropbear.pid"
-      sleep 1
+      ./dropbear-root -F -E -D "$D/root_home/.ssh" -r "$D/hostkey_ed25519" -p 8008 -P "$D/dropbear.pid" >> "$D/dropbear.log" 2>&1 &
+      sleep 2
   fi
+  chmod 644 "$D/dropbear.log" "$D/dropbear.pid" 2>/dev/null
+  echo "pid=$(cat "$D/dropbear.pid" 2>/dev/null)"; cat "$D/dropbear.log" 2>/dev/null | head -5
   echo "pid=$(cat "$D/dropbear.pid" 2>/dev/null)"
   grep -i ':1F48' /proc/net/tcp 2>&1
 
@@ -161,7 +198,7 @@ def build(out_path, pubkey, shell="/bin/sh", arch="mtk9655"):
                            ("data.tar.gz", data_bytes)):
             with open(os.path.join(work, name), "wb") as fh:
                 fh.write(blob)
-        subprocess.run(["ar", "rc", os.path.abspath(out_path), "debian-binary",
+        subprocess.run([pick_ar(), "rc", os.path.abspath(out_path), "debian-binary",
                         "control.tar.gz", "data.tar.gz"], cwd=work, check=True)
 
 

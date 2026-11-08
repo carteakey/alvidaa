@@ -1,0 +1,14 @@
+<html><head><meta charset="utf-8"><title>manifests</title></head>
+<body><pre id="out">manifests…</pre><script>
+(function(){
+ "use strict";
+ var report={started:new Date().toISOString(),reads:{}};
+ function save(){try{var x=new XMLHttpRequest();x.open("POST","/api/probe",true);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify(report));}catch(e){}}
+ function norm(m){if(m==null)return"";if(typeof m==="string")return m;try{return JSON.stringify(m);}catch(e){return String(m);}}
+ function hr(path){try{var r=vowOS.service.syncExecute("hiutils",{api:"fileRead",args:{mode:6,path:[path]}});var okc=r&&r.ret===true;return{path:path,ok:okc,body:okc?norm(r.msg).slice(0,200000):null,err:okc?null:norm(r.msg).slice(0,160)};}catch(e){return{path:path,ok:false,err:"EXC "+e};}}
+ var T=["pkgs/tv.vidaa.jsservice.basic/CHA/services/serviceList.json",
+        "pkgs/tv.vidaa.jsservice.basic/CHA/lib/faas/faasManager.js",
+        "pkgs/tv.vidaa.jsservice.basic/CHA/lib/router/internalServiceCall.js"];
+ var b=0;(function n(){if(b>=T.length){save();return;}var r=hr(T[b]);report.reads[T[b]]=r;b++;setTimeout(n,1400);})();
+})();
+</script></body></html>

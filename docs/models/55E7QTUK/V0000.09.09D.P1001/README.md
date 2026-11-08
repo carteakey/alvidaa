@@ -1,13 +1,14 @@
-# 55E7QTUK / V0000.09.09D.P1001 — launcher verified; root blocked-at-SELinux-exec (hook lane) (MTK9603, UK)
+# 55E7QTUK / V0000.09.09D.P1001 — launcher verified; root achieved via the superwatch chain (MTK9603, UK)
 
 **Status:** Fingerprint, RemoteNow pairing, the full launcher lane, and
 recon v1–v4 verified 2026-11-08 (own TV). Phase-3 started the same day: the
 `otaTest` hook is written and verified on disk and `rc.local` runs at every
 cold boot, **but the vendor SELinux blocks executing it pre-root** — the
 boot chain enforces (never permissive) where the 09.01 reference builds
-held `setenforce 0`. The superwatch/IPK chain prerequisites (vowOS surface,
-`functions/fetch/` tree, group 616) measure open; nothing is armed at
-boot.
+held `setenforce 0`. The superwatch chain then fired (owner-authorized): session root
+(`Uid 0`, `CapEff 000001ffffffffff`) via keys-only dropbear 2026.94 on
+8008, OTA freeze first in the postinst. Boot persistence deliberately
+not armed; teardown in findings/05.
 > **Applies to `55E7QTUK` (internal `55E70QEVS_0002`, serial type `55E7QE`,
 > MTK9603, VIDAA `U09.09`, region EU_A / GBR) running `V0000.09.09D.P1001`.**
 > Same `09.09` OS branch as the 55A7KAU guide (`V0000.09.09O.P1015`, MTK9602,
@@ -41,15 +42,15 @@ boot.
 
 ## Where to go next
 
-[findings/00-fingerprint.md](findings/00-fingerprint.md) — pairing matrix
-and the descriptor surface; [findings/01-launcher-install.md](findings/01-launcher-install.md)
-— the install run, the shape-trap, the rollback path;
-[findings/02-recon-ladder.md](findings/02-recon-ladder.md) — bridge
-enumeration + traversal; [findings/03-recon-v3-v4.md](findings/03-recon-v3-v4.md)
-— dumps, the rc.d/rc.local hook lane (present, free), the wire capture,
-and the runner trap; [findings/04-selinux-and-hook.md](findings/04-selinux-and-hook.md)
-— the phase-3 hook attempt: written, verified, and blocked at exec by
-vendor SELinux, with the superwatch-prerequisite measurements and the two
-reproducible bridge traps. Root work continues via the 100U7Q/75UR9S
-superwatch chain, which this unit shapes for. `/OAD` stays frozen-first
-per ground rules.
+[findings/00](findings/00-fingerprint.md) — pairing; [01](findings/01-launcher-install.md)
+— launcher self-install; [02](findings/02-recon-ladder.md) — bridge/traversal;
+[03](findings/03-recon-v3-v4.md) — dumps/wire/self-proc;
+[04](findings/04-selinux-and-hook.md) — the SELinux-imposed hook-blocker
+family divergence; [05](findings/05-root-ssh.md) — the root chain, its
+gauntlet (kernel arch, multiuser flag, `-D` dir semantics, firewall
+chain), the protocol framing per id, and the flashback teardown.
+
+Root is session-live but NOT boot-persistent — persistence is a separate,
+owner-scoped decision (the 75U8QTUK `re_sshd` serviceList autostart is the
+documented route). The launcher tile stays functional; the server-side
+`selfinstall.html` remains the reversible landing point.

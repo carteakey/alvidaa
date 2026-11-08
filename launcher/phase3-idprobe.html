@@ -1,0 +1,29 @@
+<html><head><meta charset="utf-8"><title>id probe</title></head>
+<body><pre id="out">id probe…</pre><script>
+(function(){
+ "use strict";
+ var out=document.getElementById("out");
+ var report={started:new Date().toISOString(),steps:{}};
+ function save(){try{var x=new XMLHttpRequest();x.open("POST","/api/probe",true);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify(report));}catch(e){}}
+ function line(t){out.textContent=out.textContent+"\n"+t;}
+ function syncExec(svc,obj){try{return vowOS.service.syncExecute(svc,obj);}catch(e){return{ret:false,msg:"EXC "+e.message};}}
+ function hr(path){try{var r=syncExec("hiutils",{api:"fileRead",args:{mode:6,path:[path]}});var okc=r&&r.ret===true;return{ok:okc,body:okc?String(r.msg).slice(0,3000):null,err:okc?null:String(r.msg).slice(0,140)};}catch(e){return{ok:false,err:"EXC "+e};}}
+ var FN="http://localhost:9009/function/basic/fetch/sw2";
+ // bogus-path probes: 53 (install) + 54 (uninstall) — neither can mutate;
+ // 604 => id invalid on this branch; -1/0 => the id is wired but the opkg op fails cleanly
+ var L=[{item:"50:53:50;/APPS/zzz-nonexistent-probe.ipk;re.installer;"},
+        {item:"51:54:51;re.installer"}];
+ setTimeout(function(){
+  var x=new XMLHttpRequest();x.open("POST",FN,true);x.setRequestHeader("Content-Type","application/json");
+  x.onload=function(){report.steps.idprobe=String(x.responseText||"").slice(0,3000);line("idprobe: "+report.steps.idprobe.slice(0,1300));
+    setTimeout(function(){
+      report.steps.result_file=hr("../tmp/ipk_install_result");
+      line("ipk_install_result: "+ (report.steps.result_file.ok ? String(report.steps.result_file.body).slice(0,300) : "absent"));
+      setTimeout(save,400);
+    },3000);
+  };
+  x.onerror=function(){report.steps.idprobe="xhr err";save();};
+  x.send(JSON.stringify({list:L}));
+ },300);
+})();
+</script></body></html>
