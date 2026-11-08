@@ -403,7 +403,7 @@
       "browser": "Chromium 111 \"odin\" (armv7l UA, Odin/111.5563.5.1, api 3.0.1)",
       "build_date": "?",
       "tested_by": [
-        "owner (this session)"
+        "gh:damiennnnn"
       ],
       "capabilities": {
         "pairing": "working (2026-11-08): VidaaAppAndroidV01 client cert + modern profile + colon-formatted macWifi; PIN accepted, tokenissuance 2-day access",
