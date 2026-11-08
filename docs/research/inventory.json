@@ -408,8 +408,8 @@
       "capabilities": {
         "pairing": "working (2026-11-08): VidaaAppAndroidV01 client cert + modern profile + colon-formatted macWifi; PIN accepted, tokenissuance 2-day access",
         "launcher": "working (2026-11-08, owner-verified): self-install via hiutils fileWrite mode 6 to websdk/Appinfo.json ret:true success (registry was absent, first-run create), TV restart ingested the tile (applist 52->53, Home + /icon/vidaa-home), tile opens the launcher canvas",
-        "file_bridge_traversal": "open (2026-11-08, first read): fileRead mode 6 resolves real paths and returns errno shape for missing files; traversal beyond mode base not yet probed",
-        "file_bridge_write": "open (2026-11-08): fileWrite mode 6 to websdk/Appinfo.json succeeded — the 503 appconfig permission gate seen on 43A5LE (same SoC, U09.60A branch) does NOT apply here; branch-dependent gate",
+        "file_bridge_traversal": "open (2026-11-08): failed reads leak the sandbox base /APPS/ (full resolved path in the errno object, abs paths join as /APPS//...); single ../ escapes to / (../etc/passwd ret:true), extra ../ clamps; dir reads EISDIR no listing — measured-identical to 55A7KAU see findings/02",
+        "file_bridge_write": "open (2026-11-08): fileWrite mode 6 to websdk/Appinfo.json succeeded (first-run create, registry was absent) — the 503 appconfig permission gate seen on 43A5LE (same SoC, U09.60A branch) does NOT apply here; branch-dependent gate; write gates beyond this path untested",
         "identity_gate": "untested",
         "euladpp_untar": "untested",
         "devtools_forge": "untested",

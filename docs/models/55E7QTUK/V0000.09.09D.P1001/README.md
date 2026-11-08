@@ -29,11 +29,15 @@ and the root chain are untested.
 | hiutils `fileRead` mode 6 works, `msg` is shape-polymorphic (`{errno:-2, code:"ENOENT"}` object for missing paths) | `selfinstall.html` pre/post record | verified |
 | `fileWrite` mode 6 to `websdk/Appinfo.json` — **open on this branch** | `ret:true "success"`; the 43A5LE `503` gate does not apply | verified |
 | Launcher self-install → restart → tile in MQTT applist (52→53) → launcher canvas renders | `selfinstall.html` + WS snapshot + owner confirmation | verified |
+| Bridge surface: 75 `Hisense_*` fns + `HiUtils_createRequest` only, no `WebSDK_*` | `recon-e7qtuk.html` v1 sweep | verified |
+| Sandbox base `/APPS/` leaked by failed reads (full path in errno object); absolute paths join (`/APPS//etc/passwd`) | `recon-e7qtuk.html` v2 | verified |
+| Single `../` escapes the base to `/`; extra `../` clamps; dirs `EISDIR` | `../etc/passwd` read returning real contents | verified |
 
 ## Where to go next
 
 [findings/00-fingerprint.md](findings/00-fingerprint.md) holds the pairing
 matrix and the descriptor surface; [findings/01-launcher-install.md](findings/01-launcher-install.md)
 holds the install run, the shape-trap that came out of it, and the rollback
-path. Untested lanes on this unit: file-bridge traversal beyond the mode
-base, identity gate, root (separate decision from the launcher lane).
+path; [findings/02-recon-ladder.md](findings/02-recon-ladder.md) holds the
+bridge enumeration and traversal measurements. Untested lanes on this
+unit: identity gate, root chain (deliberately not run — separate decision).
