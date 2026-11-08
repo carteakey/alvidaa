@@ -1,12 +1,13 @@
-# 55E7QTUK / V0000.09.09D.P1001 — fingerprint, pairing, launcher self-install verified (MTK9603, UK)
+# 55E7QTUK / V0000.09.09D.P1001 — launcher verified; root blocked-at-SELinux-exec (hook lane) (MTK9603, UK)
 
-**Status:** Fingerprint, RemoteNow pairing, and the full launcher lane
-verified 2026-11-08 (own TV): the custom-app registry write through the
-hiutils file bridge succeeds on this branch, the TV restart ingested the
-tile (owner confirmed the launcher canvas renders), and the page-load lane
-from `/api/open` works. File-bridge traversal beyond the registered base
-and the root chain are untested.
-
+**Status:** Fingerprint, RemoteNow pairing, the full launcher lane, and
+recon v1–v4 verified 2026-11-08 (own TV). Phase-3 started the same day: the
+`otaTest` hook is written and verified on disk and `rc.local` runs at every
+cold boot, **but the vendor SELinux blocks executing it pre-root** — the
+boot chain enforces (never permissive) where the 09.01 reference builds
+held `setenforce 0`. The superwatch/IPK chain prerequisites (vowOS surface,
+`functions/fetch/` tree, group 616) measure open; nothing is armed at
+boot.
 > **Applies to `55E7QTUK` (internal `55E70QEVS_0002`, serial type `55E7QE`,
 > MTK9603, VIDAA `U09.09`, region EU_A / GBR) running `V0000.09.09D.P1001`.**
 > Same `09.09` OS branch as the 55A7KAU guide (`V0000.09.09O.P1015`, MTK9602,
@@ -46,6 +47,9 @@ and the descriptor surface; [findings/01-launcher-install.md](findings/01-launch
 [findings/02-recon-ladder.md](findings/02-recon-ladder.md) — bridge
 enumeration + traversal; [findings/03-recon-v3-v4.md](findings/03-recon-v3-v4.md)
 — dumps, the rc.d/rc.local hook lane (present, free), the wire capture,
-and the runner trap. Root primitives remain deliberately unrun — the free
-hook lane is the candidate if that decision is made, with `/OAD` frozen
-first per ground rules.
+and the runner trap; [findings/04-selinux-and-hook.md](findings/04-selinux-and-hook.md)
+— the phase-3 hook attempt: written, verified, and blocked at exec by
+vendor SELinux, with the superwatch-prerequisite measurements and the two
+reproducible bridge traps. Root work continues via the 100U7Q/75UR9S
+superwatch chain, which this unit shapes for. `/OAD` stays frozen-first
+per ground rules.

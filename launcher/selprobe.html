@@ -1,0 +1,20 @@
+<html><head><meta charset="utf-8"><title>sel probe</title></head>
+<body><pre id="out">sel probe…</pre><script>
+(function () {
+  "use strict";
+  var report = { started: new Date().toISOString(), sel: {} };
+  function save() { try { var x = new XMLHttpRequest(); x.open("POST", "/api/probe", true); x.setRequestHeader("Content-Type", "application/json"); x.send(JSON.stringify(report)); } catch (e) {} }
+  function rd(path, cap) {
+    try { var r = HiUtils_createRequest("fileRead", { path: path, mode: 6 });
+      var body = (typeof r.msg === "string") ? r.msg : JSON.stringify(r.msg);
+      return { ok: r && r.ret === true, body: (r && r.ret === true) ? String(body).slice(0, cap || 65536) : null,
+               err: (r && r.ret !== true) ? String(body).slice(0, 200) : null };
+    } catch (e) { return { ok: false, err: "EXC " + e }; }
+  }
+  ["etc/init.d/common/init_selinux.rc", "etc/selinux/config",
+   "etc/init.d/common/avc_events.rc"].forEach(function (p) {
+    report.sel[p] = rd("../" + p);
+  });
+  save(); setTimeout(save, 400);
+})();
+</script></body></html>

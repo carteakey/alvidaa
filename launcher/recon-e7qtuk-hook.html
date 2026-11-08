@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- Post-boot hook verification for 55E7QTUK: reads the hook's own artifacts
+     via the file bridge. Read-only. Segments: /var/local/otaTest.log (the
+     hook's full stdout: freeze state, fetch, dropbear), /var/local/dropbear.log
+     head, uptime. -->
+<html><head><meta charset="utf-8"><title>hook check</title></head>
+<body><pre id="out">hook check…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var report = { started: new Date().toISOString(), log: {}, uptime: {} };
+  function save() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/recon", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify({ tag: "hookcheck-e7qtuk", at: new Date().toISOString(), report: report }));
+    } catch (e) {}
+  }
+  function rd(path, cap) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: path, mode: 6 });
+      var body = (typeof r.msg === "string") ? r.msg : JSON.stringify(r.msg);
+      return { ok: r && r.ret === true, body: (r && r.ret === true) ? String(body).slice(0, cap || 60000) : null,
+               err: (r && r.ret !== true) ? body.slice(0, 300) : null };
+    } catch (e) { return { ok: false, err: "EXC " + e }; }
+  }
+  report.log.ota = rd("../var/local/otaTest.log");
+  report.log.dropbear = rd("../var/local/dropbear.log", 4000);
+  report.log.roothome_keys = rd("../var/local/roothome/authorized_keys", 300);
+  report.uptime.val = rd("../proc/uptime", 64);
+  out.textContent = (report.log.ota.body || "otaTest.log: " + report.log.ota.err) +
+    "\n--- dropbear.log ---\n" + (report.log.dropbear.body || String(report.log.dropbear.err)) +
+    "\n--- authorized_keys ---\n" + (report.log.roothome_keys.body || String(report.log.roothome_keys.err));
+  save();
+})();
+</script></body></html>

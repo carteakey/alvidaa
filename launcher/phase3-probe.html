@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- Phase-3 setup probe for 55E7QTUK (read-only + one dir-marker write test).
+     1) kernel arch + iptables binary locations (64-byte heads only)
+     2) /var/local write gate: fileWrite + fileRead round-trip of a marker
+     3) the TV's own domain map (/APPS/domain/domain_list.json): dohServers +
+        update/ota hosts — this feeds the OTA freeze lifted into split lanes.
+     POSTs everything to /api/probe (append-only). -->
+<html><head><meta charset="utf-8"><title>phase3 probe</title></head>
+<body><pre id="out">phase3 probe…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var report = { started: new Date().toISOString(), arch: {}, writetest: {}, domain: {} };
+  var P = "../";
+  function save() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/probe", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify(report));
+    } catch (e) {}
+  }
+  function line(t) { out.textContent += "\n" + t; }
+  function rd(path, cap) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: path, mode: 6 });
+      var body = (typeof r.msg === "string") ? r.msg : JSON.stringify(r.msg);
+      return { path: path, ok: r && r.ret === true, body: (r && r.ret === true) ? String(body).slice(0, cap || 512) : null,
+               err: (r && r.ret !== true) ? body : null };
+    } catch (e) { return { path: path, ok: false, err: "EXC " + e }; }
+  }
+
+  // 1) kernel arch + iptables candidates (head-capped: ELF binaries)
+  report.arch.version = rd(P + "proc/version", 200);
+  line("version: " + String((report.arch.version.body || report.arch.version.err)).slice(0, 120));
+  ["usr/local/bin/iptables", "sbin/iptables", "bin/iptables",
+   "system/bin/iptables", "basic/bin/iptables"].forEach(function (p) {
+    var r = rd(P + p, 8);
+    report.arch["iptables_" + p] = { ok: r.ok, head: r.body, err: r.err };
+    line("iptables " + p + ": " + (r.ok ? "EXISTS " + r.body.slice(0, 4) : "absent " + String(r.err).slice(0, 60)));
+  });
+  report.arch.sh_head = rd(P + "bin/sh", 8);   // ELF head if the file is a real ELF, else EISDIR for dir-noise
+
+  // 2) /var/local write gate: marker write + readback
+  try {
+    var marker = "alv-phase3 " + new Date().toISOString() + "\n";
+    var w = HiUtils_createRequest("fileWrite", { path: "var/local/.alv-phase3-test", mode: 6, writedata: marker });
+    report.writetest.write = { ret: !!w.ret, code: w.code, msg: (typeof w.msg === "string" ? w.msg : JSON.stringify(w.msg)) };
+    var back = rd("var/local/.alv-phase3-test", 200);
+    report.writetest.readback = { ok: back.ok, body: back.body, err: back.err };
+    line("write /var/local: ret=" + report.writetest.write.ret + " readback=" + (back.ok ? "ok" : "fail"));
+  } catch (e) { report.writetest.error = String(e); line("writetest error: " + e); }
+
+  // 3) domain map
+  try {
+    var dm = rd("domain/domain_list.json", 10);
+    report.domain.read = { ok: dm.ok, err: dm.err };
+    if (dm.ok) {
+      var full = (typeof HiUtils_createRequest("fileRead", { path: "domain/domain_list.json", mode: 6 }).msg === "string")
+        ? HiUtils_createRequest("fileRead", { path: "domain/domain_list.json", mode: 6 }).msg : null;
+      var m = full ? (full.length > 65536 ? null : JSON.parse(full)) : null;
+      if (!m) {
+        // second pass without the big-string path; work on the first result only
+        report.domain.note = "too big to double-read; extract from first read";
+      } else {
+        report.domain.dohServers = m.dohServers || null;
+        var ks = Object.keys(m);
+        report.domain.keys = ks;
+        var hosts = [];
+        function walk(o) {
+          if (typeof o === "string") {
+            if (/(ota|upd|grade|dpp|doH|937|9527)/i.test(o)) hosts.push(o.slice(0, 120));
+          } else if (o && typeof o === "object") {
+            for (var k2 in o) {
+              if (String(k2).match(/(ota|upd|grade|dpp)/i)) hosts.push("KEY " + k2 + "=" + JSON.stringify(o[k2]).slice(0, 200));
+              walk(o[k2]);
+            }
+          } else if (Array.isArray(o)) o.forEach(walk);
+        }
+        walk(m);
+        report.domain.ota_like = hosts.slice(0, 60);
+      }
+      line("domain map: ok, keys=" + (report.domain.keys ? report.domain.keys.length : "?"));
+    }
+  } catch (e) { report.domain.error = String(e); line("domain error: " + e); }
+
+  save(); setTimeout(save, 400);
+  out.textContent += "\n[reported]";
+})();
+</script></body></html>

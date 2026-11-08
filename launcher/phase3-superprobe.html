@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- Phase-3 superwatch-chain probe for 55E7QTUK: (1) vowOS surface, (2) the
+     jsservice.basic FaaS tree (dir vs file ENOENT/EISDIR discrimination),
+     (3) superwatch socket presence signals, (4) hiutils via vowOS with the
+     path-array arg-shape (the u7q-correct form). Read-only. -->
+<html><head><meta charset="utf-8"><title>superprobe</title></head>
+<body><pre id="out">superprobe…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var report = { started: new Date().toISOString(), vowos: {}, reads: {}, arrowpath: {} };
+  function save() { try { var x = new XMLHttpRequest(); x.open("POST", "/api/probe", true); x.setRequestHeader("Content-Type", "application/json"); x.send(JSON.stringify(report)); } catch (e) {} }
+  function line(t) { out.textContent = out.textContent + "\n" + t; }
+  function norm(m) { if (m == null) return ""; if (typeof m === "string") return m; try { return JSON.stringify(m); } catch (e) { return String(m); } }
+
+  // 1) vowOS
+  report.vowos.present = typeof vowOS !== "undefined";
+  if (report.vowos.present) {
+    report.vowos.keys = Object.keys(vowOS).slice(0, 20);
+    try {
+      report.vowos.service_keys = vowOS.service ? Object.keys(vowOS.service).slice(0, 20) : null;
+      report.vowos.syncExecute = vowOS.service && typeof vowOS.service.syncExecute === "function";
+    } catch (e) { report.vowos.err = String(e); }
+  }
+  line("vowOS: " + report.vowos.present + (report.vowos.present ? " syncExecute=" + report.vowos.syncExecute : ""));
+
+  function hr(path) {   // hiutils with the u7q path-ARRAY shape
+    try {
+      if (!report.vowos.syncExecute) return null;
+      var r = vowOS.service.syncExecute("hiutils", { api: "fileRead", args: { mode: 6, path: [path] } });
+      var okc = r && r.ret === true;
+      return { path: path, ok: okc, ret: r && r.ret,
+               body: okc ? norm(r.msg).slice(0, 420) : null,
+               err: okc ? null : norm(r.msg).slice(0, 180) };
+    } catch (e) { return { path: path, ok: false, err: "EXC " + e }; }
+  }
+
+  // 2) the FaaS tree + 3) superwatch socket + misc
+  var paths = [
+    "pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/",
+    "pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/fetchfile.js",
+    "pkgs/tv.vidaa.jsservice.basic/CHA/phoenix.server.js",
+    "pkgs/tv.vidaa.app.phoenix/CHA/bin/phoenix",
+    "../var/run/superwatch_socket",
+    "../APPS/pkgs/tv.vidaa.jsservice.basic/serviceList.json",
+    "pkgs/tv.vidaa.jsservice.basic/serviceList.json"
+  ];
+  paths.forEach(function (p) {
+    var r = hr(p);
+    report.reads[p] = r;
+    line(p + ": " + (r ? (r.ok ? "OK(" + (r.body || "").length + "b) " + String(r.body).slice(0, 60) : "ret=false " + String(r.err).slice(0, 110)) : "no-vowOS"));
+  });
+
+  report.arrowpath.proc_uptime = hr("../proc/uptime");
+  line("array-path ../proc/uptime: " + JSON.stringify(report.arrowpath.proc_uptime && (report.arrowpath.proc_uptime.ok ? String(report.arrowpath.proc_uptime.body).slice(0, 40) : report.arrowpath.proc_uptime.err)).slice(0, 80));
+
+  save(); setTimeout(save, 400);
+  out.textContent = out.textContent + "\n[reported]";
+})();
+</script></body></html>
