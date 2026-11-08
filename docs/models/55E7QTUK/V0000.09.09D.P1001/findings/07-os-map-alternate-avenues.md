@@ -83,6 +83,42 @@ the localhost/mark ACCEPTs. Kernel-resident rules (including our OTA
 freeze) come back only through the boot-time postinst — the firewall
 plane is rebuilt from this config file at every boot.
 
+
+## Build family: hybrid — Linux (MStar Utopia) userland on an Android-platform kernel (2026-11-08)
+
+The kernel and the userland come from different build worlds, and both are
+named on the unit:
+
+**Kernel = Android-platform build tooling.** Built with the Android
+clang/LLD toolchain, booted via the Android verified-boot harness
+(`androidboot.*` cmdline, AVB/vbmeta 1.1, dm-verity with FEC,
+`veritymode=enforcing`, A/B slots, SELinux, OP-TEE) — MediaTek's TV Linux
+kernel config carries the Android-platform components because the same
+MTK9603/mt5873 SoC family serves both Android-TV builds and this Linux
+VIDAA build.
+
+**Userland = MStar/MTK Utopia Linux, no Android init or services.**
+Verified by marker absence (root read):
+
+| Marker | State |
+| --- | --- |
+| `/system`, `/apex`, `/sdcard`, `/odm` | **absent** |
+| `logcat`, `init.rc`, `vold`, `installd`, `zygote` | **absent** |
+| BusyBox init (`/etc/inittab`, runlevel 3, `getty` ttyS0) | present |
+| `bash` (`/bin/bash`), `opkg` (`/usr/local/bin/opkg` — OpenWrt-family packaging) | present |
+| MStar middleware names (`rcS.utopia.linux`, `UTOPIA_LINUX=true`, `/basic`, `/3rd`, `/linux_rootfs/etc`, `mi_ipc_client`/`directfb` in `LD_LIBRARY_PATH`) | present |
+| `secure_exec`/label service-shim family (`masman`, `systemserver`, `tvmain`, `startgui.sh`) | present (root-run via `secure_exec`) |
+
+The Android userspace pieces that DO exist on this unit are
+**tools, not system**: `/bin/adbd` + a `functionfs` USB gadget mount (the
+debug bridge, USB-only), `libselinux` tooling (`load_policy`, `restorecon`,
+`setenforce`), and the kernel's own Android boot actors. Everything else
+is the MStar Linux TV platform Hisense ships as VIDAA's build base.
+
+So the correct family label for the record: **"Android-platform kernel
+(bring-up/verified-boot lineage) + MStar Utopia Linux userland"** — i.e.
+Android-secured, not Android-based.
+
 ## Package surface (root read)
 
 - `opkg` status db at `/APPS/pkgs/opkgmeta/status`;
