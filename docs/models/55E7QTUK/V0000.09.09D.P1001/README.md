@@ -36,7 +36,7 @@ not armed; teardown in findings/05.
 | Single `../` escapes the base to `/`; extra `../` clamps; dirs `EISDIR` | `../etc/passwd` read returning real contents | verified |
 | v3 dumps: mounts/inittab/passwd/rcS/profile shapes (partition layout p5/p27/p54/p55/p49-family; `wifitest uid 0`; SELinux labels; `SYS_VERSION=Debug`) | `recon-e7qtuk.html` v3 + `/tmp` bodies | verified |
 | **`/etc/rc.d/rc.local` exists with the otaTest-hook stanza; `/etc/rc.local` absent** | micro-probe at the rcS-referenced paths | verified |
-| `/var/local/otaTest.sh` absent (hook lane free); `versionInfo.json` absent | same micro-probe | verified |
+| `/var/local/otaTest.sh` absent (hook lane free); `/APPS/euladpp/current/versionInfo.json` absent (lane unchecked on this branch — [07](findings/07-os-map-alternate-avenues.md)) | micro-probe + root re-read | verified |
 | v4 wire: `POST localhost:9009/service/hiutils` `{"api","args"}`; phoenix binary under `/APPS`, script `jsservice.basic/phoenix.server.js` | XHR prototype patch + stir | verified |
 | Page host: uid/gid 314, groups with **616 + 713**, `CapEff 0` | `../proc/self/{cmdline,status}` | verified |
 

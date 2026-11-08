@@ -62,7 +62,7 @@ Micro-probe at the exact paths the boot chain references:
 | `/etc/init.d/rcS.OTA` | exists (2627 b) |
 | `/etc/init.d/rcS.utopia.linux` | exists (4770 b) |
 | `/var/local/otaTest.sh` | **absent** — hook lane free (no session owns it) |
-| `/var/local/versionInfo.json` | absent — same missing-file state the euladpp_untar condition keys on (untested) |
+| `/APPS/euladpp/current/versionInfo.json` | absent — the euladpp_untar arming condition per legend; **but this branch never checks it**: no `euladpp-init-check` anywhere in the init tree (see [07](07-os-map-alternate-avenues.md)); our pre-root probe of `/var/local/versionInfo.json` was the wrong file |
 
 **Consequence for the family:** the otaTest hook primitive is
 architecturally present and unoccupied on this unit. Whether it exists on
