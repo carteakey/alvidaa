@@ -144,7 +144,7 @@ both regenerate from `docs/research/inventory.json`.
 | 75U8QTUK | V0000.09.60I.Q0813 (UK) | working | ACHIEVED 2026-11-06 | [@kingpandacc](https://github.com/kingpandacc) |
 | 43A5LE | V0000.09.60A.Q0707 | working | untested | [@antmagl](https://github.com/antmagl) |
 | 43A5FE | V0010.09.09A.P0930 | working | achieved | @community |
-| 55E7QTUK | V0000.09.09D.P1001 (UK) | working | achieved | @owner (this session) |
+| 55E7QTUK | V0000.09.09D.P1001 (UK) | working | achieved + boot-persistent | @owner (this session) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — add a firmware entry to [inventory.json](docs/research/inventory.json) (single source of truth; fields and where to find them: [TESTED-MODELS.md](docs/research/TESTED-MODELS.md)) and run `scripts/gen-inventory.py` — every table in the repo regenerates from it.

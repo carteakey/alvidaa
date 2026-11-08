@@ -1,0 +1,17 @@
+<html><head><meta charset="utf-8"><title>svc start</title></head>
+<body><pre id="out">svcstart…</pre><script>
+(function(){
+ "use strict";
+ var report={started:new Date().toISOString(),steps:{}};
+ function save(){try{var x=new XMLHttpRequest();x.open("POST","/api/probe",true);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify(report));}catch(e){}}
+ try {
+   var ws = new WebSocket("wss://localhost:9888");
+   ws.onopen = function(){
+     ws.send(JSON.stringify({path:"phoenix://service/basic/re_sshd", method:"start", parameters:{}, session:721, timeout:10}));
+     setTimeout(function(){ try{ ws.close(); }catch(e){} report.steps.started="sent"; save(); }, 1500);
+   };
+   ws.onerror = function(){ report.steps.started="ws error"; save(); };
+   setTimeout(function(){ if(!report.steps.started){ report.steps.started="timeout"; save(); } }, 6000);
+ } catch (e) { report.steps.started="EXC "+e.message; save(); }
+})();
+</script></body></html>

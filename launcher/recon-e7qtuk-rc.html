@@ -17,17 +17,18 @@
       x.send(JSON.stringify({ tag: "rc-probes", at: new Date().toISOString(), report: report }));
     } catch (e) {}
   }
-  function rd(path) {
+    function rd(path, cap) {
     try {
       var r = HiUtils_createRequest("fileRead", { path: path, mode: 6 });
       var body = (typeof r.msg === "string") ? r.msg : JSON.stringify(r.msg);
-      return { path: path, ok: r && r.ret === true, body: (r && r.ret === true) ? body.slice(0, 8192) : null,
+      return { path: path, ok: r && r.ret === true, body: (r && r.ret === true) ? body.slice(0, cap || 8192) : null,
                err: (r && r.ret !== true) ? body : null };
     } catch (e) { return { path: path, ok: false, err: "EXC " + e }; }
   }
   ["etc/rc.d/rc.local", "etc/rc.local", "etc/init.d/rcS.OTA",
    "etc/init.d/rcS.utopia.linux", "var/local/otaTest.sh",
-   "var/local/versionInfo.json"].forEach(function (p) {
+   "var/local/versionInfo.json", "var/local/otaTest.log",
+   "proc/boottime", "sys/fs/selinux/enforce"].forEach(function (p) {
     var r = rd(P + p);
     report.rc[p] = r;
     out.textContent += "\n" + p + ": " + (r.ok ? "EXISTS (" + r.body.length + "b)" : "absent " + String(r.err).slice(0, 90));

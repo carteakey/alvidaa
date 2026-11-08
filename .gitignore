@@ -27,3 +27,5 @@ tools/u7q/web/server.log
 
 # tools/audio build output (probe binary + pulled libasound)
 tools/audio/dist/
+launcher/pub/installer.ipk
+launcher/pub/*.ipk
