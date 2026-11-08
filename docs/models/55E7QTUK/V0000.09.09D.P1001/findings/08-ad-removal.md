@@ -1,4 +1,4 @@
-# 08 — Ad removal on VIDAA (55E7QTUK, standard tier) 2026-11-08
+# 08 — Ad removal on VIDAA, standard tier (2026-11-08)
 
 Owner-scoped ad-removal on the boot-persistent-root unit. Deployed as an
 `adsfw` stage inside the `re.installer` postinst (the same boot-timed
@@ -6,8 +6,7 @@ root context that already applies the OTA freeze), after mapping this
 unit's own domain surface — the GBR build ships the **EU variants** of
 the reference endpoint families.
 
-## This unit's ad/telemetry host families (verified from
-`/APPS/domain/domain_list.json`, `ReleaseDate 2026-08-03`)
+## This unit's ad/telemetry host families (verified from `/APPS/domain/domain_list.json`, `ReleaseDate 2026-08-03`)
 
 - **Tier 1 — telemetry/event beacons:** `evt-eu`, `ter-jrnl-eu`,
   `exc-jrnl-eu`, `policy-jrnl-eu`, `dvcstatus-dataretrv`, `file-ul`
@@ -34,7 +33,7 @@ the reference endpoint families.
    `/APPS/.re_sshd/` (the mv list needed its own row — the package-tree
    `SRC → D` move only handled dropbear/key/keys before).
 2. Background stage on boot: `sleep 25` (LAN DNS needs ~25–35 s after
-   cold boot — findings 12), then per host:
+   cold boot — the reference record's findings 12), then per host:
    `/usr/local/bin/busybox nslookup <host>` → A records →
    `iptables -I OUTPUT N -d <ip> -j REJECT` (idempotent via `-C`),
    appending `resolved <host> -> <ip>` lines to
@@ -76,8 +75,6 @@ state is consistent with an emergency-restart leaving the wireless
 stack un-initialized; **a mains cycle by the owner is the recovery
 path** (the persistence stack is intact on disk: `services/re_sshd`,
 pristine serviceList backup, installer IPK, packaged adsfw hosts).
-
-Next boot's adsfw.log (fresh postinst, ownerказыва).
 
 ## Boot-native run (verified, owner mains cycle 2026-11-08)
 

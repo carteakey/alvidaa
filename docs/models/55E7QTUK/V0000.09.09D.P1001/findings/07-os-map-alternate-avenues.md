@@ -83,7 +83,6 @@ the localhost/mark ACCEPTs. Kernel-resident rules (including our OTA
 freeze) come back only through the boot-time postinst — the firewall
 plane is rebuilt from this config file at every boot.
 
-
 ## Build family: hybrid — Linux (MStar Utopia) userland on an Android-platform kernel (2026-11-08)
 
 The kernel and the userland come from different build worlds, and both are
@@ -131,8 +130,11 @@ Android-secured, not Android-based.
 
 ## What this changes for the family record
 
-- Pre-root inventory [04](04-selinux-and-hook.md) gets two fixes: the
-  `euladpp` probe path and the real bridge floor.
+- The `euladpp` probe-path correction landed in the records where the
+  row lives: the [03](03-recon-v3-v4.md) micro-probe table and the model
+  README measured table — both now point at
+  `/APPS/euladpp/current/versionInfo.json` and at the lane-absence
+  record above ([07](07-os-map-alternate-avenues.md) is that record).
 - The root-avenues ledger belongs on every future 09.09-family unit:
   with the hook lane closed by SELinux on this branch, the *community
   pre-root set* is: FaaS fetcher → socket → install (this PR's lane), or

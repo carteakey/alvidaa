@@ -7,8 +7,8 @@ cold boot, **but the vendor SELinux blocks executing it pre-root** — the
 boot chain enforces (never permissive) where the 09.01 reference builds
 held `setenforce 0`. The superwatch chain then fired (owner-authorized): session root
 (`Uid 0`, `CapEff 000001ffffffffff`) via keys-only dropbear 2026.94 on
-8008, OTA freeze first in the postinst. Boot persistence deliberately
-not armed; teardown in findings/05.
+8008, OTA freeze first in the postinst. Boot persistence armed the same
+day and cold-boot verified (findings 06); teardown in findings/05 and 06.
 > **Applies to `55E7QTUK` (internal `55E70QEVS_0002`, serial type `55E7QE`,
 > MTK9603, VIDAA `U09.09`, region EU_A / GBR) running `V0000.09.09D.P1001`.**
 > Same `09.09` OS branch as the 55A7KAU guide (`V0000.09.09O.P1015`, MTK9602,
@@ -65,9 +65,15 @@ root persists beyond the teardown state described here.
 [04](findings/04-selinux-and-hook.md) — the SELinux-imposed hook-blocker
 family divergence; [05](findings/05-root-ssh.md) — the root chain, its
 gauntlet (kernel arch, multiuser flag, `-D` dir semantics, firewall
-chain), the protocol framing per id, and the flashback teardown.
+chain), the protocol framing per id, and the flashback teardown;
+[06](findings/06-boot-persistence.md) — the cold-boot re-arm and its
+verifier evidence; [07](findings/07-os-map-alternate-avenues.md) — the
+post-root OS identity map, the alternate root avenues, and the euladpp
+lane-absence record; [08](findings/08-ad-removal.md) — the adsfw
+ad/telemetry block, boot-native on every cold boot.
 
-Root is session-live but NOT boot-persistent — persistence is a separate,
-owner-scoped decision (the 75U8QTUK `re_sshd` serviceList autostart is the
-documented route). The launcher tile stays functional; the server-side
-`selfinstall.html` remains the reversible landing point.
+Root re-arms at every cold boot through the `re_sshd` serviceList
+autostart (the 75U8QTUK route, owner mains-cycle verified), and the
+adsfw ad/telemetry block rides the same boot-timed postinst. The
+launcher tile stays functional; the server-side `selfinstall.html`
+remains the reversible landing point.
