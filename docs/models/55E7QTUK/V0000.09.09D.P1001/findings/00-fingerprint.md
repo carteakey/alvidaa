@@ -117,7 +117,5 @@ Server = this project's `server/vidaa_server.py` (fresh venv) on
   one MQTT session per credential set.
 - `server/keys/` holds tokens + the Vidaa-app cert pair only (throwaway
   TLS stubs removed).
-- Launcher tile **not** installed; TV has no entry pointing at
-  `192.168.0.195:8770` yet. The page-load lane works (`/api/open` + any
-  LAN URL); next lane step is `launcher/index.html` self-install per
-  `docs/launcher/DEPLOY.md`.
+- Launcher tile **not** installed at the time this file was written —
+  finished the same day, see [01-launcher-install.md](01-launcher-install.md).

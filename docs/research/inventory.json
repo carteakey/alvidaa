@@ -407,14 +407,14 @@
       ],
       "capabilities": {
         "pairing": "working (2026-11-08): VidaaAppAndroidV01 client cert + modern profile + colon-formatted macWifi; PIN accepted, tokenissuance 2-day access",
-        "launcher": "open (page-load lane verified via /api/open — fingerprint and identity pages ran and POSTed recon; self-install tile untested)",
-        "file_bridge_traversal": "untested",
-        "file_bridge_write": "untested",
+        "launcher": "working (2026-11-08, owner-verified): self-install via hiutils fileWrite mode 6 to websdk/Appinfo.json ret:true success (registry was absent, first-run create), TV restart ingested the tile (applist 52->53, Home + /icon/vidaa-home), tile opens the launcher canvas",
+        "file_bridge_traversal": "open (2026-11-08, first read): fileRead mode 6 resolves real paths and returns errno shape for missing files; traversal beyond mode base not yet probed",
+        "file_bridge_write": "open (2026-11-08): fileWrite mode 6 to websdk/Appinfo.json succeeded — the 503 appconfig permission gate seen on 43A5LE (same SoC, U09.60A branch) does NOT apply here; branch-dependent gate",
         "identity_gate": "untested",
         "euladpp_untar": "untested",
         "devtools_forge": "untested",
         "root": "untested",
-        "notes": "Broker pins the client-cert CA at the TLS layer (self-signed stub -> tlsv1 alert unknown CA; same stance as 55A7KAU, stricter than 50A51HUV). All four credential profiles rc=135 with the 12-hex or colon-formatted ETHERNET MAC; colon-formatted macWifi accepted on modern — the TV is net_type=wireless, so the SSDP mac= field is not the active NIC. pair.py only auto-colonizes on rc=133; format TV_MAC by hand for this gen. LAN surface: :3366 dd.xml stub, :18400 renderer blob, :36669 MQTT; legacy :1195 closed. Findings: docs/models/55E7QTUK/V0000.09.09D.P1001/findings/00-fingerprint.md"
+        "notes": "Broker pins the client-cert CA at the TLS layer (self-signed stub -> tlsv1 alert unknown CA; same stance as 55A7KAU, stricter than 50A51HUV). All four credential profiles rc=135 with the 12-hex or colon-formatted ETHERNET MAC; colon-formatted macWifi accepted on modern — the TV is net_type=wireless, so the SSDP mac= field is not the active NIC. pair.py only auto-colonizes on rc=133; format TV_MAC by hand for this gen. LAN surface: :3366 dd.xml stub, :18400 renderer blob, :36669 MQTT; legacy :1195 closed. hiutils fileRead returns {ret,msg:{errno,...}} — msg is shape-polymorphic (not a string on this build). Findings: docs/models/55E7QTUK/V0000.09.09D.P1001/findings/ (00 fingerprint, 01 launcher install)"
       }
     }
   ]

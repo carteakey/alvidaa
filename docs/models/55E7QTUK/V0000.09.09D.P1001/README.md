@@ -1,14 +1,19 @@
-# 55E7QTUK / V0000.09.09D.P1001 — fingerprint + launcher-lane pairing only (MTK9603, UK)
+# 55E7QTUK / V0000.09.09D.P1001 — fingerprint, pairing, launcher self-install verified (MTK9603, UK)
 
-**Status:** Fingerprint and RemoteNow pairing verified 2026-11-08 (own TV).
-The page-load lane (`/api/open` → browser-env recon) runs; the launcher tile
-is not installed, the file bridge is probed not at all, and there is no root
-path attempted on this unit.
+**Status:** Fingerprint, RemoteNow pairing, and the full launcher lane
+verified 2026-11-08 (own TV): the custom-app registry write through the
+hiutils file bridge succeeds on this branch, the TV restart ingested the
+tile (owner confirmed the launcher canvas renders), and the page-load lane
+from `/api/open` works. File-bridge traversal beyond the registered base
+and the root chain are untested.
 
 > **Applies to `55E7QTUK` (internal `55E70QEVS_0002`, serial type `55E7QE`,
 > MTK9603, VIDAA `U09.09`, region EU_A / GBR) running `V0000.09.09D.P1001`.**
 > Same `09.09` OS branch as the 55A7KAU guide (`V0000.09.09O.P1015`, MTK9602,
-> AU) but a different P-code letter and a different SoC.
+> AU) but a different P-code letter and a different SoC. The hiutils
+> `websdk/Appinfo.json` write gate compares as opened here vs closed on the
+> 43A5LE (same SoC, `U09.60A.Q0707`) — see
+> [findings/01](findings/01-launcher-install.md).
 
 ## What was measured
 
@@ -21,10 +26,14 @@ path attempted on this unit.
 | Wrong MAC (12-hex or colon-formatted ethernet) is `rc=135` on all four profiles | pair.py logs, 2026-11-08 | verified |
 | LAN surface = `:3366` stub + `:18400` blob + `:36669` MQTT; legacy `:1195` dead | curated port sweep | verified |
 | Page-load lane (`/api/open`) works for recon pages | `fingerprint.html` + `identity.html` POSTed `/api/recon` | verified |
+| hiutils `fileRead` mode 6 works, `msg` is shape-polymorphic (`{errno:-2, code:"ENOENT"}` object for missing paths) | `selfinstall.html` pre/post record | verified |
+| `fileWrite` mode 6 to `websdk/Appinfo.json` — **open on this branch** | `ret:true "success"`; the 43A5LE `503` gate does not apply | verified |
+| Launcher self-install → restart → tile in MQTT applist (52→53) → launcher canvas renders | `selfinstall.html` + WS snapshot + owner confirmation | verified |
 
 ## Where to go next
 
-`findings/00-fingerprint.md` holds the pairing matrix, the descriptor
-surface, and the state left on the TV (paired server running, tile not
-installed). Lane order per AGENTS.md: launcher self-install next, file
-bridge probes after, root never assumed.
+[findings/00-fingerprint.md](findings/00-fingerprint.md) holds the pairing
+matrix and the descriptor surface; [findings/01-launcher-install.md](findings/01-launcher-install.md)
+holds the install run, the shape-trap that came out of it, and the rollback
+path. Untested lanes on this unit: file-bridge traversal beyond the mode
+base, identity gate, root (separate decision from the launcher lane).

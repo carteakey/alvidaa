@@ -1,0 +1,120 @@
+<!doctype html>
+<!-- Self-install one-shot for the launcher (same writes as launcher/index.html
+     installAsApp: hiutils fileRead -> merge -> fileWrite on websdk/Appinfo.json,
+     mode 6). Runs hands-free when loaded via /api/open and POSTs the full
+     pre/post record to /api/probe (append-only). Shape-note: on 09.09D the
+     hiutils result is NOT guaranteed to be {ret, msg:string} — this page
+     diagnoses the shape first, then proceeds only with a parseable registry
+     (or a confirmed fileRead failure for first-run create). Output is echoed
+     on the TV screen, which is the console (odin has no remote debugger here). -->
+<html><head><meta charset="utf-8"><title>selfinstall</title></head>
+<body><pre id="out">selfinstall…</pre><script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var rep = {
+    started: new Date().toISOString(),
+    origin: location.origin,
+    bridge: { hiutils: typeof HiUtils_createRequest === "function",
+              legacy: typeof Hisense_installApp === "function" },
+    pre: {}, write: {}, post: {}
+  };
+  function save() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/probe", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify(rep));
+    } catch (e) {}
+  }
+  function line(t) { out.textContent += "\n" + t; }
+  line("bridge: hiutils=" + rep.bridge.hiutils + " legacy=" + rep.bridge.legacy);
+
+  var APP_ENTRY_ID = "vidaa-home";
+  var APP_URL = location.origin + "/";
+  var icon = APP_URL + "icon.png";
+  rep.app_entry_id = APP_ENTRY_ID;
+  rep.app_url = APP_URL;
+
+  function read() {
+    return HiUtils_createRequest("fileRead", { path: "websdk/Appinfo.json", mode: 6 });
+  }
+  function shape(cur) {
+    var raw = cur && cur.msg;
+    var t = typeof raw;
+    return { ret: !!(cur && cur.ret), msg_type: t,
+             extra_keys: cur ? Object.keys(cur).join(",") : "",
+             peek: (t === "string") ? raw.slice(0, 80)
+                                    : JSON.stringify(raw || null).slice(0, 200) };
+  }
+
+  if (rep.bridge.hiutils) {
+    try {
+      var cur = read();
+      rep.shape = shape(cur);
+      var ok = rep.shape.ret;
+      var raw = cur.msg;
+      var list = null;
+      if (ok && typeof raw === "string") { list = JSON.parse(raw); }
+      else if (ok && raw && typeof raw === "object") { list = raw; }
+      if (ok && !list) { throw new Error("unparseable registry shape; aborting write"); }
+      if (!ok) { rep.shape.note = "fileRead ret=false — treating as empty registry (first-run create)"; list = { AppInfo: [] }; }
+      if (!list.AppInfo) { rep.shape.note += "; no AppInfo key, creating one"; list.AppInfo = []; }
+      rep.pre = { ids_before: list.AppInfo.map(function (e) { return e.Id; }) };
+      // full registry copy lives only in the gitignored probe report (rollback source)
+      rep.pre.registry = list;
+
+      var kept = [];
+      for (var k = 0; k < list.AppInfo.length; k++) {
+        var e0 = list.AppInfo[k];
+        if (e0.Id === APP_ENTRY_ID) continue;
+        if ((e0.AppName === "Home" || e0.Title === "Home") && e0.URL !== APP_URL) continue;
+        kept.push(e0);
+      }
+      list.AppInfo = kept;
+      var entry = {
+        Id: APP_ENTRY_ID, AppName: "Home", Title: "Home",
+        URL: APP_URL, StartCommand: APP_URL,
+        IconURL: icon, Icon_96: icon, Image: icon, Thumb: icon,
+        Type: "Browser", InstallTime: new Date().toISOString().split("T")[0],
+        RunTimes: 0, StoreType: "custom", PreInstall: false
+      };
+      list.AppInfo.push(entry);
+      var payload = JSON.stringify(list);
+      rep.prewrite_bytes = payload.length;
+      var res = HiUtils_createRequest("fileWrite", {
+        path: "websdk/Appinfo.json", mode: 6, writedata: payload
+      });
+      rep.write = { ret: !!(res && res.ret), code: res && res.code,
+                    msg_type: typeof (res && res.msg),
+                    msg_peek: JSON.stringify(res && res.msg || null).slice(0, 200) };
+
+      var back = read();
+      var ids_after = [];
+      var oururl = "";
+      if (back && back.ret) {
+        var raw2 = back.msg, l2;
+        l2 = (typeof raw2 === "string") ? JSON.parse(raw2) : raw2;
+        for (var i = 0; i < l2.AppInfo.length; i++) {
+          ids_after.push(l2.AppInfo[i].Id);
+          if (l2.AppInfo[i].Id === APP_ENTRY_ID) oururl = l2.AppInfo[i].URL;
+        }
+        rep.post = { ret: true, ids: ids_after, our_url: oururl };
+      } else {
+        rep.post = { ret: false, shape: shape(back) };
+      }
+      line("fileWrite ret=" + rep.write.ret + " code=" + rep.write.code);
+      line("readback ids: " + (ids_after.length ? ids_after.join(",") : "(none)"));
+      line("tile url: " + oururl);
+    } catch (e) {
+      rep.error = String(e);
+      line("error: " + e);
+    }
+  } else {
+    rep.error = "no HiUtils_createRequest on this page env";
+    line("no hiutils bridge; legacy=" + rep.bridge.legacy);
+  }
+  save(); setTimeout(save, 400);
+  out.textContent += "\n[reported]";
+})();
+</script></body></html>
