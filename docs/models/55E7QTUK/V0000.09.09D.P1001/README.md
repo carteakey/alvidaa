@@ -17,6 +17,11 @@ day and cold-boot verified (findings 06); teardown in findings/05 and 06.
 > 43A5LE (same SoC, `U09.60A.Q0707`) — see
 > [findings/01](findings/01-launcher-install.md).
 
+> **Contributed by [@damiennnnn](https://github.com/damiennnnn).**
+> The record is the contributor's own unit (2026-11-08, same day as the
+> work): fingerprint through boot-persistent root, the ad-block deployment
+> and every teardown were carried out and published by the owner of the TV.
+
 ## What was measured
 
 | Claim | Evidence | Label |
