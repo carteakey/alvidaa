@@ -416,6 +416,30 @@
         "root": "achieved + boot-persistent (2026-11-08, owner-authorized): the 100U7Q/75U8 superwatch chain fired on this unit — framing 4-byte LE length+payload, install id 53 / uninstall 54, opkg arch mtk9603; static ARMv7 dropbear 2026.94 (own build; aarch64 ENOEXEC, MULTIUSER localoptions trap, -D authorized_keys dir semantics) keys-only 0.0.0.0:8008; Uid 0 CapEff 000001ffffffffff; OTA freeze first in the postinst (DoH lane + 131.189.69.51) and re-applied each boot; persistence via the re_sshd serviceList autostart (services/re_sshd from the 55A7KAU blueprint; pristine serviceList backup; cold-boot verified — verifier evidence: fresh pid + postinst mtime + freeze count). Teardown in findings/06; see findings/05",
         "notes": "Broker pins the client-cert CA at the TLS layer (self-signed stub -> tlsv1 alert unknown CA; same stance as 55A7KAU, stricter than 50A51HUV). All four credential profiles rc=135 with the 12-hex or colon-formatted ETHERNET MAC; colon-formatted macWifi accepted on modern — the TV is net_type=wireless, so the SSDP mac= field is not the active NIC. pair.py only auto-colonizes on rc=133; format TV_MAC by hand for this gen. LAN surface: :3366 dd.xml stub, :18400 renderer blob, :36669 MQTT; legacy :1195 closed. hiutils fileRead returns {ret,msg:{errno,...}} — msg is shape-polymorphic. v3/v4 recon: /etc/rc.d/rc.local EXISTS with the otaTest-hook stanza; /var/local/otaTest.sh absent before phase 3; phoenix uid 314 with 616+713 groups, script jsservice.basic phoenix.server.js, binary under /APPS. tv.vidaa.jsservice.system ABSENT (ROOT_SYSTEM_JS set blindly); vendor fetcher function at functions/fetch/fetchfile.js. 2026-11-09: device resolver active per-postinst (dnsmasq 2.91 static armv7, lane W over the rw /var/local/etc resolv.conf symlink; NXDOMAIN on the adsfw families; findings/09) — every-boot coverage currently blocked by the re-arm failure states recorded there (serviceList service loads but start() never runs on this branch; otaTest-hook exec blocked; superwatch 53/54 replies 0 with no install + empty /tmp/ipk_install_result during stalls; busybox reboot -f darkens the network stack) — re-arm without SSH = re-trigger phase3-arm14.html on a healthy boot (verified restoring dns verify lane W + NXDOMAIN + freeze at 15:16, 2026-11-09), with SSH = opkg install /APPS/installer_e.ipk with LD_LIBRARY_PATH=/usr/local/lib. Findings: docs/models/55E7QTUK/V0000.09.09D.P1001/findings/ (00-09)"
       }
+    },
+    {
+      "id": "V0000.09.01O.P0814",
+      "model": "32A35HUV",
+      "region": "CAN",
+      "soc": "MTK9602",
+      "vidaa_os": "U09.01",
+      "transport_protocol": "3290",
+      "browser": "Chromium 111",
+      "build_date": "2025-08-14",
+      "tested_by": [
+        "gh:EmoFa"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "working",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "open",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "working",
+        "root": "achieved",
+        "notes": "root chain replayed from the 50A51HUV reference on a second MTK9602 board family; divergences and evidence in docs/models/32A35HUV/V0000.09.01O.P0814/"
+      }
     }
   ]
 }

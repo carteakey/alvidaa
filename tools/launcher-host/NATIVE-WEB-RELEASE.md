@@ -45,8 +45,10 @@ python3 tools/launcher-host/test_native_web_package.py
 ## Deployment boundaries
 
 `native-web-release.cjs` coordinates upgrades and rollback for the existing
-configured native Home, and provides stock-Home/feed-hook teardown. **The new
-coordinator has offline tests only; its TV lifecycle trial is still pending.**
+configured native Home, and provides stock-Home/feed-hook teardown. Its guarded
+apply, exact rollback, reapply and stock teardown have now been exercised on the
+owned TV; see [trial evidence](../../docs/models/55A7KAU/V0000.09.09O.P1015/findings/19-release-controller-trial.md).
+This does not close the cold-boot or full platform acceptance gates.
 It does not provision root, pair a new TV, install initial credentials or configure
 a first boot hook. Those remain the explicit existing setup recipes.
 
@@ -90,7 +92,10 @@ CTL="$STAGE/runtime/native-web-release.cjs"
 
 Apply requires the existing native Home and feed boot hook to be installed and
 unmodified. It checks shared firmware, candidate syntax, package contents,
-ownership and free-space headroom before changing the runtime. It retains exact
+ownership and free-space headroom before changing the runtime. Existing verified
+assets are reused, and allocations are summed per filesystem rather than charging
+all assets to every mount. Retained journals consume space; insufficient headroom
+is a refusal, not permission to delete recovery history. It retains exact
 runtime bytes/modes and a self-contained recovery controller/helper, stops only
 the owned feed, holds its inherited kernel lock and uses the existing Home lock
 and stopped-engine update. A failed update or failed new worker startup rolls
@@ -153,11 +158,16 @@ bytes and metadata, refusing concurrent edits. The first backup is retained
 across reinstallations. These operations were exercised on the TV without
 rebooting or running the complete root installer.
 
-The original root payload, SSH setup, blocklist and older phone-home section are
-unchanged. **The older phone-home section starts an unauthenticated reverse-shell
-retry loop**, not just a notification. The launcher does not need it, but stopping
-the PC listener did not retire it. Independently verify root SSH after cold boot
-before separately retiring this recovery channel; do not invalidate the feed
-journal with an ad-hoc installer edit. No new listener or MQTT session is
-introduced by this port. The boot entry is configured and manually tested;
-cold-boot, standby and playback/blocklist-collateral acceptance remain pending.
+The feed-hook patch itself preserves the original root payload, SSH setup,
+blocklist and older phone-home section. **That older section starts an
+unauthenticated reverse-shell retry loop**, not just a notification; stopping its
+PC listener does not retire it. A separate fingerprint-guarded retirement operation
+now removes it while migrating the feed recovery baseline safely. See
+[startup retirement and exceptional recovery](NATIVE-STARTUP-RETIREMENT.md).
+Do not invalidate the feed journal with an ad-hoc installer edit.
+
+Retirement was applied and fresh SSH verified on the tested TV; it was not
+cold-boot-tested afterward. Earlier boot/playback evidence is recorded separately
+in the model findings, not promoted to post-retirement acceptance. Standby and
+blocklist-collateral coverage remains incomplete. No new listener or MQTT session
+is introduced by this port.

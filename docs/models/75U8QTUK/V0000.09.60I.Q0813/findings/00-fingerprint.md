@@ -1,5 +1,15 @@
 # 00 — Fingerprint (2026-11-06)
 
+> **Resolution (2026-11-07):** this was the speculative scaffold. Its
+> "UNVERIFIED" expectations and "Next findings entries expected" guesses are
+> historical, not current status. All four build-dependent prerequisites were
+> measured in [05](05-fetcher-recheck.md) and [06](06-superwatch-gate.md);
+> root was armed in [07](07-root-armed.md), the native Home in
+> [09](09-native-home.md), and boot persistence in
+> [11](11-boot-persistence.md). The actual findings files are `01-ssdp.md`,
+> `02-pairing.md`, `03-launcher.md`, `04-bridge-recon.md`, etc. Current
+> status lives in [`MODDING.md`](../MODDING.md) and [`EVIDENCE.md`](../EVIDENCE.md).
+
 First visit to a 75″ U8Q (UK SKU). The owner read the About screen, ran an
 on-device browser-env page that calls `Hisense_GetFirmWareVersion()` and
 `Hisense_GetChipSetName()`, and scanned the TV from the LAN with nmap.

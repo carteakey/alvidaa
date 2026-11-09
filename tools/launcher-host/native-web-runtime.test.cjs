@@ -35,6 +35,37 @@ test('native overlays suppress visibility and timezone changes remount once with
  tick();assert.equal(runs,2);assert.equal(disposed,1);assert.equal(values.get(PREFIX+'fmtv.prefs'),'{"theme":"auto"}');
  tick();assert.equal(runs,2);instance.stop();assert.equal(timers.size,0);
 });
+test('Settings retains an inert Home backdrop while releasing the live runtime',()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),timers=new Map();let id=0,owner='setting',stops=0,painted=0,fail=false;
+ const children=[],sourceCanvas={},body={firstChild:{},insertBefore(node){children.push(node);node.parentNode=this;},
+  removeChild(node){children.splice(children.indexOf(node),1);node.parentNode=null;}};
+ const root={document:{hidden:false,body},setTimeout:fn=>{timers.set(++id,fn);return id;},clearTimeout:key=>timers.delete(key)};
+ vm.runInNewContext(fs.readFileSync(require.resolve('./native-web-runtime.js'),'utf8'),{self:root});
+ const sdk={router:{getCurrentPage:()=>({path:'/namespace/setting/settings'}),parseRoute:()=>({moduleName:owner})}};
+ const component=root.AlvidaaFreeMyTV(sdk),element={innerHTML:'Home',querySelectorAll:()=>[sourceCanvas],cloneNode:()=>{
+  if(fail)throw Error('cannot clone');
+  return {style:{},attrs:{},html:element.innerHTML,setAttribute(key,value){this.attrs[key]=value;},
+   querySelectorAll:()=>[{getContext:()=>({drawImage:canvas=>{assert.equal(canvas,sourceCanvas);painted++;}})}]};
+ }};
+ const instance={$el:element};Object.assign(instance,component.methods);
+ function live(){element.innerHTML='Home';instance._nativeWeb={stop(){stops++;element.innerHTML='';}};}
+ function tick(){const [key,fn]=timers.entries().next().value;timers.delete(key);fn();}
+ live();component.deactivated.call(instance);
+ assert.equal(stops,1);assert.equal(instance._nativeWeb,null);assert.equal(element.innerHTML,'');
+ assert.equal(children.length,1);assert.equal(children[0].html,'Home');assert.equal(painted,1);
+ assert.equal(children[0].attrs['aria-hidden'],'true');assert.equal(children[0].attrs.inert,'');
+ assert.equal(children[0].style.pointerEvents,'none');assert.equal(children[0].style.zIndex,'0');
+ tick();assert.equal(children.length,1);assert.equal(timers.size,1);
+ owner='player';tick();assert.equal(children.length,0);assert.equal(timers.size,0);
+ instance.stop();live();component.deactivated.call(instance);assert.equal(children.length,0);
+ owner='setting';live();component.deactivated.call(instance);root.document.hidden=true;tick();
+ assert.equal(children.length,0);assert.equal(timers.size,0);
+ root.document.hidden=false;live();component.deactivated.call(instance);
+ instance._nativeWeb={stop(){}};instance.start();assert.equal(children.length,0);assert.equal(timers.size,0);
+ live();component.deactivated.call(instance);component.beforeDestroy.call(instance);
+ assert.equal(children.length,0);assert.equal(timers.size,0);
+ fail=true;live();component.deactivated.call(instance);assert.equal(instance._nativeWeb,null);assert.equal(timers.size,0);
+});
 function fixture(initial={}){
  const data=new Map(Object.entries(initial)),writes=[];
  const sdk={storage:{get:key=>data.get(key),set:(key,value)=>{writes.push(key);data.set(key,value);}}};

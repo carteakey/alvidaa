@@ -1,10 +1,13 @@
 # Native Home replacement installed (operationui Launcher component)
 
 > **Current state:** the installed bundle is now v2 — merged apps/inputs and
-> CSS wallpapers — see [findings/10](10-native-home-customization.md). This
-> file is the canonical record of the first install, the preflight, the SDK
-> contracts, the restart mechanics and the rollback path; its hashes describe
-> the v1 candidate that findings/10 superseded.
+> CSS wallpapers — see [findings/10](10-native-home-customization.md). Root
+> SSH is now **boot-persistent** and the launcher has been **verified to
+> survive a real reboot** byte-identically, in
+> [findings/11](11-boot-persistence.md). This file is the canonical record of
+> the first install, the preflight, the SDK contracts, the restart mechanics
+> and the rollback path; its hashes describe the v1 candidate that
+> findings/10 superseded.
 
 **2026-11-06, owner-authorized, LAN-local.** The alvidaa "Free My TV" DOM
 launcher now replaces the stock Home on the 75U8QTUK. This is a component
@@ -209,10 +212,12 @@ cache dirs from `/var/local/alvidaa/backup/`, then
 `secure_exec SystemUI /opt/hisenseUI/startgui.sh` from a detached,
 HUP-immune subshell using the saved `/var/local/alvidaa/systemui.env`.
 
-If SSH itself is gone (after a reboot), re-arm root first with the `83` + `82`
-sequence from [08](08-reboot-rearm.md); the launcher file lives on writable
-`/APPS` and is expected to survive a reboot, but rollback then needs the SSH
-lane back. **The launcher was deliberately not reboot-tested in this session.**
+At the time of this install the launcher had not been reboot-tested and root
+SSH needed the manual `83` + `82` re-arm ([08](08-reboot-rearm.md)) after a
+reboot. Both were resolved in [findings/11](11-boot-persistence.md): root SSH
+is now boot-persistent, and a supervised reboot confirmed the launcher, the
+merged list and the wallpaper survive byte-identically. If SSH is ever
+unavailable, the browser re-arm page remains the documented fallback.
 
 ## Ground rules honoured
 

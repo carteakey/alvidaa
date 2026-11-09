@@ -18,6 +18,25 @@ function readToken(file){
  if(typeof value!=='string'||value.length>4096||!value.trim().startsWith('eyJ')||/[\r\n]/.test(value.trim()))throw Error('A private TMDB read token is required');
  return value.trim();
 }
+function renderableSnapshot(snapshot,render){
+ let recs={};try{recs=JSON.parse(snapshot.cache?.['fmtv.recs']||'{}');}catch{/* Damaged recommendations authorize no artwork mappings. */}
+ const wanted=new Set();
+ for(const pick of Array.isArray(recs?.picks)?recs.picks:[]){
+  if(!pick)continue;
+  if(pick.backdrop)for(const size of ['w1280','w780','w300','original'])wanted.add(size+':'+pick.backdrop);
+  if(pick.logo)wanted.add('w500:'+pick.logo);
+ }
+ const images=Object.fromEntries(Object.entries(render.images||{}).filter(([key])=>wanted.has(key)));
+ const sourceMedia=render.media||{},reachable=new Set(Object.values(images)),entries=[];
+ for(const key of Object.keys(sourceMedia))if(key.startsWith('file:///hisenseUI/var/local/storeAppIcon/'))reachable.add(key);
+ for(const key of reachable){
+  if(typeof key!=='string'||!Object.hasOwn(sourceMedia,key))continue;
+  const value=sourceMedia[key];if(!value||typeof value!=='object')continue;
+  entries.push([key,value]);
+  for(const ref of [value.src,value.thumb,value.lift&&value.lift.src])if(typeof ref==='string')reachable.add(ref);
+ }
+ return {...snapshot,...render,images,media:Object.fromEntries(entries)};
+}
 function start(options){
  const directory=path.resolve(options.directory),token=readToken(options.credentials);
  fs.mkdirSync(directory,{recursive:true,mode:0o755});
@@ -35,7 +54,7 @@ function start(options){
  function publish(){
   writing=null;if(stopped||!engine)return;
   try{
-   const encoded=JSON.stringify({...engine.snapshot(),...render,workerPid:process.pid});
+   const encoded=JSON.stringify({...renderableSnapshot(engine.snapshot(),render),workerPid:process.pid});
    if(encoded!==lastPublished){atomic(path.join(directory,'snapshot.json'),encoded);lastPublished=encoded;}
   }
   catch{/* Preserve the last good snapshot on disk failures; keep local Home alive. */}
@@ -112,4 +131,4 @@ if(require.main===module){
   for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{worker.stop();process.exit(0);});
  }catch{console.error('Native feed worker could not start; check private configuration and worker ownership');process.exit(1);}
 }
-module.exports={start,readToken,readJSON};
+module.exports={start,readToken,readJSON,renderableSnapshot};

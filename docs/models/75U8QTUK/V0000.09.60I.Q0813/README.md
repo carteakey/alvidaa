@@ -1,16 +1,27 @@
 # 75U8QTUK (UK) — V0000.09.60I.Q0813 — VIDAA U9 on MTK9655
 
-**Status (2026-11-06, updated after findings/10): ROOT ARMED, RE-ARM TESTED,
-NATIVE HOME INSTALLED AND OWNER-VERIFIED.** The alvidaa DOM launcher now
-replaces the stock Home via a component-only swap in the writable
-operation-ui module; apps, inputs, TV Settings and app launch were all
-confirmed on screen. The current bundle (v2) also merges apps and inputs into
-one list and adds a CSS-gradient wallpaper picker in Preferences
-([findings/10](findings/10-native-home-customization.md)). Rollback is one
-command ([findings/09](findings/09-native-home.md)).
-A real reboot confirmed there is **no automatic autostart**; the documented
-`83` + `82` sequence restored uid-0 SSH afterwards with no re-download
-([findings/08](findings/08-reboot-rearm.md)). Initial arm: fingerprint
+**Status (2026-11-07, updated after findings/11): ROOT ARMED AND
+BOOT-PERSISTENT, NATIVE HOME INSTALLED AND OWNER-VERIFIED ACROSS A REBOOT.**
+The alvidaa DOM launcher replaces the stock Home via a component-only swap in
+the writable operation-ui module; apps, inputs, TV Settings and app launch were
+all confirmed on screen. The current bundle (v2) also merges apps and inputs
+into one list and adds a CSS-gradient wallpaper picker in Preferences
+([findings/10](findings/10-native-home-customization.md)). A `re_sshd` service
+now re-arms root SSH automatically at every boot — verified by a supervised
+reboot in [findings/11](findings/11-boot-persistence.md). Rollback is one
+command ([findings/09](findings/09-native-home.md)); the persistence hook has
+its own one-command teardown (findings/11).
+
+![Native Home after the supervised reboot, 2026-11-07](img/native-home-after-reboot.png)
+
+*Post-reboot Home: merged apps+inputs shelf, Dusk wallpaper, clock `21:39`,
+`Sat Nov 07 2026`. No Device ID, Netflix ESN, serial, MAC or LAN address
+appears in the frame, so this capture is committed as evidence.*
+
+Historically a real reboot confirmed **no automatic autostart**; the
+documented `83` + `82` sequence restored uid-0 SSH afterwards with no
+re-download ([findings/08](findings/08-reboot-rearm.md)), until that step was
+automated in [findings/11](findings/11-boot-persistence.md). Initial arm: fingerprint
 captured; pairing confirmed (Sidee, profile `modern`); launcher GET-delivery
 confirmed; Phoenix FaaS confirmed present. The earlier "dead end"
 (findings/04) was a **false negative**: that probe used the `hiutils` read
@@ -23,12 +34,13 @@ and the chain was armed on 2026-11-06
 ([findings/07](findings/07-root-armed.md)): the IPK `postinst` ran as
 **uid 0 / `CapEff 000001ffffffffff`**, and `ssh -p 8008 root@<tv-ip>`
 (via `server/keys/vidaa_75u8qtuk_ed25519`) gives uid 0 with a working PTY.
-No boot persistence — re-arm with commands `83` + `82` after a reboot
-(verified: reboot closed 8008, re-arm reopened it as uid 0).
+The manual re-arm page remains the fallback if the hook is ever torn down.
 `/` and `/application` remain read-only; dm-verity untouched.
 Do not treat this page as a recipe; it's the lab notebook's cover sheet.
 
-**Contributor:** [@kingpandacc](https://github.com/kingpandacc) (issue thread TBD).
+**Contributor:** [@kingpandacc](https://github.com/kingpandacc).
+**PRs:** [fork #1](https://github.com/Kingpandacc/alvidaa/pull/1) and
+[upstream #28](https://github.com/carteakey/alvidaa/pull/28).
 **Region:** UK (`GBR`, language `en-GB`). The existing `V0000.09.60I.Q0813`
 record is from an EU_A unit; the region delta is the first thing to re-check
 on the MQTT pairing profile.
@@ -79,7 +91,9 @@ PORT       STATE     SERVICE     VERSION
 Consistent with the expected VIDAA LAN posture (MQTT-over-TLS on **36669**
 only; phoenix on `9009` is localhost-only). **After arming (findings/07),
 TCP 8008 is now open LAN-wide** and appears in a fresh nmap; Dropbear listens
-on `0.0.0.0:8008`, key-only. It does not survive a reboot (no autostart).
+on `0.0.0.0:8008`, key-only. Since findings/11 it is re-armed automatically
+at every boot by the `re_sshd` service, so this port is now permanently open
+at every cold boot (accepted trade-off).
 
 ## Chain prerequisites on this unit
 
@@ -138,7 +152,8 @@ Per [AGENTS.md](../../../../AGENTS.md):
 ## Next up
 
 In order, per the AGENTS.md onboarding ladder. Steps 1–5 are done on this
-unit; root is armed but does not survive a reboot.
+unit; root is armed **and boot-persistent** (findings/11), and the native Home
+survives a reboot.
 
 1. **SSDP descriptor.** ✅ Done 2026-11-06 (findings/01). The descriptor on
    `:3366` is a 417-byte stub — no `transport_protocol`, empty
@@ -169,12 +184,16 @@ unit; root is armed but does not survive a reboot.
    `CapEff 000001ffffffffff`; verified:
    `ssh -p 8008 -i server/keys/vidaa_75u8qtuk_ed25519 root@<tv-ip>`
    → uid 0, full caps, **PTY OK**, `/etc/shadow` and `/data` readable.
-   `/` and `/application` are still `erofs ro`. No boot persistence:
-   after a real reboot 8008 was closed; re-sending `83` + `82` through
-   `sw2.js` restored uid-0 SSH with the same host key and a fresh daemon
-   ([findings/08](findings/08-reboot-rearm.md)). Re-arm page:
-   `tools/u7q/web/rearm.html` served by `tools/u7q/web/server.py`. The IPK
-   remains at `/APPS/installer.ipk`, so re-arm downloads nothing. Rollback is
+   `/` and `/application` are still `erofs ro`. Initially there was no boot
+   persistence: after a real reboot 8008 was closed; re-sending `83` + `82`
+   through `sw2.js` restored uid-0 SSH with the same host key and a fresh
+   daemon ([findings/08](findings/08-reboot-rearm.md)). **That is now
+   automated** ([findings/11](findings/11-boot-persistence.md)): a `re_sshd`
+   service in `tv.vidaa.jsservice.basic/CHA/services/` re-arms at every boot,
+   verified by a supervised reboot (uptime reset, marker `ARMED: dropbear up`,
+   no browser re-arm). Re-arm page `tools/u7q/web/rearm.html` served by
+   `tools/u7q/web/server.py` remains the fallback. The IPK remains at
+   `/APPS/installer.ipk`, so re-arm downloads nothing. Rollback is
    in findings/07.
 
 Each discovery, bug, trap, errno gets a dated note in

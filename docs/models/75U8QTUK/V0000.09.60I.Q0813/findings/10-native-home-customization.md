@@ -151,6 +151,7 @@ that rollback would need to remove. Rolling back also drops the customizations
 
 Same as findings/09: owner's TV, LAN-local, no DRM circumvention, no OTA
 writes, `/` stays erofs with dm-verity green (only `/APPS` and `/var/local`
-written), no reboot (root SSH is not boot-persistent), `server/pair.py` not
+written), no reboot during this install (root SSH was not yet boot-persistent
+at the time; see [findings/11](11-boot-persistence.md)), `server/pair.py` not
 run, Sidee holds the single MQTT session, no device identifiers committed,
 no push, no PR.

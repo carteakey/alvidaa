@@ -36,7 +36,12 @@
     css+=light+'{color:#202428;}'+
       light+' .firstLevelFrame{background:linear-gradient(135deg,#edf1f5,#e4eaf0)!important;}'+
       light+' .highLevelFrame:before,'+light+' .highLevelFrame:after{background-color:rgba(0,0,0,.09)!important;}'+
-      light+' #v-focus{background:rgba(0,0,0,.06)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.22)!important;}'+
+      light+' #v-focus{background:rgba(0,0,0,.06)!important;box-shadow:inset 0 0 0 2px rgba(0,0,0,.22)!important;color:#202428;}'+
+      // Native focus styling also colors the static category labels directly.
+      // Limit this override to navigation, never warning/confirmation content.
+      light+' .firstLevelFrame #v-focus.firstLevelItem .firstText,'+light+' .firstLevelFrame #v-focus.firstLevelItem .firstText *{color:#202428!important;}'+
+      light+' .firstLevelFrame #v-focus.firstLevelItem .firstIconFont{color:#0d745f!important;}'+
+      light+' #v-focus.item-class .s_item_title'+neutral+','+light+' #v-focus.item-class .s_item_title'+neutral+' *'+neutral+'{color:#202428!important;}'+
       // Native BUI controls carry their own neutral color/background classes;
       // inheriting only from the page leaves white text on a light surface.
       // Keep semantic error/warning classes and native disabled opacity intact.

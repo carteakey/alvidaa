@@ -43,9 +43,22 @@ needs confirming on this specific TV.
 | Apps and inputs appear in one merged list (`All` tab and Home shelf) | **CONFIRMED live (owner-verified)** 2026-11-06 | screenshot shows the top nav reading `All` and one shelf row containing apps (YouTube, TV Browser, Freely Live TV) and inputs (PS5, HDMI2, AirPlay, Screen, HDMI3); owner confirmed the `All` grid; OK dispatches inputs to `changeSource` | [`findings/10-native-home-customization.md`](findings/10-native-home-customization.md) |
 | A CSS-gradient wallpaper can be selected from Preferences | **CONFIRMED live (owner-verified)** 2026-11-06 | owner pressed OK once on the `Wallpaper` row (`None`→`Dusk`); screenshot shows the purple/blue gradient behind the unchanged layout with text still readable; preference persisted across the restart | [`findings/10-native-home-customization.md`](findings/10-native-home-customization.md) |
 | Rollback still works after the second install | **CONFIRMED live** 2026-11-06 | `MODE=rollback` restored stock `app.js` (`46bdee5a…`) and both original JS-cache dirs, restarted `32471`→`6125`; `MODE=install` then applied v2 (`6125`→`6756`) | [`findings/10-native-home-customization.md`](findings/10-native-home-customization.md) |
+| Root SSH re-arms automatically after a reboot (boot persistence) | **CONFIRMED live** 2026-11-07 | supervised `sync; /sbin/reboot` at uptime 84000 s; SSH returned ~10 s later at uptime 16.39 s (uptime reset) with uid 0 / `CapEff 000001ffffffffff`, **no browser re-arm**. Marker: `re_sshd start pid=2650 uid=314`, `attempt 1 uninstall=[90:0] install=[91:0]`, `ARMED: dropbear up`. Owner confirmed normal Home | [`findings/11-boot-persistence.md`](findings/11-boot-persistence.md) |
+| Native Home, merged list and wallpaper survive a reboot | **CONFIRMED live (owner-verified)** 2026-11-07 | post-reboot `app.js` md5 unchanged (`b6143b2d…`), `305:909`/`0640`; HAL screenshot shows `Sat Nov 07 2026`, merged apps+inputs shelf, Dusk gradient, `Native · 11 apps · 10 inputs` | [`findings/11-boot-persistence.md`](findings/11-boot-persistence.md) |
+| Boot persistence writes only to rw partitions; verified boot still green | **CONFIRMED live** 2026-11-07 | hook writes to `/APPS` + `/var/local` only; `/` and `/application` remain `erofs ro`, `upgradeFlag:"0"`, no `/OAD` staging writes | [`findings/11-boot-persistence.md`](findings/11-boot-persistence.md) |
+
+## Screenshots
+
+[`img/native-home-after-reboot.png`](img/native-home-after-reboot.png) is a
+committed HAL capture of the Home after the 2026-11-07 supervised reboot:
+merged apps+inputs shelf, Dusk wallpaper and clock. It contains **no** Device
+ID, Netflix ESN, serial, MAC or LAN address (PNG has only `IHDR`/`IDAT`/`IEND`
+chunks, no text metadata), so it is safe to publish as evidence.
 
 Images (private, not committed): the owner's About screen and browser-env
 readout photos contain the Device ID, Netflix ESN and serial — identifying
 fields deliberately kept out of the repo per AGENTS.md ("Keys and tokens
 never leave `server/keys/`"), extended here to device-identifying material.
-The redacted textual facts above are the on-record evidence.
+The redacted textual facts above are the on-record evidence. The other HAL
+captures from the launcher tests also stay private in gitignored
+`firmware/75u8qtuk/screenshots/`.

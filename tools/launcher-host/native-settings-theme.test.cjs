@@ -42,19 +42,25 @@ test('desktop CSS cascade preserves semantic colors, transparency and native hig
  .v-c1{color:#f3f4f5}.v-bg1{background:#0f1110}.v-opacity-low{opacity:.95}
  .v-c-error,.warning{color:rgb(200,0,0)}#disabled{opacity:.5}
  .v-high-contrast .v-c1{color:white}.v-high-contrast .v-bg1{background:black}
+ #v-focus.firstLevelItem .firstText *,.firstLevelItem#v-focus .firstIconFont{color:white}
+ #v-focus.item-class .s_item_title:not(.warning) *{color:white}
  </style><style>${css}</style><body class="v-normal-contrast">
  <div id="root" class="fmtv-advanced fmtv-light"><div id="panel" class="highLevelContent v-bg1 v-opacity-low">
  <span id="primary" class="item__txt v-c1">Primary</span><span id="error" class="item__txt v-c1 v-c-error v-c-highlight v-i-selected">Error</span>
  <span id="warning" class="item__txt v-c1 warning v-i-selected">Warning</span><span id="inline" class="item__txt v-c1" style="color:rgb(0,80,200)">Semantic inline</span>
- <span id="disabled" class="item__txt v-c1">Disabled</span></div></div><script>
- function state(){const out={};for(const id of ['root','panel','primary','error','warning','inline','disabled']){const s=getComputedStyle(document.getElementById(id));out[id]={color:s.color,background:s.backgroundColor,image:s.backgroundImage,opacity:s.opacity};}return out;}
- const normal=state();document.body.className='v-high-contrast';const high=state();document.body.innerHTML='<pre>'+JSON.stringify({normal,high})+'</pre>';
+ <span id="disabled" class="item__txt v-c1">Disabled</span></div>
+ <div class="firstLevelFrame"><div id="v-focus" class="firstLevelItem"><div class="firstText"><span id="category">Picture</span></div><span id="categoryIcon" class="firstIconFont">Icon</span></div></div>
+ <div id="optionFrame" class="item-class"><div class="s_item_title"><span id="optionTitle">TV Name</span></div><div class="s_item_title warning"><span id="optionWarning">Warning</span></div></div></div><script>
+ function state(){const out={};for(const id of ['root','panel','primary','error','warning','inline','disabled','category','categoryIcon','optionTitle','optionWarning']){const s=getComputedStyle(document.getElementById(id));out[id]={color:s.color,background:s.backgroundColor,image:s.backgroundImage,opacity:s.opacity};}return out;}
+ const normal=state();document.getElementById('v-focus').removeAttribute('id');document.getElementById('optionFrame').id='v-focus';const focused=state();document.body.className='v-high-contrast';const high=state();document.body.innerHTML='<pre>'+JSON.stringify({normal,focused,high})+'</pre>';
  </script>`;
  const source=path.join(directory,'index.html');fs.writeFileSync(source,html);
  const output=execFileSync('/usr/bin/chromium',['--headless=new','--disable-gpu','--disable-background-networking','--no-first-run','--no-proxy-server','--host-resolver-rules=MAP * ~NOTFOUND','--user-data-dir='+path.join(directory,'profile'),'--dump-dom','file://'+source],{encoding:'utf8',timeout:20000,maxBuffer:1024*1024,stdio:['ignore','pipe','ignore']});
  const match=output.match(/<pre>([^<]+)<\/pre>/);assert.ok(match,'browser did not return computed styles');
  let result;try{result=JSON.parse(match[1]);}catch{assert.fail('browser returned invalid style data');}
  assert.equal(result.normal.primary.color,'rgb(32, 36, 40)');
+ assert.equal(result.normal.category.color,'rgb(32, 36, 40)');assert.equal(result.normal.categoryIcon.color,'rgb(13, 116, 95)');
+ assert.equal(result.focused.optionTitle.color,'rgb(32, 36, 40)');assert.equal(result.focused.optionWarning.color,'rgb(200, 0, 0)');
  assert.equal(result.normal.error.color,'rgb(200, 0, 0)');assert.equal(result.normal.warning.color,'rgb(200, 0, 0)');
  assert.equal(result.normal.inline.color,'rgb(0, 80, 200)');assert.equal(result.normal.disabled.opacity,'0.5');
  assert.equal(result.normal.panel.opacity,'0.95');assert.equal(result.normal.root.background,'rgba(0, 0, 0, 0)');

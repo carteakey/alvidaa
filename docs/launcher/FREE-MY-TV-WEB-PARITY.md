@@ -159,8 +159,10 @@ starts and install → exact restore → reinstall of the boot fragment. Autosta
 is configured; **cold boot is not yet verified**. See [lifecycle evidence](../models/55A7KAU/V0000.09.09O.P1015/findings/17-native-feed-lifecycle.md).
 A deterministic private release packager retains root ownership, scoped
 permissions and file hashes while excluding credential paths. The new root-local
-upgrade/rollback/teardown coordinator has fault-injection and package tests but
-has **not** been exercised on the TV.
+upgrade/rollback/teardown coordinator has fault-injection and package tests, plus
+an actual apply → exact rollback → reapply → stock teardown trial. Guarded setup
+then restored the corrected web Home. Live light-theme tests also exposed and
+corrected native focus-label overrides; see [findings 19](../models/55A7KAU/V0000.09.09O.P1015/findings/19-release-controller-trial.md).
 
 Populated desktop comparisons now cover recommendations, Shows, weather/prices
 and a deterministic screensaver; the latter matches exactly in that fixture.
@@ -170,8 +172,9 @@ See [completion evidence](../models/55A7KAU/V0000.09.09O.P1015/findings/18-web-p
 for measurements, the last deployed hash, and the separate legacy reverse-shell
 bootstrap risk. Desktop results do not establish Cobalt or whole-platform parity.
 
-Full device coverage, release lifecycle trials, persistence, cold boot/standby,
-voice/microphone, audible accessibility, playback/blocklist collateral and
-subjective acceptance remain release gates. No further TV access was made after
-the operator requested offline work.
+Exact launcher preferences survived the UI restart, stock restore and web
+reinstall. Full device coverage, cold boot/standby, voice/microphone, audible
+accessibility, actual accessibility-mode transitions, playback/blocklist collateral
+and subjective acceptance remain release gates. TV access resumed only after
+renewed operator permission; the offline interval involved no TV access.
 Publication of this trial does not establish completion. **This is not yet a verified perfect port.**

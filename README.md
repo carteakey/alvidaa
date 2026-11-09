@@ -145,6 +145,7 @@ both regenerate from `docs/research/inventory.json`.
 | 43A5LE | V0000.09.60A.Q0707 | working | untested | [@antmagl](https://github.com/antmagl) |
 | 43A5FE | V0010.09.09A.P0930 | working | achieved | @community |
 | 55E7QTUK | V0000.09.09D.P1001 (UK) | working | achieved + boot-persistent | [@damiennnnn](https://github.com/damiennnnn) |
+| 32A35HUV | V0000.09.01O.P0814 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — add a firmware entry to [inventory.json](docs/research/inventory.json) (single source of truth; fields and where to find them: [TESTED-MODELS.md](docs/research/TESTED-MODELS.md)) and run `scripts/gen-inventory.py` — every table in the repo regenerates from it.

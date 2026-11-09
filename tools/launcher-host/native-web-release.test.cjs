@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {hash,APP}=require('./native-trial.cjs');
-const {verify,relative,file,inspect,restoreFiles,transaction,manage,verifyShared,ownsPendingUpdate,REQUIRED}=require('./native-web-release.cjs');
+const {verify,relative,file,inspect,restoreFiles,transaction,manage,verifyShared,ownsPendingUpdate,assetCost,checkSpace,REQUIRED}=require('./native-web-release.cjs');
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'fmtv-release-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const revision='f2d984c51edca1544e39f2d44cdf86b75b0b6703',font=Buffer.from('/* font fixture */');
@@ -22,6 +22,19 @@ function fixture(t){
  for(const [name,data]of Object.entries(files))put(name,data);
  return {root,manifest,save,put};
 }
+test('space accounting reuses verified assets and rejects altered existing assets',t=>{
+ const f=fixture(t),root=path.join(f.root,'assets'),name=f.manifest.assetId+'/fonts.css';
+ assert.equal(assetCost(f.manifest,root),0);
+ fs.unlinkSync(path.join(root,name));assert.equal(assetCost(f.manifest,root),f.manifest.files['assets/'+name].size);
+ fs.writeFileSync(path.join(root,name),'changed');assert.throws(()=>assetCost(f.manifest,root),/Existing public asset changed/);
+});
+test('space accounting separates filesystems but aggregates allocations on shared mounts',()=>{
+ const M=1024*1024,requests=[{root:'private',bytes:20*M},{root:'public',bytes:40*M}];
+ checkSpace(requests,root=>({device:root,free:root==='private'?90*M:110*M}));
+ assert.throws(()=>checkSpace(requests,()=>({device:1,free:110*M})),/Insufficient release headroom/);
+ checkSpace(requests,()=>({device:1,free:124*M}));
+ assert.throws(()=>checkSpace([{root:'private',bytes:20*M}],()=>({device:1,free:83*M})),/Insufficient release headroom/);
+});
 test('release verification is read-only and covers the recovery controller, helper and content-addressed assets',t=>{
  const f=fixture(t),before=fs.readFileSync(path.join(f.root,'RELEASE.json'));
  assert.equal(verify(f.root).manifest.candidate,f.manifest.candidate);

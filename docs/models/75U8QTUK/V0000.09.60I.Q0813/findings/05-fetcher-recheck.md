@@ -1,5 +1,13 @@
 # 05 — Fetcher re-check: findings/04 was a false negative — write primitive is OPEN (2026-11-06)
 
+> **Resolution (2026-11-07):** the four items in "What is still unverified"
+> below were resolved by [06](06-superwatch-gate.md) (superwatch socket from
+> uid 314 / group 616, `/var/local` writability, `process.arch: "arm"`) and
+> the disk readback was confirmed by the marker writes themselves. Root was
+> armed in [07](07-root-armed.md) and is now boot-persistent
+> ([11](11-boot-persistence.md)). This page keeps its original text as the
+> historical lab record; see [`MODDING.md`](../MODDING.md) for current status.
+
 Loaded `launcher/recon-fetcher.html` in the TV Browser app
 (`http://<server-ip>:8770/recon-fetcher.html`; TV at `<tv-ip>`). This
 re-ran the bridge probe with the *correct* primitive and arg shapes after

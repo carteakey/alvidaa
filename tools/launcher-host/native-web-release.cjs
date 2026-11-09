@@ -117,6 +117,23 @@ function restoreFiles(directory,plan){
 function verifyShared(home){
  for(const [name,digest]of Object.entries(home.hashes))if(name!==APP)assert.equal(hash(read(home.p(name))),digest,'Shared firmware changed: '+name);
 }
+function assetCost(manifest,root){
+ let bytes=0;
+ for(const [name,entry]of Object.entries(manifest.files))if(name.startsWith('assets/')){
+  const target=file(root,name.slice(7),true);
+  if(fs.existsSync(target))assert.equal(hash(read(target)),entry.sha256,'Existing public asset changed');
+  else bytes+=entry.size;
+ }
+ return bytes;
+}
+function checkSpace(requests,inspect=root=>{const s=fs.statfsSync(root);return {device:fs.statSync(root).dev,free:s.bavail*s.bsize};}){
+ const devices=new Map();
+ for(const {root,bytes}of requests){
+  const s=inspect(root),entry=devices.get(s.device)||{bytes:0,free:s.free,root};
+  entry.bytes+=bytes;entry.free=Math.min(entry.free,s.free);devices.set(s.device,entry);
+ }
+ for(const entry of devices.values())assert.ok(entry.free>=entry.bytes+64*1024*1024,'Insufficient release headroom: '+entry.root);
+}
 function prepare(directory,expected,home,worker){
  verifyShared(home);
  const release=verify(directory),{manifest}=release;
@@ -134,16 +151,24 @@ function prepare(directory,expected,home,worker){
  const plan={version:1,phase:'prepared',runtime:RUNTIME,stage:directory,manifestHash:hash(read(file(directory,'RELEASE.json'))),
   beforeState:hash(read(path.join(home.state,'state.json'))),beforeStateObject:hash(JSON.stringify(home.load())),
   beforeHome:expected,afterHome:manifest.candidate,wasRunning:running.running,files:[]};
- let budget=release.total;
+ let backupBytes=0,runtimeBytes=0;
  for(const name of Object.keys(manifest.files).filter(name=>name.startsWith('runtime/'))){
   const relativeName=name.slice(8),target=file(RUNTIME,relativeName,true),entry={name:relativeName,after:manifest.files[name].sha256,before:null};
+  runtimeBytes+=manifest.files[name].size;
   if(fs.existsSync(target)){
    const st=fs.lstatSync(target);assert.ok(st.uid===process.getuid()&&(st.mode&0o022)===0,'Runtime ownership changed');
-   const bytes=read(target);Object.assign(entry,{before:hash(bytes),uid:st.uid,gid:st.gid,mode:st.mode});budget+=bytes.length;
+   const bytes=read(target);Object.assign(entry,{before:hash(bytes),uid:st.uid,gid:st.gid,mode:st.mode});backupBytes+=bytes.length;
   }
   plan.files.push(entry);
  }
- for(const root of [journal,ASSETS]){const space=fs.statfsSync(root);assert.ok(space.bavail*space.bsize>=budget+64*1024*1024,'Insufficient release headroom');}
+ const candidateBytes=manifest.files['runtime/candidate.js'].size,previousBytes=fs.statSync(home.p(APP)).size;
+ const controlBytes=CONTROL.reduce((sum,name)=>sum+manifest.files['runtime/'+name].size,manifest.files['runtime/native-image'].size);
+ // Staging already occupies disk; existing content-addressed assets are reused.
+ // Aggregate by filesystem so shared mounts cannot spend the same headroom twice.
+ checkSpace([{root:RUNTIME,bytes:runtimeBytes},
+  {root:journal,bytes:backupBytes+controlBytes+2*(candidateBytes+previousBytes)+2*1024*1024},
+  {root:ASSETS,bytes:assetCost(manifest,ASSETS)},
+  {root:path.dirname(home.p(APP)),bytes:candidateBytes}]);
  for(const entry of plan.files)if(entry.before!==null){
   const target=path.join(journal,'before',entry.name);fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o700});
   const bytes=read(file(RUNTIME,entry.name));assert.equal(hash(bytes),entry.before);atomicWrite(target,bytes,privateMode);
@@ -309,4 +334,4 @@ async function main(){
  console.log(JSON.stringify({phase:load(directory).phase,worker:worker.status()}));
 }
 if(require.main===module)main().then(()=>process.exit(0),error=>{console.error('Native web release: '+error.message);process.exit(1);});
-module.exports={verify,relative,file,inspect,restoreFiles,transaction,manage,verifyShared,ownsPendingUpdate,CONTROL,REQUIRED};
+module.exports={verify,relative,file,inspect,restoreFiles,transaction,manage,verifyShared,ownsPendingUpdate,assetCost,checkSpace,CONTROL,REQUIRED};

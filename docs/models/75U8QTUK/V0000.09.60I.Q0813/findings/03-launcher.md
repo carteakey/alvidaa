@@ -1,5 +1,16 @@
 # 03 — Launcher-lane GET + full fingerprint sweep (2026-11-06)
 
+> **Resolution (2026-11-07):** the "Still UNVERIFIED" list below was
+> resolved on hardware shortly after this page was written — the `fetcher`
+> permission block, `fetchFile` write primitive and array-path traversal in
+> [05](05-fetcher-recheck.md); the superwatch socket (group 616, command 85),
+> `/var/local` writability and 32-bit ARM userland in
+> [06](06-superwatch-gate.md). Root was then armed ([07](07-root-armed.md))
+> and is now **boot-persistent** ([11](11-boot-persistence.md)). The only item
+> from this page that remains untested is the browser/canvas **tile
+> self-install** — the native Home lane ([09](09-native-home.md)) is what is
+> actually installed. Current status: [`MODDING.md`](../MODDING.md).
+
 Served `launcher/fingerprint-full.html` from the Mac mini
 (`python3 http.server`, launcher/ dir only, `<server-ip>:8770`) and opened
 it in the TV's **"TV Browser"** app (app id 16, from findings/02). The TV

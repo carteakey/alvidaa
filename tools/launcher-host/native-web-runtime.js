@@ -135,24 +135,59 @@
       else if(program.control.back)scope.emit('appcontrol');
     }};
   }
+  function settingsRoute(sdk){
+    try{
+      var next=typeof sdk.router.getChangingPage==='function'&&sdk.router.getChangingPage();
+      var page=next&&typeof next.path==='string'?next:sdk.router.getCurrentPage();
+      var route=page&&sdk.router.parseRoute(page);
+      return route&&route.moduleName==='setting';
+    }catch{return false;}
+  }
+  function settingsBackdrop(sdk,element){
+    if(root.document.hidden||!settingsRoute(sdk))return null;
+    var node=null,timer=null;
+    function clear(){
+      if(timer!==null){root.clearTimeout(timer);timer=null;}
+      if(node&&node.parentNode)node.parentNode.removeChild(node);
+      node=null;
+    }
+    function refresh(){
+      if(root.document.hidden||!settingsRoute(sdk)){clear();return;}
+      timer=root.setTimeout(refresh,100);
+    }
+    try{
+      // Keep only a visual copy: the deactivated Home must release keys and idle hooks.
+      node=element.cloneNode(true);node.setAttribute('aria-hidden','true');node.setAttribute('inert','');
+      node.setAttribute('data-alvidaa-settings-backdrop','');
+      node.style.pointerEvents='none';node.style.zIndex='0';
+      var canvases=element.querySelectorAll('canvas'),copies=node.querySelectorAll('canvas');
+      for(var i=0;i<canvases.length;i++){
+        try{copies[i].getContext('2d').drawImage(canvases[i],0,0);}catch{/* Optional canvas surface. */}
+      }
+      root.document.body.insertBefore(node,root.document.body.firstChild);
+      refresh();return {clear:clear};
+    }catch{clear();return null;}
+  }
   root.AlvidaaFreeMyTV=function(sdk){
     if(root.AlvidaaNativeSettingsTheme)root.AlvidaaNativeSettingsTheme.configure({
       preferences:function(){return sdk.storage.get(STORE+'fmtv.prefs');},
-      route:function(){
-        var next=typeof sdk.router.getChangingPage==='function'&&sdk.router.getChangingPage();
-        var current=next&&typeof next.path==='string'?next:sdk.router.getCurrentPage();
-        // SDK paths include a runtime namespace before /setting/... . Ask the
-        // SDK which module owns the route; do not guess or widen CSS globally.
-        var route=current&&sdk.router.parseRoute(current);
-        return route&&route.moduleName==='setting'?'/setting':'';
-      }
+      // SDK module identity also handles runtime-prefixed Settings routes.
+      route:function(){return settingsRoute(sdk)?'/setting':'';}
     });
     return {
     name:'Launcher',mounted:function(){this.start();},activated:function(){this.start();this.routeFocus();},
-    deactivated:function(){this.stop();},beforeDestroy:function(){this.stop();},
+    deactivated:function(){this.stop(true);},beforeDestroy:function(){this.stop();},
     watch:{$route:function(){this.routeFocus();}},
-    methods:{start:function(){if(!this._nativeWeb){var self=this;this._nativeWeb=mount(sdk,this.$el,function(){self.stop();self.start();});}},
-      stop:function(){if(this._nativeWeb){this._nativeWeb.stop();this._nativeWeb=null;}},
+    methods:{start:function(){
+        if(this._settingsBackdrop){this._settingsBackdrop.clear();this._settingsBackdrop=null;}
+        if(!this._nativeWeb){var self=this;this._nativeWeb=mount(sdk,this.$el,function(){self.stop();self.start();});}},
+      stop:function(preserveSettings){
+        if(this._settingsBackdrop){this._settingsBackdrop.clear();this._settingsBackdrop=null;}
+        if(this._nativeWeb){
+          if(preserveSettings)this._settingsBackdrop=settingsBackdrop(sdk,this.$el);
+          this._nativeWeb.stop();this._nativeWeb=null;
+        }
+      },
       routeFocus:function(){if(this._nativeWeb)this._nativeWeb.route(this.$route&&this.$route.query||{});}},
     render:function(h){return h('div',{attrs:{id:'alvidaa-web-home'},style:{position:'absolute',left:'0',top:'0',width:'1920px',height:'1080px'}});}
   };};

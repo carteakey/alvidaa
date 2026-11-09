@@ -1,63 +1,65 @@
 # 75U8QTUK V0000.09.60I.Q0813 — modding notes
 
+> **Status (2026-11-07): measured.** This page began as a speculative
+> fingerprint-only scaffold. The guesses it contained have since been
+> **resolved on hardware** in findings 03–11; the unverified expectations
+> were removed rather than left standing next to the measured results. The
+> lab notebook is [`README.md`](README.md), the claim ledger is
+> [`EVIDENCE.md`](EVIDENCE.md). Historical findings files keep their original
+> text with a resolution banner at the top.
+
 ## Where this fits
 
-This unit shares the firmware build with the 100U7Q, so the modding surface
-map is expected to match. The canonical, measured surface map lives on the
-parent guide:
+This unit shares the firmware build with the 100U7Q. The canonical surface
+map lives on the parent guide:
 
 - Partition / mode map, writable-by-uid-314 list, nosuid/noexec flags →
   [100U7Q MODDING.md](../../100U7Q/V0000.09.60I.Q0813/MODDING.md)
 - Package tree (`/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/…`) and the
   installer handoff → [100U7Q README](../../100U7Q/V0000.09.60I.Q0813/README.md)
-- Service list autostart primitive for later boot-persistence work →
-  [75UR9S source bundle](../../75UR9S/V0000.09.60W.Q0624/source/re_sshd/)
+- Boot-persistence service → [`source/re_sshd/`](source/re_sshd/), verified
+  in [findings/11](findings/11-boot-persistence.md)
 
-## Launcher lane (AGENTS.md 90% path) — status: UNTESTED
+## Measured state (replaces the old "expected deltas")
 
-The launcher lane is independent of the root chain; it only needs:
+| Item | Measured result | Source |
+|---|---|---|
+| Pairing | Sidee, profile `modern`; `server/pair.py` **was not run** — one MQTT server per TV | [findings/02](findings/02-pairing.md), [findings/03](findings/03-launcher.md) |
+| `transport_protocol` | Not exposed over SSDP (`dd.xml` on :3366 is a 417-byte stub) | [findings/01](findings/01-ssdp.md) |
+| FaaS write primitive | `basic/fetcher` `fetchFile` writes succeed; `hiutils.fileRead` traverses with an **array** path | [findings/05](findings/05-fetcher-recheck.md) |
+| Superwatch socket | `/var/run/superwatch_socket` `0660 root:616`, reachable from uid 314; command `85` → `901:0` | [findings/06](findings/06-superwatch-gate.md) |
+| Root SSH | Static ARM32 Dropbear 2022.83 on `0.0.0.0:8008`, key-only, uid 0 / `CapEff 000001ffffffffff`, PTY OK, `/etc/shadow` and `/data` readable | [findings/07](findings/07-root-armed.md) |
+| Boot persistence | **Achieved 2026-11-07.** `re_sshd` service autostarts at every boot and re-arms 8008 via superwatch 83/82 — no browser. Verified by supervised reboot: uptime reset, marker `ARMED: dropbear up` | [findings/11](findings/11-boot-persistence.md) |
+| Native Home | Component-only `/Launcher` route swap in operation-ui `app.js`; apps, inputs, TV Settings, app launch verified; merged apps+inputs list and CSS wallpapers added | [findings/09](findings/09-native-home.md), [findings/10](findings/10-native-home-customization.md) |
+| Reboot survival | Native Home, merged list and wallpaper survived a reboot byte-identical; owner confirmed normal Home | [findings/11](findings/11-boot-persistence.md), [screenshot](img/native-home-after-reboot.png) |
+| Verified boot | `/` and `/application` remain `erofs ro` with dm-verity; only `/APPS` and `/var/local` written | [findings/07](findings/07-root-armed.md), [findings/11](findings/11-boot-persistence.md) |
 
-1. Successful MQTT pairing (`server/pair.py <tv-ip>`) — the UK/`GBR` region
-   may want the `remotenow` or `standard` credential profile first; walk
-   the cascade like the 65U7H work if `standard` fails CONNACK.
-2. The launcher web UI served from `server/vidaa_server.py` on a LAN host,
-   loaded on the TV via `/api/open`.
-3. Self-install via the `launcher/hookinstall.html` + `hookcheck.html`
-   pages — the `WebSDK_*` file bridge path and tile-self-install primitive
-   on the browser side.
+Operational facts: package ids **83 (uninstall) / 82 (install)** for
+`re.installer`; OTA frozen (`upgradeFlag: "0"`, standby updates off, no
+staged `/OAD/pkgs`); no vendor binaries or keys shipped in this repo.
 
-None of that has run on this TV yet. Each step gets a findings note the
-first time it's attempted.
+### Still unverified (deliberately, no guesses recorded)
 
-## Root chain expected deltas — status: UNTESTED
+- The **browser/canvas launcher lane**: `launcher/hookinstall.html` +
+  `hookcheck.html` tile self-install via the `WebSDK_*` file bridge. GET
+  delivery of a served page into the TV browser works
+  ([findings/03](findings/03-launcher.md)); the self-installing tile has
+  never been exercised. The native lane above is what is actually installed.
+- Cosmetic region details (PIN dialog text in `en-GB`, UK catalogue presets
+  under `/var/local/kilby/categoryList/`).
 
-If the 100U7Q `postinst` path applies as-is (the expected case), on success:
+Do **not** start `server/pair.py` against this TV: Sidee holds the single
+paired MQTT identity, and a second server kicks it off the broker.
 
-- Dropbear 2022.83 listens on **TCP 8008**, key-only, with PTY (`/dev/ptmx`
-  + `/dev/pts/ptmx` modes opened up at install time by the postinst).
-- `CapEff 000001ffffffffff` for the SSH process.
-- No automatic boot persistence — re-arm with `pkgmgr` opcode `83`
-  (uninstall) then `82` (install) via the same superwatch socket after each
-  reboot, unless we later port the 75UR9S `re_sshd` serviceList autostart.
-- No vendor binaries shipped, no credentials shipped. Pairing is yours to
-  perform; SSH key is yours to generate.
+## Rollback
 
-Rollback is operator-defined (same as 100U7Q): uninstall the package via
-`pkgmgr` 83, reboot. The daemon is gone after reboot either way.
-
-## What the UK region might change
-
-- **MQTT pairing credential profile.** `pair.py` cascades `standard` →
-  `remotenow` → `modern`. The EU_A record on the same build used
-  `standard`; the UK region has not been tested and could differ, as the
-  65U7H (India) work showed.
-- **Pairing dialog text.** The on-screen 4-digit PIN dialog runs in the
-  TV's current language (`en-GB`). This is cosmetic only, but worth noting
-  for screenshots and user-facing docs.
-- **Country-dependent catalogues.** `/var/local/kilby/categoryList/` and
-  `newVersionPreset/` may ship a different EU/UK country preset here than
-  on the 75UR9S Czech unit. Not relevant to the root chain, but it's the
-  cheapest region sanity check once the bridge-read primitive is live.
+- Native Home: `switch-home.sh rollback` (see
+  [findings/09](findings/09-native-home.md)).
+- Boot persistence: `/bin/sh /var/local/alvidaa/boot-persist/boot-persist.sh
+  teardown` (see [findings/11](findings/11-boot-persistence.md)).
+- Full root lane: [findings/07](findings/07-root-armed.md).
+- Manual re-arm fallback (only needed if the hook is torn down):
+  `tools/u7q/web/rearm.html` served by `tools/u7q/web/server.py`.
 
 ## What this guide does **not** do
 
@@ -69,3 +71,4 @@ Same posture as the parent:
 - No OTA endpoints are poked. The TV browser must never see the open web
   — keep DNS blocking for `vidaa.com` / `vidaahub.com` from the pi, as in
   the main launcher setup.
+- No DRM circumvention. Device ID, Netflix ESN and serial are not committed.
