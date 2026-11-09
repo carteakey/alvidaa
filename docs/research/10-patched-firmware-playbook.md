@@ -28,6 +28,7 @@
 | V0000.09.09D.P1001 (UK) (55E7QTUK (internal 55E70QEVS_0002, serial type 55E7QE), UK (GBR; bridge region EU_A; SSDP blob region=0)) | MTK9603 | open | open | untested | n-a | achieved | [@damiennnnn](https://github.com/damiennnnn) |
 | V0000.09.01O.P0814 (32A35HUV, CAN) | MTK9602 | open | open | untested | untested | achieved | [@EmoFa](https://github.com/EmoFa) |
 | V0000.06.12X.N1212 (50A7HAU (internal 50A6GA), AU (Australia)) | MTK9602 | untested | untested | untested | untested | untested | [@gonzule](https://github.com/gonzule) |
+| V0000.09.61B.Q0704 (55E75LEVS, EU_A (BIH)) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | open | open | untested | untested | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
 <!-- INVENTORY:END -->
 
 **Read of the table:** the July EU_A reporter observed `fileWrite` rejected

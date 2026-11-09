@@ -524,6 +524,37 @@
         "root": "untested",
         "notes": "Model guide: docs/models/50A7HAU/V0000.06.12X.N1212/. Read-only fingerprint only, no write probes. Internal board 50A6GA per UPnP dd.xml. transport_protocol 3290 decoded from the UDN ASCII payload, which is notable because the earlier 65U8HAU U6 report was 3160, so this build carries the newer pairing handshake. Bridge expected to be the WebSDK_* origin-gated family rather than HiUtils. Ports: 3366 UPnP open, 36669 MQTT with mTLS enforced, 36670 companion TLS open, 9009 loopback-bound, 9222-9226 filtered, 22/2222/2323/8008/5555 closed. ICMP dropped, SSDP multicast unanswered, direct unicast to :3366/dd.xml works."
       }
+    },
+    {
+      "id": "V0000.09.61B.Q0704",
+      "model": "55E75LEVS",
+      "region": "EU_A (BIH)",
+      "soc": "MTK9618 (mt5879; aarch64 kernel, armhf userland)",
+      "vidaa_os": "U09.61",
+      "transport_protocol": "3290",
+      "browser": "Chromium 111 \"odin\" (ViewPort/5.2.20, aarch64 UA)",
+      "build_date": "2026-07-03",
+      "tested_by": [
+        "gh:mustafaGlobal"
+      ],
+      "capabilities": {
+        "pairing": "untested",
+        "launcher": "working",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "open",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "notes": "Retail 55E7NQ PRO, internal 55E75LEVS, serial type 55E75LE, EU_A/BIH, transport_protocol 3290. MTK9618/mt5879 with aarch64 kernel but 32-bit ARM userland (process.arch 'arm'), so the kit is armhf. Reached from the TV Browser page: fetcher writes, hiutils array-path traversal, superwatch 660 root:616 (cmd 85 → 901:0), /var/local writable. Root kit = patched Dropbear 2022.83 (fill_passwd, /etc/shells→/APPS/shell, password hash file because /etc/shadow is ro) on port 22; boot persistence via re_sshd in tv.vidaa.jsservice.basic/CHA/services + serviceList (ARMED ~30s after boot on four cold boots). Lane 3 native Home installed in the writable operation-ui app.js (component swap only), owner allowlist YouTube / Stremio Lite / TV Browser, 10 inputs kept; verified on screen and across reboot. OTA already off: /OAD/AppUpgradeSwitch.json upgradeFlag 0 (BIH) and /var/local/nightupdate.ini dcm_update=0. Verified boot green. Pairing/lane 1 not exercised; vendor tiles Netflix/Disney+/Prime/Rakuten/HBO Max/EON TV/Crunchyroll are store-feed rows, not installed packages. Teardown: kill the Dropbear pid; remove /APPS/.re_sshd, /APPS/installer.ipk and /APPS/shell; delete the FIREWALL_IN_EULAON dport 22 rule; restore serviceList.json.pristine and remove the re_sshd service directory; roll back operation-ui app.js from the stock backup. The rootfs is never written (squashfs ro, dm-verity green)."
+      },
+      "capability_detail": {
+        "file_bridge_traversal": "hiutils.fileRead traverses with a one-element array path (../proc/uptime read); bare strings are rejected 'invalid path'.",
+        "file_bridge_write": "basic/fetcher fetchFile wrote markers as uid 314 to /APPS and to tv.vidaa.jsservice.basic/CHA/; direct hiutils.fileWrite was not tested.",
+        "devtools_forge": "not needed for this chain; the superwatch/IPK path was used instead.",
+        "root": "fetcher.fetchFile → superwatch 83/82 → vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARM32 Dropbear with key + owner password on :22; boot-persistent via the re_sshd serviceList autostart (ARMED ~30 s after each of four cold boots).",
+        "launcher": "Native lane 3: the Free My TV component swap in the writable operation-ui app.js, with the owner allowlist (YouTube / Stremio Lite / TV Browser) and the merged inputs shelf; rendered on screen and survived a cold boot. Bridge lanes 1/2 (pairing + home watcher) were not exercised."
+      }
     }
   ]
 }

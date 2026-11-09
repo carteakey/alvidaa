@@ -38,6 +38,7 @@ builds.
 | 55E7QTUK (internal 55E70QEVS_0002, serial type 55E7QE) | UK (GBR; bridge region EU_A; SSDP blob region=0) | MTK9603 | U09.09 | V0000.09.09D.P1001 (UK) | 3290 | Chromium 111 "odin" (armv7l UA, Odin/111.5563.5.1, api 3.0.1) | working | achieved | [@damiennnnn](https://github.com/damiennnnn) |
 | 32A35HUV | CAN | MTK9602 | U09.01 | V0000.09.01O.P0814 | 3290 | Chromium 111 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 | 50A7HAU (internal 50A6GA) | AU (Australia) | MTK9602 | U06.12 | V0000.06.12X.N1212 | 3290 | Chromium 88.0.4324.182 (armv7l) | untested | untested | [@gonzule](https://github.com/gonzule) |
+| 55E75LEVS | EU_A (BIH) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.61 | V0000.09.61B.Q0704 | 3290 | Chromium 111 "odin" (ViewPort/5.2.20, aarch64 UA) | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -107,6 +108,13 @@ never hand-edit between the markers.
 - `file_bridge_traversal` **open** — hiutils.fileRead traverses only with an array path: path:['../proc/uptime'] returns ret:true, while bare-string paths are rejected 'invalid path' (findings/05).
 - `file_bridge_write` **open** — The write primitive is the FaaS fetcher: basic/fetcher fetchFile returns ret:true 'download finished', with markers written to /APPS and /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/ (findings/05).
 - `root` **achieved** — The 100U7Q chain armed 2026-11-06 (owner-authorized): the IPK postinst ran as uid 0 with CapEff 000001ffffffffff and ssh -p 8008 (dedicated ed25519 key in server/keys/, gitignored) gives uid 0 + PTY, with /etc/shadow and /data readable. Boot persistence achieved 2026-11-07: the re_sshd service re-arms SSH automatically at every boot — a supervised reboot at uptime 84000 s returned SSH at uptime 16.39 s with no browser re-arm (findings/11). The earlier state of this row (no autostart; re-arm with superwatch 83+82) was the pre-findings/11 measurement from findings/08. Teardown: findings/09 (native Home) and findings/11 (persistence hook).
+
+**55E75LEVS — V0000.09.61B.Q0704**
+- `launcher` **working** — Native lane 3: the Free My TV component swap in the writable operation-ui app.js, with the owner allowlist (YouTube / Stremio Lite / TV Browser) and the merged inputs shelf; rendered on screen and survived a cold boot. Bridge lanes 1/2 (pairing + home watcher) were not exercised.
+- `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (../proc/uptime read); bare strings are rejected 'invalid path'.
+- `file_bridge_write` **open** — basic/fetcher fetchFile wrote markers as uid 314 to /APPS and to tv.vidaa.jsservice.basic/CHA/; direct hiutils.fileWrite was not tested.
+- `devtools_forge` **untested** — not needed for this chain; the superwatch/IPK path was used instead.
+- `root` **achieved** — fetcher.fetchFile → superwatch 83/82 → vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARM32 Dropbear with key + owner password on :22; boot-persistent via the re_sshd serviceList autostart (ARMED ~30 s after each of four cold boots).
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details
