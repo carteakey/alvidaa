@@ -42,6 +42,8 @@ day and cold-boot verified (findings 06); teardown in findings/05 and 06.
 | v3 dumps: mounts/inittab/passwd/rcS/profile shapes (partition layout p5/p27/p54/p55/p49-family; `wifitest uid 0`; SELinux labels; `SYS_VERSION=Debug`) | `recon-e7qtuk.html` v3 + `/tmp` bodies | verified |
 | **`/etc/rc.d/rc.local` exists with the otaTest-hook stanza; `/etc/rc.local` absent** | micro-probe at the rcS-referenced paths | verified |
 | `/var/local/otaTest.sh` absent (hook lane free); `/APPS/euladpp/current/versionInfo.json` absent (lane unchecked on this branch — [07](findings/07-os-map-alternate-avenues.md)) | micro-probe + root re-read | verified |
+| Device resolver: dnsmasq 2.91 static armv7 over loopback, `address=` block on the adsfw families, lane W (`/etc/resolv.conf` symlink → rw `/var/local/etc`), NXDOMAIN verified | postinst stage (re.installer 1.0.4) + `nslookup` probes, 2026-11-09 (findings [09](findings/09-device-dns-resolver.md)) | verified |
+| Boot re-arm after forced reboot: serviceList service loads but never starts (`boot_marker` ENOENT), otaTest hook exec blocked, superwatch 53/54 replies 0 with no install; `reboot -f` darkens the network stack | page-lane diagnostic reads + installer_log mtimes, 2026-11-09 | verified |
 | v4 wire: `POST localhost:9009/service/hiutils` `{"api","args"}`; phoenix binary under `/APPS`, script `jsservice.basic/phoenix.server.js` | XHR prototype patch + stir | verified |
 | Page host: uid/gid 314, groups with **616 + 713**, `CapEff 0` | `../proc/self/{cmdline,status}` | verified |
 
@@ -75,7 +77,12 @@ chain), the protocol framing per id, and the flashback teardown;
 verifier evidence; [07](findings/07-os-map-alternate-avenues.md) — the
 post-root OS identity map, the alternate root avenues, and the euladpp
 lane-absence record; [08](findings/08-ad-removal.md) — the adsfw
-ad/telemetry block, boot-native on every cold boot.
+ad/telemetry block, boot-native on every cold boot;
+[09](findings/09-device-dns-resolver.md) — the dnsmasq device resolver
+(lane W, NXDOMAIN on the ad families), the deploy recipe, and the
+same-day boot re-arm failure states (serviceList silent, hook
+exec-blocked, superwatch silent, bad reboot recipe) with the recovery
+playbook.
 
 Root re-arms at every cold boot through the `re_sshd` serviceList
 autostart (the 75U8QTUK route, owner mains-cycle verified), and the

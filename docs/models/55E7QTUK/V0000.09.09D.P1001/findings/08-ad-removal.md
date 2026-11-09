@@ -81,3 +81,11 @@ pristine serviceList backup, installer IPK, packaged adsfw hosts).
 After the power cycle: `uptime 43.94 s`, root session restored (`Uid 0`, `CapEff 000001ffffffffff`), dropbear pid **2485** (fresh), adsfw.log carries the boot-native resolve run (111 lines across deployed history), and the kernel plane measured **15 OUTPUT REJECTs** (3 freeze + 12 ad v4 rules) within the first minute of boot.
 
 The ad-removal state is now boot-native, no-manual-work: every cold boot re-fires resolve + block, so no LAN machine ever has to fight the per-IP movement explicitly.
+
+> **2026-11-09 update:** the blocking moved to a domain-level device
+> resolver (static dnsmasq over loopback, lane W) — see
+> [09](09-device-dns-resolver.md); the per-IP stage above is retained as
+> the hardcoded-IP backstop. The same-day caveat sits there too: the
+> every-boot re-arm lanes stopped firing after the forced-reboot test,
+> so the resolver + this stage currently need a manual `opkg` re-arm
+> until the service/hook contexts are patched (recovery playbook in 09).

@@ -173,6 +173,21 @@ md5-checked; router-side OTA domain blocks are the durable freeze), DNS-
 block the TV from the open web (the file bridge answers unauthenticated
 with CORS `*`), and keep the tested-models matrix row coming by PR.
 
+**Device resolver technique (55E7QTUK, findings/09):** with boot-persistent
+root, ad/telemetry blocking can move from per-IP REJECT loops to a real
+resolver — static armv7 dnsmasq (`COPTS="-DNO_DHCP -DNO_TFTP"`, zig
+crossbuild) shipped by the installer IPK, `address=/family/` file generated
+from the unit's own domain map, answering NXDOMAIN over loopback. On
+09.09D the resolver file is a symlink into rw `/var/local/etc` — react to
+DHCP rewrites every boot from the postinst (lane W), with bind-mount and
+owner-exempt-nat as fallbacks and a verify-or-restore safe-degrade inside
+the stage. Same-day caveats also worth re-testing on other 09.x units:
+this static build rejects `--daemon` (use `--no-daemon &`); vendored
+`opkg` needs `LD_LIBRARY_PATH=/usr/local/lib`; and the every-boot re-arm
+contexts (serviceList JS service, rc.local `otaTest` hook) both failed to
+fire on this branch — verify which boot lane actually runs before
+claiming boot-native coverage.
+
 ## U6 comparison: 65U7H community report
 
 A user-supplied report describes an India-region 65U7H, board 65A65GAVT,
