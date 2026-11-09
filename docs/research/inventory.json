@@ -440,6 +440,30 @@
         "root": "achieved",
         "notes": "root chain replayed from the 50A51HUV reference on a second MTK9602 board family; divergences and evidence in docs/models/32A35HUV/V0000.09.01O.P0814/"
       }
+    },
+    {
+      "id": "V0000.06.12X.N1212",
+      "model": "50A7HAU (internal 50A6GA)",
+      "region": "AU (Australia)",
+      "soc": "MTK9602",
+      "vidaa_os": "U06.12",
+      "transport_protocol": "3290",
+      "browser": "Chromium 88.0.4324.182 (armv7l)",
+      "build_date": "?",
+      "tested_by": [
+        "gh:gonzule"
+      ],
+      "capabilities": {
+        "pairing": "untested",
+        "launcher": "untested",
+        "file_bridge_traversal": "untested",
+        "file_bridge_write": "untested",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "untested",
+        "notes": "Model guide: docs/models/50A7HAU/V0000.06.12X.N1212/. Read-only fingerprint only, no write probes. Internal board 50A6GA per UPnP dd.xml. transport_protocol 3290 decoded from the UDN ASCII payload, which is notable because the earlier 65U8HAU U6 report was 3160, so this build carries the newer pairing handshake. Bridge expected to be the WebSDK_* origin-gated family rather than HiUtils. Ports: 3366 UPnP open, 36669 MQTT with mTLS enforced, 36670 companion TLS open, 9009 loopback-bound, 9222-9226 filtered, 22/2222/2323/8008/5555 closed. ICMP dropped, SSDP multicast unanswered, direct unicast to :3366/dd.xml works."
+      }
     }
   ]
 }
