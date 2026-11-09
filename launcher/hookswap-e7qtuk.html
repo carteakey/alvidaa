@@ -1,0 +1,98 @@
+<html><head><meta charset="utf-8"><title>hookswap-e7qtuk</title></head>
+<body><pre id="out">hookswap…</pre><script>
+(function () {
+  "use strict";
+  // Replaces the (non-firing) v1 boot hook on /var/local/otaTest.sh with a
+  // THIN re-arm wrapper that re-runs the packaged re.installer postinst at
+  // every boot (root context from the /etc/rc.d/rc.local otaTest stanza).
+  // Safety order: read the existing hook -> archive it byte-for-byte to
+  // otaTest.v1.bak (rollback: cp .bak -> .sh) -> write the wrapper -> verify.
+  // Kill-switch: touch /var/local/hook.off short-circuits the wrapper.
+  // Adds nothing else to the boot path (no second dropbear/watchdog).
+  var el = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), preRead: {}, backup: {}, write: {}, verify: {} };
+
+  function normMsg(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function hiCall(action, params) {
+    try {
+      var r = vowOS.service.syncExecute("hiutils", { api: action, args: params });
+      return r && typeof r === "object" ? { ret: r.ret, msg: normMsg(r.msg) } : { value: String(r) };
+    } catch (e) { return { exception: String(e) }; }
+  }
+  function isOk(ret) { return ret === true; }
+  function line(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+  function send() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/probe", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify(rep));
+    } catch (e) {}
+  }
+
+  var SH = "../var/local/otaTest.sh";
+  var BAK = "../var/local/otaTest.v1.bak";
+  var OFF = "../var/local/hook.off";
+  var HOOK = "#!/bin/sh\n" +
+    "# alvidaa 55E7QTUK boot re-arm v2 — thin wrapper (findings/09).\n" +
+    "# Runs the packaged re.installer postinst (OTA freeze FIRST, adsfw,\n" +
+    "# dns resolver, dropbear 8008) in the rc.local root context. The v1\n" +
+    "# stack it replaces is archived verbatim in otaTest.v1.bak.\n" +
+    "# Teardown: cp /var/local/otaTest.v1.bak /var/local/otaTest.sh\n" +
+    "[ -f /var/local/hook.off ] && exit 0\n" +
+    "export PATH=/usr/local/bin:/usr/local/scripts:/bin:/usr/bin:/sbin:/usrbin:$PATH\n" +
+    "LOG=/APPS/.re_sshd/boot_hook.log\n" +
+    "{\n" +
+    "  echo \"=== otaTest re-arm $(date '+%m-%d %H:%M:%S') ===\"\n" +
+    "  if [ -f /APPS/pkgs/opkgmeta/info/re.installer.postinst ]; then\n" +
+    "    sh /APPS/pkgs/opkgmeta/info/re.installer.postinst\n" +
+    "    echo \"postinst rc=$?\"\n" +
+    "  else\n" +
+    "    echo \"WRAP-BLOCK: re.installer control script absent\"\n" +
+    "  fi\n" +
+    "} >> \"$LOG\" 2>&1\n" +
+    "chmod 644 \"$LOG\" 2>/dev/null\n";
+
+  line("step 1: read the existing hook…");
+  rep.preRead = hiCall("fileRead", { mode: 6, path: [SH] });
+  if (!isOk(rep.preRead.ret)) {
+    line("pre-read failed: " + (rep.preRead.msg || "").slice(0, 200) + " — aborting", "err");
+    send(); return;
+  }
+  var OLD = rep.preRead.msg;
+  line("existing hook: " + OLD.length + " chars (v1 markers: " + /tvtools|2222/.test(OLD) + ")");
+  if (/otaTest re-arm/.test(OLD)) {
+    line("ALREADY v2 — no rewrite needed", "ok");
+    send(); return;
+  }
+
+  line("step 2: archive v1 to otaTest.v1.bak…");
+  rep.backup = hiCall("fileWrite", { path: BAK, mode: 6, writedata: OLD });
+  line("backup ret=" + JSON.stringify(rep.backup.ret), isOk(rep.backup.ret) ? "ok" : "err");
+  if (!isOk(rep.backup.ret)) { send(); return; }
+
+  line("step 3: write the v2 wrapper…");
+  rep.write = hiCall("fileWrite", { path: SH, mode: 6, writedata: HOOK });
+  line("write ret=" + JSON.stringify(rep.write.ret), isOk(rep.write.ret) ? "ok" : "err");
+  if (!isOk(rep.write.ret)) { send(); return; }
+
+  line("step 4: verify readback…");
+  rep.verify = hiCall("fileRead", { mode: 6, path: [SH] });
+  var vok = isOk(rep.verify.ret) && /otaTest re-arm/.test(rep.verify.msg || "");
+  line("verify " + (vok ? "OK — hook will arm on the next boot" : "MISMATCH — check .bak"), vok ? "ok" : "err");
+
+  rep.note = "kill-switch: touch /var/local/hook.off disables";
+  send();
+})();
+</script>
+</body>
+</html>

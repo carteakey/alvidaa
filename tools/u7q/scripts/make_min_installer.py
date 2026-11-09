@@ -101,6 +101,9 @@ BUSY=/usr/local/bin/busybox
   if "$BUSY" mount 2>/dev/null | grep -q "resolv.conf.la.*on /etc/resolv.conf"; then
       "$BUSY" umount /etc/resolv.conf 2>&1 && echo "unbound /etc/resolv.conf"
   fi
+  if [ -s "$D/resolv.conf.orig" ] && grep -q "nameserver 127.0.0.1" /etc/resolv.conf 2>/dev/null; then
+      cp -f "$D/resolv.conf.orig" /etc/resolv.conf 2>&1 && echo "restored vendor resolver file"
+  fi
   IPT=""
   for p in /usr/local/bin/iptables /sbin/iptables /bin/iptables; do
       [ -x "$p" ] && IPT="$p" && break
@@ -116,7 +119,7 @@ cat "$D/dnsfw-stop.log"
 """
 
 CONTROL = """Package: re.installer
-Version: 1.0.1
+Version: 1.0.4
 Architecture: @ARCH@
 AppId: re.installer
 AppName: re.installer
@@ -158,6 +161,25 @@ mkdir -p "$D" 2>/dev/null
 
   echo "--- ids ---"
   grep -E '^(Uid|Gid|CapEff):' /proc/self/status 2>&1
+
+  echo "--- step: dirs ---"
+  mkdir -p "$D/root_home/.ssh" "$D/home/.ssh" 2>&1
+
+  if [ -f "$D/dropbear.pid" ]; then
+      kill "$(cat "$D/dropbear.pid")" 2>/dev/null
+      sleep 1
+  fi
+
+  echo "--- step: move binaries ---"
+  [ -f "$SRC/dropbear-root" ] && mv -f "$SRC/dropbear-root" "$D/dropbear-root"
+  [ -f "$SRC/dropbearkey" ] && mv -f "$SRC/dropbearkey" "$D/dropbearkey"
+  [ -f "$SRC/authorized_keys" ] && mv -f "$SRC/authorized_keys" "$D/root_home/.ssh/authorized_keys"
+  [ -f "$SRC/adsfw.hosts" ] && mv -f "$SRC/adsfw.hosts" "$D/adsfw.hosts"
+  [ -f "$SRC/dnsmasq" ] && mv -f "$SRC/dnsmasq" "$D/dnsmasq"
+  [ -f "$SRC/dnsblock.conf" ] && mv -f "$SRC/dnsblock.conf" "$D/dnsblock.conf"
+  [ -f "$SRC/dnsmasq-stop.sh" ] && mv -f "$SRC/dnsmasq-stop.sh" "$D/dnsmasq-stop.sh" && chmod 755 "$D/dnsmasq-stop.sh"
+  cp -f "$D/root_home/.ssh/authorized_keys" "$D/home/.ssh/authorized_keys" 2>/dev/null
+
   echo "--- step: ad block (background resolve loop; owner: standard tier) ---"
   BUSY=/usr/local/bin/busybox
   if [ -s "$D/adsfw.hosts" ] && [ -x "$BUSY" ]; then
@@ -192,9 +214,12 @@ mkdir -p "$D" 2>/dev/null
       BUSY=/usr/local/bin/busybox
       {
         echo "=== dns stage $("$BUSY" date +%H:%M:%S) ==="
-        cp -f /etc/resolv.conf "$D/resolv.conf.orig" 2>/dev/null
-        if [ ! -s "$D/resolv.conf.orig" ]; then
-          echo "dns skip: no vendor resolv.conf"
+        # capture the vendor resolver once (never capture our own lane back)
+        if ! grep -q "nameserver 127.0.0.1" /etc/resolv.conf 2>/dev/null; then
+          cp -f /etc/resolv.conf "$D/resolv.conf.orig" 2>/dev/null
+        fi
+        if [ ! -s "$D/resolv.conf.orig" ] && ! grep -q "nameserver 127.0.0.1" /etc/resolv.conf 2>/dev/null; then
+          echo "dns skip: no vendor resolv.conf to capture"
         elif "$BUSY" pidof dnsmasq >/dev/null 2>&1; then
           echo "dns: dnsmasq already answering (pid $(cat "$D/dnsmasq.pid" 2>/dev/null))"
         else
@@ -204,30 +229,41 @@ mkdir -p "$D" 2>/dev/null
               echo "dns: stale bind umounted"
           fi
           LANE=""
-          printf 'nameserver 127.0.0.1\n' > "$D/resolv.conf.la"
-          if "$BUSY" mount -o bind "$D/resolv.conf.la" /etc/resolv.conf 2>>"$DNSLOG"; then
-            LANE=A
-            echo "dns: lane A (bind /etc/resolv.conf -> loopback)"
-          elif [ -n "$IPT" ] && "$IPT" -t filter -I OUTPUT 1 -m owner --uid-owner 314 -j ACCEPT 2>/dev/null; then
-            "$IPT" -D OUTPUT 1
-            "$IPT" -t nat -C OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 5353 2>/dev/null || "$IPT" -t nat -I OUTPUT 1 -p udp --dport 53 -j REDIRECT --to-ports 5353 2>>"$DNSLOG"
-            "$IPT" -t nat -C OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports 5353 2>/dev/null || "$IPT" -t nat -I OUTPUT 1 -p tcp --dport 53 -j REDIRECT --to-ports 5353 2>>"$DNSLOG"
-            "$IPT" -t nat -I OUTPUT 1 -m owner --uid-owner 314 -j RETURN 2>>"$DNSLOG"
-            LANE=B
-            echo "dns: lane B (nat :53 redirect -> 5353, owner-exempt 314)"
+          # lane W: write the resolver file directly — /etc/resolv.conf is a
+          # symlink into the rw /var/local/etc on this build (cp follows it;
+          # probe: Phase-0 2026-11-09, findings/09)
+          printf 'nameserver 127.0.0.1\n' > "$D/resolv.conf.w"
+          if cp -f "$D/resolv.conf.w" /etc/resolv.conf 2>>"$DNSLOG" && grep -q "nameserver 127.0.0.1" /etc/resolv.conf 2>/dev/null; then
+            LANE=W
+            echo "dns: lane W (resolver file rewritten to loopback)"
           else
-            echo "dns: no lane available, vendor resolver untouched"
+            printf 'nameserver 127.0.0.1\n' > "$D/resolv.conf.la"
+            if "$BUSY" mount -o bind "$D/resolv.conf.la" /etc/resolv.conf 2>>"$DNSLOG"; then
+              LANE=A
+              echo "dns: lane A (bind /etc/resolv.conf -> loopback)"
+            elif [ -n "$IPT" ] && "$IPT" -t filter -I OUTPUT 1 -m owner --uid-owner 314 -j ACCEPT 2>/dev/null; then
+              "$IPT" -D OUTPUT 1
+              "$IPT" -t nat -C OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 5353 2>/dev/null || "$IPT" -t nat -I OUTPUT 1 -p udp --dport 53 -j REDIRECT --to-ports 5353 2>>"$DNSLOG"
+              "$IPT" -t nat -C OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports 5353 2>/dev/null || "$IPT" -t nat -I OUTPUT 1 -p tcp --dport 53 -j REDIRECT --to-ports 5353 2>>"$DNSLOG"
+              "$IPT" -t nat -I OUTPUT 1 -m owner --uid-owner 314 -j RETURN 2>>"$DNSLOG"
+              LANE=B
+              echo "dns: lane B (nat :53 redirect -> 5353, owner-exempt 314)"
+            else
+              echo "dns: no lane available, vendor resolver untouched"
+            fi
           fi
-          if [ "$LANE" = A ]; then
-            RESOLV="--resolv-file=$D/resolv.conf.orig"; PORT=53
-          else
+          if [ "$LANE" = B ]; then
             RESOLV="--resolv-file=/etc/resolv.conf"; PORT=5353
+          else
+            RESOLV="--resolv-file=$D/resolv.conf.orig"; PORT=53
           fi
           if [ -n "$LANE" ]; then
-            "$D/dnsmasq" --daemon --pid-file="$D/dnsmasq.pid" \
+            # --no-daemon + explicit &: this static build rejects --daemon
+            # at option parse (2.91 zig-static; measured 2026-11-09)
+            "$D/dnsmasq" --no-daemon --pid-file="$D/dnsmasq.pid" \
               --listen-address 127.0.0.1 --port $PORT \
               $RESOLV --conf-file="$D/dnsblock.conf" \
-              --log-facility="$D/dnsmasq.log" --local-service --cache-size=150 2>>"$DNSLOG"
+              --log-facility="$D/dnsmasq.log" --local-service --cache-size=150 2>>"$DNSLOG" &
             sleep 2
             OK=0; RETRY=0
             while [ $RETRY -lt 4 ]; do
@@ -239,14 +275,18 @@ mkdir -p "$D" 2>/dev/null
               echo "dns verified via 127.0.0.1 (lane $LANE); block reply: $BLK"
             else
               echo "DNS DEGRADE: no upstream answer in 4 tries, restoring vendor lane"
-              if [ "$LANE" = A ]; then
-                "$BUSY" umount /etc/resolv.conf 2>>"$DNSLOG"
-              else
+              if [ "$LANE" = B ]; then
                 while "$IPT" -t nat -D OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 5353 2>/dev/null; do :; done
                 while "$IPT" -t nat -D OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports 5353 2>/dev/null; do :; done
                 "$IPT" -t nat -D OUTPUT -m owner --uid-owner 314 -j RETURN 2>/dev/null
+              else
+                if [ "$LANE" = A ]; then
+                  "$BUSY" umount /etc/resolv.conf 2>>"$DNSLOG"
+                fi
+                cp -f "$D/resolv.conf.orig" /etc/resolv.conf 2>>"$DNSLOG"
               fi
               kill "$(cat "$D/dnsmasq.pid" 2>/dev/null)" 2>/dev/null
+              kill $("$BUSY" pidof dnsmasq 2>/dev/null) 2>/dev/null
               rm -f "$D/dnsmasq.pid"
               echo "dns restored: vendor resolver; coverage stays with the adsfw REJECTs"
             fi
@@ -261,21 +301,6 @@ mkdir -p "$D" 2>/dev/null
   else
     echo "dns: missing $D/dnsmasq or $D/dnsblock.conf"
   fi
-
-  echo "--- step: dirs ---"
-  mkdir -p "$D/root_home/.ssh" "$D/home/.ssh" 2>&1
-
-  if [ -f "$D/dropbear.pid" ]; then
-      kill "$(cat "$D/dropbear.pid")" 2>/dev/null
-      sleep 1
-  fi
-
-  echo "--- step: move binaries ---"
-  [ -f "$SRC/dropbear-root" ] && mv -f "$SRC/dropbear-root" "$D/dropbear-root"
-  [ -f "$SRC/dropbearkey" ] && mv -f "$SRC/dropbearkey" "$D/dropbearkey"
-  [ -f "$SRC/authorized_keys" ] && mv -f "$SRC/authorized_keys" "$D/root_home/.ssh/authorized_keys"
-  [ -f "$SRC/adsfw.hosts" ] && mv -f "$SRC/adsfw.hosts" "$D/adsfw.hosts"
-  cp -f "$D/root_home/.ssh/authorized_keys" "$D/home/.ssh/authorized_keys" 2>/dev/null
 
   echo "--- step: shell whitelist ---"
   printf '@SHELL_WHITELIST@\n' > /APPS/shell
@@ -325,13 +350,17 @@ mkdir -p "$D" 2>/dev/null
   grep -i ':1F48' /proc/net/tcp 2>&1
 
   echo "--- step: firewall 8008 ---"
-  while iptables -L FIREWALL_IN_EULAON -n 2>/dev/null | grep -q 'dpt:8008'; do
-      N=$(iptables -L FIREWALL_IN_EULAON -n --line-numbers 2>/dev/null | grep 'dpt:8008' | head -1 | awk '{print $1}')
-      [ -n "$N" ] || break
-      iptables -D FIREWALL_IN_EULAON "$N" 2>/dev/null || break
-  done
-  iptables -I FIREWALL_IN_EULAON 1 -p tcp --dport 8008 -j ACCEPT 2>&1
-  iptables -L FIREWALL_IN_EULAON -n 2>&1 | head -5
+  if [ -n "$IPT" ]; then
+      while "$IPT" -L FIREWALL_IN_EULAON -n 2>/dev/null | grep -q 'dpt:8008'; do
+          N=$("$IPT" -L FIREWALL_IN_EULAON -n --line-numbers 2>/dev/null | grep 'dpt:8008' | head -1 | awk '{print $1}')
+          [ -n "$N" ] || break
+          "$IPT" -D FIREWALL_IN_EULAON "$N" 2>/dev/null || break
+      done
+      "$IPT" -I FIREWALL_IN_EULAON 1 -p tcp --dport 8008 -j ACCEPT 2>&1
+      "$IPT" -L FIREWALL_IN_EULAON -n 2>&1 | head -5
+  else
+      echo "WEAK: no iptables on this PATH; 8008 unguarded this run"
+  fi
   chmod 644 "$D/dropbear.pid" 2>/dev/null
   echo "--- done ---"
 } > "$D/installer_log.txt" 2>&1

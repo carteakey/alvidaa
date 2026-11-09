@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>hookrearm-e7qtuk</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; }
+</style>
+</head>
+<body>
+<div id="out">hookrearm-e7qtuk…</div>
+<script>
+(function () {
+  "use strict";
+  // Boot re-arm hook for 55E7QTUK (09.09D), installed via the
+  // ../var/local file-bridge traversal (mode 6): /var/local/otaTest.sh
+  // runs as root at EVERY boot from the /etc/rc.d/rc.local otaTest stanza
+  // (findings/03). It is a THIN wrapper — it re-runs the packaged
+  // re.installer postinst (freeze FIRST, adsfw, dns resolver, dropbear
+  // 8008) so the hook lane carries no second dropbear stack of its own.
+  //   Teardown: rm /var/local/otaTest.sh (via this page's remove lane or
+  //   root ssh); /var/local/hook.off short-circuits the hook harmlessly.
+  //   Log: /APPS/.re_sshd/boot_hook.log
+  // The stock hookinstall-e7qtuk.html page (full v13 stack: own freeze,
+  // own dropbear 2222, watchdog, tvtools) is NOT installed here — the
+  // re.installer IPK already provides those layers.
+
+  var el = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), preRead: {}, write: {}, verify: {} };
+
+  function normMsg(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function hiCall(action, params) {
+    try {
+      if (typeof vowOS !== "undefined" && vowOS.service && vowOS.service.syncExecute) {
+        var r = vowOS.service.syncExecute("hiutils", { api: action, args: params });
+        return r && typeof r === "object" ? { ret: r.ret, msg: normMsg(r.msg) } : { value: String(r) };
+      }
+      if (typeof HiUtils_createRequest === "function") {
+        var r2 = HiUtils_createRequest(action, params);
+        return r2 && typeof r2 === "object" ? { ret: r2.ret, msg: normMsg(r2.msg) } : { value: String(r2) };
+      }
+      return { error: "no bridge" };
+    } catch (e) { return { exception: String(e) }; }
+  }
+  function isOk(ret) {
+    if (ret === true) return true;
+    if (typeof ret === "number") return ret !== 0;
+    if (typeof ret === "string") return ret !== "" && ret !== "0";
+    return false;
+  }
+  function line(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+
+  var HOOK_PATH = "../var/local/otaTest.sh";
+  var HOOK = "#!/bin/sh\n" +
+    "# alvidaa 55E7QTUK boot re-arm (thin wrapper over the re.installer\n" +
+    "# postinst — no second dropbear stack; see docs findings/09).\n" +
+    "# Teardown: rm /var/local/otaTest.sh; /var/local/hook.off disables.\n" +
+    "[ -f /var/local/hook.off ] && exit 0\n" +
+    "export PATH=/usr/local/bin:/usr/local/scripts:/bin:/usr/bin:/sbin:/usrbin:$PATH\n" +
+    "LOG=/APPS/.re_sshd/boot_hook.log\n" +
+    "{\n" +
+    "  echo \"=== otaTest re-arm $(date '+%m-%d %H:%M:%S') ===\"\n" +
+    "  if [ -f /APPS/pkgs/opkgmeta/info/re.installer.postinst ]; then\n" +
+    "    sh /APPS/pkgs/opkgmeta/info/re.installer.postinst\n" +
+    "    echo \"postinst rc=$?\"\n" +
+    "  else\n" +
+    "    echo \"WRAP-BLOCK: re.installer control script absent\"\n" +
+    "  fi\n" +
+    "} >> \"$LOG\" 2>&1\n" +
+    "chmod 644 \"$LOG\" 2>/dev/null\n";
+
+  line("pre-read: " + HOOK_PATH + " — aborting if the lane is already owned…");
+  rep.preRead = hiCall("fileRead", { mode: 6, path: [HOOK_PATH] });
+  line("preRead ret=" + (rep.preRead.ret !== undefined ? JSON.stringify(rep.preRead.ret) : rep.preRead.ret) +
+       " msg=" + (rep.preRead.msg || "").slice(0, 160));
+  if (isOk(rep.preRead.ret)) {
+    line("BLOCK: otaTest.sh already present — not overwriting (find its owner first)", "err");
+    return;
+  }
+  if (!/ENOENT|not exist|No such/i.test(rep.preRead.msg || "")) {
+    line("UNEXPECTED pre-read state: " + (rep.preRead.msg || "").slice(0, 200) + " — not writing", "err");
+    return;
+  }
+
+  line("writing hook (" + HOOK.length + " bytes)…");
+  rep.write = hiCall("fileWrite", { path: HOOK_PATH, mode: 6, writedata: HOOK });
+  line("write ret=" + JSON.stringify(rep.write.ret) + " msg=" + (rep.write.msg || "").slice(0, 200),
+       isOk(rep.write.ret) ? "ok" : "err");
+  if (!isOk(rep.write.ret)) { setTimeout(function () { try { reportSend(); } catch (e) {} }, 300); return; }
+
+  line("verify readback…");
+  rep.verify = hiCall("fileRead", { mode: 6, path: [HOOK_PATH] });
+  var vok = isOk(rep.verify.ret) && /otaTest re-arm/.test(rep.verify.msg || "");
+  line("verify " + (vok ? "OK — hook in place; it arms on the NEXT boot" : "MISMATCH"), vok ? "ok" : "err");
+  function reportSend() {}
+  try {
+    var x = new XMLHttpRequest();
+    x.open("POST", "/api/probe", true);
+    x.setRequestHeader("Content-Type", "application/json");
+    x.send(JSON.stringify(rep));
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
