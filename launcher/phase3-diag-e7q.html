@@ -1,14 +1,18 @@
-<html><head><meta charset="utf-8"><title>marker read</title></head>
-<body><pre id="out">marker…</pre><script>
+<html><head><meta charset="utf-8"><title>status grep</title></head>
+<body><pre id="out">grep…</pre><script>
 (function(){
  "use strict";
- var report={started:new Date().toISOString(),reads:{marker:null}};
+ var report={started:new Date().toISOString(),reads:{}};
  function norm(m){if(m==null)return"";if(typeof m==="string")return m;try{return JSON.stringify(m);}catch(e){return String(m);}}
  try{
-   var r=vowOS.service.syncExecute("hiutils",{api:"fileRead",args:{mode:6,path:[".re_sshd/installer_log.txt"]}});
+   var r=vowOS.service.syncExecute("hiutils",{api:"fileRead",args:{mode:6,path:["../APPS/pkgs/opkgmeta/status"]}});
    var okc=r&&r.ret===true;
-   report.reads.marker={ok:okc,body:okc?norm(r.msg).slice(-2600):null,err:okc?null:norm(r.msg).slice(0,120)};
- }catch(e){report.reads.marker={err:"EXC "+String(e).slice(0,120)};}
+   var b=okc?norm(r.msg):null;
+   var hit=b?b.indexOf("Package: re.installer"):-1;
+   report.reads.status={ok:okc,len:b?b.length:0,hasInstaller:hit>=0,
+     around:hit>=0?b.slice(hit,(hit+240)):(b?b.slice(-240):null),
+     err:okc?null:norm(r.msg).slice(0,110)};
+ }catch(e){report.reads.status={err:"EXC "+String(e).slice(0,110)};}
  try{var x=new XMLHttpRequest();x.open("POST","/api/probe",true);x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify(report));}catch(e){}
 })();
 </script></body></html>

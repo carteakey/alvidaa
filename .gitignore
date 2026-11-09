@@ -29,3 +29,4 @@ tools/u7q/web/server.log
 tools/audio/dist/
 launcher/pub/installer.ipk
 launcher/pub/*.ipk
+/pub/

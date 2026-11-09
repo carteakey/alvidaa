@@ -141,9 +141,31 @@ wrapper stays in place for a future root-context fix; kill-switch is
 ## Recovery playbook (owner, next session)
 
 1. Boot until the network is up (owner mains cycle).
-2. The moment `ssh -p 8008 root@<tv-ip>` answers, re-arm in one line:
+2. **No SSH needed if the superwatch machinery came up healthy with the
+   boot** — open the arm page with a fresh query param and the trigger
+   completes the whole chain on its own (verified 2026-11-09 15:16:
+   fetch → install 1.0.4 → postinst → `dns verified via 127.0.0.1 (lane
+   W)` in `dnsfw.log`, NXDOMAIN confirmed, 3 freeze REJECTs, dropbear
+   fresh pid). Serve `pub/` from any LAN origin the TV can reach and
+   open `phase3-arm14.html?v=<new>`.
+3. **If SSH answers instead**, the opkg one-liner does the same:
    `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH; opkg install /APPS/installer_e.ipk` — the configure re-runs the postinst and
    restores freeze + adsfw + the resolver (idempotent).
-3. Then re-verify `resolv.conf` loopback + NXDOMAIN + rules as in the
+4. Then re-verify `resolv.conf` loopback + NXDOMAIN + rules as in the
    deploy section. Killing the resolver stays one command:
    `/APPS/.re_sshd/dnsmasq-stop.sh`.
+
+## Stall forensics (2026-11-09 14:26–15:16, resolved by boot)
+
+The silent vendor install had one page-readable diagnostic:
+`ipk_install.sh` initializes `/tmp/ipk_install_result` (`touch` +
+`chmod 640` + `chown 314:314` — readable from the browser fileRead lane
+by design) before anything else. During the stall window that file was
+**empty**: the script had reached its init but its `$(opkg
+--force-reinstall …)` line never returned, so neither the success write
+nor an error JSON ever landed. The mounted page could confirm this in
+one read (`../tmp/ipk_install_result`). A mains cycle + re-trigger
+cleared it: the identical chain completed, which brackets the stall to
+the boot-spawned vendor machinery state, not to our package, IPK
+content, or wire format. When it recurs, the empty result file is the
+first check.
