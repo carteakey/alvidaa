@@ -76,7 +76,11 @@ mkdir -p "$D" 2>/dev/null
   # get the vendor's full environment (PATH, LD_LIBRARY_PATH, DTO_CHIP,
   # UTOPIA_LINUX, ...) from the single source of truth. Must be whitelisted
   # in /APPS/shell (dropbear's patched /etc/shells).
-  printf '#!/bin/sh\n. /etc/profile 2>/dev/null\nexec /bin/bash "$@"\n' > "$D/sh"
+  # The profile's stdout is the login banner (`Loading /etc/profile...` plus
+  # `cat /basic/build.macro | grep 2102` -> USB_UPG_VERSION/VERSION lines);
+  # it is pure display, not exported vars, so sink it to keep remote/one-shot
+  # sessions clean. All real env (exports) is unaffected by the redirect.
+  printf '#!/bin/sh\n. /etc/profile >/dev/null 2>&1\nexec /bin/bash "$@"\n' > "$D/sh"
   chmod 755 "$D/sh"
   printf '%s\n' "$D/sh" >> /APPS/shell
 
