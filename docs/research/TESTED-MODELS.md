@@ -39,7 +39,7 @@ builds.
 | 32A35HUV | CAN | MTK9602 | U09.01 | V0000.09.01O.P0814 | 3290 | Chromium 111 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 | 50A7HAU (internal 50A6GA) | AU (Australia) | MTK9602 | U06.12 | V0000.06.12X.N1212 | 3290 | Chromium 88.0.4324.182 (armv7l) | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | EU_A (BIH) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.61 | V0000.09.61B.Q0704 | 3290 | Chromium 111 "odin" (ViewPort/5.2.20, aarch64 UA) | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
-| 50C350LS (Toshiba OEM, brand=tos) | SA/Brazil | MTK9602 | U09.09 | V0000.09.09M.P1124 | 3290 | Chromium 111 "odin" | untested | achieved | [@lobobg8-hub](https://github.com/lobobg8-hub) |
+| 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -116,6 +116,17 @@ never hand-edit between the markers.
 - `file_bridge_write` **open** — basic/fetcher fetchFile wrote markers as uid 314 to /APPS and to tv.vidaa.jsservice.basic/CHA/; direct hiutils.fileWrite was not tested.
 - `devtools_forge` **untested** — not needed for this chain; the superwatch/IPK path was used instead.
 - `root` **achieved** — fetcher.fetchFile → superwatch 83/82 → vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARM32 Dropbear with key + owner password on :22; boot-persistent via the re_sshd serviceList autostart (ARMED ~30 s after each of four cold boots).
+
+**43A6K (internal 43A53FEVS_0011) — V0000.09.09C.P0930**
+- `pairing` **working** — RemoteNow PIN pairing and subsequent control worked; SSDP transport_protocol 3290 was independently read again on 2026-11-12.
+- `launcher` **working** — Adapted Alvidaa-based web launcher: app launch, regular/quick TV settings and Home-watcher redirect worked. Native lane 3 was not tested; web relaunch delay remained.
+- `native_home` **untested** — Not exercised. A web Home-watcher redirect is not a native Home replacement. Custom poster rows under the stock Home shortcut remain unresolved: the owner still saw the VIDAA placeholder.
+- `file_bridge_traversal` **open** — Native HiUtils file bridge mode 6 reads ../ paths, including the stock rc.local and the hook location.
+- `file_bridge_write` **open** — Native text fileWrite staged ../var/local/otaTest.sh and was read back exactly; this does not mean every protected path is writable.
+- `identity_gate` **untested** — Per-app identity/origin gate behaviour and the ISC/service-origin bypass were not independently tested on this unit; do not infer their result from successful native file-bridge access.
+- `euladpp_untar` **untested** — Not tested; the successful root chain used the existing rc.local / otaTest.sh hook instead.
+- `devtools_forge` **untested** — Not demonstrated. The DevKit Device Code was obtained, but an unrelated installation key failed Secure Code verification; this is not a test of checkAccessCode forging.
+- `root` **achieved** — Owner-confirmed on 2026-11-11/12: stock rc.local invokes otaTest.sh as uid 0; static Dropbear 2026.94 on :2222 accepts password/key commands and static SFTP works. Boot-ID change and automatic SSH return after restart/Power-on verified without browser re-arm. Normal PTY remains nonfunctional (UNIX98_PTYS disabled; legacy pairs allocate but transfer no data).
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details

@@ -180,7 +180,7 @@ both regenerate from `docs/research/inventory.json`.
 | 32A35HUV | V0000.09.01O.P0814 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 | 50A7HAU | V0000.06.12X.N1212 | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | V0000.09.61B.Q0704 | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
-| 50C350LS | V0000.09.09M.P1124 | untested | achieved | [@lobobg8-hub](https://github.com/lobobg8-hub) |
+| 43A6K | V0000.09.09C.P0930 | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — add a firmware entry to [inventory.json](docs/research/inventory.json) (single source of truth; fields and where to find them: [TESTED-MODELS.md](docs/research/TESTED-MODELS.md)) and run `scripts/gen-inventory.py` — every table in the repo regenerates from it.

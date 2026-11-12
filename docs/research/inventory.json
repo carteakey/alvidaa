@@ -557,27 +557,39 @@
       }
     },
     {
-      "id": "V0000.09.09M.P1124",
-      "model": "50C350LS (Toshiba OEM, brand=tos)",
-      "region": "SA/Brazil",
-      "soc": "MTK9602",
+      "id": "V0000.09.09C.P0930",
+      "model": "43A6K (internal 43A53FEVS_0011)",
+      "region": "EU_A (SSDP region 0)",
+      "soc": "MTK9602 (DevKit platform MTK9602_EU_A; armv7l)",
       "vidaa_os": "U09.09",
       "transport_protocol": "3290",
-      "browser": "Chromium 111 \"odin\"",
-      "build_date": "unknown",
+      "browser": "Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed)",
+      "build_date": null,
       "tested_by": [
-        "gh:lobobg8-hub"
+        "gh:Hlushok"
       ],
       "capabilities": {
         "pairing": "working",
-        "launcher": "untested",
+        "launcher": "working",
+        "native_home": "untested",
         "file_bridge_traversal": "open",
         "file_bridge_write": "open",
-        "identity_gate": "n-a",
+        "identity_gate": "untested",
         "euladpp_untar": "untested",
         "devtools_forge": "untested",
         "root": "achieved",
-        "notes": "Toshiba OEM (brand=tos). Pairing requires brand=tos; alvidaa pair.py hardcodes 'his' and fails with rc=135 - pyvidaa pairs successfully. Fetcher is a service (CHA/services/fetcher/index.js), not a function; sw2.js must be written manually to CHA/functions/fetch/sw2.js. Superwatch install command 53 confirmed. postinst runs as root (EACCES on /tmp/ipk_proof.txt proves root-owned file; chmod 644 on /APPS/ipk_proof.txt confirms). id binary absent on firmware. /etc/rc.local, /var/local/otaTest.sh and jsservice.system do not exist."
+        "notes": "Owner-confirmed root, SSH commands and SFTP; PTY remains broken. Source: docs/models/43A6K/V0000.09.09C.P0930/README.md. Internal model and owner-reported model are recorded separately; DevKit platform is not an independent chipset API reading."
+      },
+      "capability_detail": {
+        "pairing": "RemoteNow PIN pairing and subsequent control worked; SSDP transport_protocol 3290 was independently read again on 2026-11-12.",
+        "launcher": "Adapted Alvidaa-based web launcher: app launch, regular/quick TV settings and Home-watcher redirect worked. Native lane 3 was not tested; web relaunch delay remained.",
+        "native_home": "Not exercised. A web Home-watcher redirect is not a native Home replacement. Custom poster rows under the stock Home shortcut remain unresolved: the owner still saw the VIDAA placeholder.",
+        "file_bridge_traversal": "Native HiUtils file bridge mode 6 reads ../ paths, including the stock rc.local and the hook location.",
+        "file_bridge_write": "Native text fileWrite staged ../var/local/otaTest.sh and was read back exactly; this does not mean every protected path is writable.",
+        "identity_gate": "Per-app identity/origin gate behaviour and the ISC/service-origin bypass were not independently tested on this unit; do not infer their result from successful native file-bridge access.",
+        "euladpp_untar": "Not tested; the successful root chain used the existing rc.local / otaTest.sh hook instead.",
+        "devtools_forge": "Not demonstrated. The DevKit Device Code was obtained, but an unrelated installation key failed Secure Code verification; this is not a test of checkAccessCode forging.",
+        "root": "Owner-confirmed on 2026-11-11/12: stock rc.local invokes otaTest.sh as uid 0; static Dropbear 2026.94 on :2222 accepts password/key commands and static SFTP works. Boot-ID change and automatic SSH return after restart/Power-on verified without browser re-arm. Normal PTY remains nonfunctional (UNIX98_PTYS disabled; legacy pairs allocate but transfer no data)."
       }
     }
   ]
