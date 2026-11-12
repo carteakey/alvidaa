@@ -1,0 +1,10 @@
+{
+  "name": "re_sshd",
+  "version": "1.0.0",
+  "description": "Re-arm key-only root SSH on 8008 at boot via the superwatch IPK postinst",
+  "main": "index.js",
+  "type": "commonjs",
+  "selfStart": true,
+  "permission": {},
+  "author": ""
+}

@@ -620,6 +620,39 @@
         "pairing": "RemoteNow MQTT pairing over :36669 succeeded first try via Sidee (c5d7598), PIN flow, profile 'modern'. The session has held across helper restarts. Reported 2026-11-12.",
         "launcher": "Not alvidaa's launcher. For the record, a third-party canvas launcher (gilbertmsipha/cleanyourtv-vidaa, helper lane) does run end-to-end on this unit: tile install over MQTT, 1080p render in the TV browser, and Inputs/HDMI switching through the helper. That says the browser, tile-install and remote-control paths are open on this build, but says nothing about alvidaa's own lanes."
       }
+    },
+    {
+      "id": "V0000.09.62N.Q0923",
+      "model": "50U7DSE (internal 50U73SEVS_01, serial type 50U7SE)",
+      "region": "EU_A (DEU)",
+      "soc": "MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland)",
+      "vidaa_os": "U09.62",
+      "transport_protocol": "3290",
+      "browser": "Chromium 111 \"odin\" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64)",
+      "build_date": "2026-09-23",
+      "tested_by": [
+        "gh:roelven"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "working",
+        "native_home": "working",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "gated",
+        "identity_gate": "working",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "notes": "MTK9618/mt16587 on the 09.62N generation; model guide: docs/models/50U7DSE/V0000.09.62N.Q0923/. Pairing = modern profile (transport_protocol 3290), colon-formatted MAC, VidaaAppAndroidV01 cert. Launcher self-install closed (503 appconfig identity gate, same as 43A5LE/43Q60SEVS); lane 3 native Home works via the operationui app.js component swap. file_bridge_traversal open via one-element ARRAY path (bare-string ../ rejected 'invalid path'); browser fileWrite gated. Root = fetcher.fetchFile -> superwatch 83/82 -> IPK postinst uid 0 (CapEff 0000003fffffffff) -> key-only static ARM32 Dropbear on :8008; boot-persistent via re_sshd serviceList autostart (verified across two cold boots, ~30 s re-arm). OTA already frozen (upgradeFlag 0 / dcm_update 0)."
+      },
+      "capability_detail": {
+        "file_bridge_traversal": "hiutils.fileRead traverses with a one-element array path (../proc/uptime -> ret:true); bare strings are rejected 'invalid path'.",
+        "file_bridge_write": "Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig' — the identity gate. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314), a different surface.",
+        "identity_gate": "Per-app {appid,md5,permissions} gate: the 503 appconfig rejection on browser fileWrite. The fetcher write route is not gated.",
+        "root": "fetcher.fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer; postinst ran uid 0 (CapEff 0000003fffffffff) and started key-only Dropbear on :8008. Boot persistence via re_sshd serviceList autostart re-arms dropbear at every cold boot (~30 s).",
+        "launcher": "Lane 3 native Home (Free My TV 75U8QTUK adapter) component swap into operationui app.js; rendered on screen and survived a cold boot. Self-install lane is closed (503 gate).",
+        "native_home": "Free My TV (75U8QTUK port) component swap; action paths (app launch / input switch / settings) owner-verified on screen (2026-11-11)."
+      }
     }
   ]
 }

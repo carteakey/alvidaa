@@ -603,18 +603,15 @@ test('preferences: re-read on activated refreshes apps and smart focus', () => {
   v.stop();
 });
 
-test('favorites: empty favorites keeps the [Apps, Settings, Launcher] doors', () => {
+test('favorites: empty favorites preserves stock [Apps, Settings] behavior', () => {
   const f = setup(), v = f.instance;
   v.start();
   const items = v.appItems();
-  assert.equal(items.length, 3);
+  assert.equal(items.length, 2);
   assert.equal(items[0].kind, 'apps');
   assert.equal(items[0].label, 'Apps');
   assert.equal(items[1].kind, 'settings');
   assert.equal(items[1].label, 'Settings');
-  assert.equal(items[2].kind, 'launcher');
-  assert.equal(items[2].label, 'Launcher');
-  assert.equal(items[2].sub, 'Home settings');
   v.stop();
 });
 
@@ -626,7 +623,7 @@ test('favorites: resolves favorites in order, drops stale IDs silently, and caps
   }), v = f.instance;
   v.start();
   const items = v.appItems();
-  assert.equal(items.length, 5);
+  assert.equal(items.length, 4);
   assert.equal(items[0].kind, 'favorite');
   assert.equal(items[0].appId, '2');
   assert.equal(items[0].label, 'Plex');
@@ -635,30 +632,6 @@ test('favorites: resolves favorites in order, drops stale IDs silently, and caps
   assert.equal(items[1].label, 'Netflix');
   assert.equal(items[2].kind, 'apps');
   assert.equal(items[3].kind, 'settings');
-  assert.equal(items[4].kind, 'launcher');
-  v.stop();
-});
-
-test('favorites: tiles render the real icon through the allowlist and fall back to the star', () => {
-  const f = setup({
-    storage: {
-      alvidaa_favorites: ['1', '2']
-    }
-  }), v = f.instance;
-  v.start();
-  const items = v.appItems();
-  assert.equal(items[0].icon, 'file:///hisenseUI/var/local/storeAppIcon/netflix.png',
-    'a local icon passes the allowlist onto the favorite tile');
-  assert.equal(items[1].icon, '',
-    'a remote-only icon is refused, so the star glyph is the fallback');
-  const draw = () => f.component.render.call(v, (tag, data, children) => ({ tag, data, children }));
-  const flat = flatten(draw());
-  const imgs = flat.filter(n => n.tag === 'img');
-  assert.equal(imgs.length, 1, 'only the allowlisted favorite renders an <img>');
-  assert.equal(imgs[0].data.attrs.src, 'file:///hisenseUI/var/local/storeAppIcon/netflix.png');
-  assert.equal(imgs[0].data.style.objectFit, 'contain');
-  assert.ok(flat.some(n => (n.children || []).includes('\u2605')),
-    'the refused favorite still renders the star glyph');
   v.stop();
 });
 
@@ -697,7 +670,7 @@ test('favorites: clamp tolerates changing favorites list', () => {
     }
   }), v = f.instance;
   v.start();
-  assert.equal(v.appItems().length, 5);
+  assert.equal(v.appItems().length, 4);
   v.zone = 'apps';
   v.app = 3; // Settings (index 3)
   v.clamp();
@@ -706,8 +679,8 @@ test('favorites: clamp tolerates changing favorites list', () => {
   // Clear favorites and re-read
   f.store.set('alvidaa_favorites', []);
   v.readPrefs();
-  assert.equal(v.appItems().length, 3);
-  assert.equal(v.app, 2); // safely clamped from 3 to 2 (Launcher door)
+  assert.equal(v.appItems().length, 2);
+  assert.equal(v.app, 1); // safely clamped from 3 to 1 (Settings)
   v.stop();
 });
 
@@ -939,114 +912,6 @@ test('input art: cross-fades two stacked art layers during transitions and rejec
   v.stop();
 });
 
-test('input art: fades the outgoing layer out when the next input has none configured', () => {
-  const f = setup(), v = f.instance;
-  f.root.AlvidaaNativeInputArt = { 0: 'data:image/png;base64,TVART' };
-  v.start();
-  const draw = () => f.component.render.call(v, (tag, data, children) => ({ tag, data, children }));
-  assert.equal(v.dock, 0);
-  // HDMI2 has no configured art, so the target layer is empty.
-  v.dock = 1;
-  v.syncArt();
-  let flat = flatten(draw());
-  let outgoing = flat.find(n => n.data && n.data.attrs && n.data.attrs['data-art-layer'] === 'outgoing');
-  let incoming = flat.find(n => n.data && n.data.attrs && n.data.attrs['data-art-layer'] === 'incoming');
-  assert.ok(outgoing, 'outgoing art stays mounted during the fade');
-  assert.equal(outgoing.data.style.opacity, 1, 'outgoing starts the fade at opacity 1');
-  assert.equal(incoming, undefined, 'no incoming layer when the target has no art');
-  const tick = f.timeouts.get(v._artTickTimer);
-  assert.ok(tick, 'fade tick scheduled');
-  tick();
-  flat = flatten(draw());
-  outgoing = flat.find(n => n.data && n.data.attrs && n.data.attrs['data-art-layer'] === 'outgoing');
-  assert.equal(outgoing.data.style.opacity, 0,
-    'outgoing fades 1 -> 0 so the wallpaper arrives as a cross-fade, not a cut');
-  const fade = f.timeouts.get(v._artTimer);
-  assert.ok(fade, '300ms cleanup timer still scheduled');
-  fade();
-  flat = flatten(draw());
-  outgoing = flat.find(n => n.data && n.data.attrs && n.data.attrs['data-art-layer'] === 'outgoing');
-  assert.equal(outgoing, undefined, 'outgoing unmounts after 300ms');
-  v.stop();
-});
-
-test('input art: resolves by sourceId, lowercased source name, and lowercased display name', () => {
-  const f = setup(), v = f.instance;
-  // The TV reports names but never art, so a config-built map is keyed by
-  // lowercased source names; a build-time map may still key by sourceId.
-  f.root.AlvidaaNativeInputArt = {
-    0: 'data:image/png;base64,BYID',
-    hdmi2: 'data:image/png;base64,BYNAME',
-    'fire tv stick': 'data:image/png;base64,BYDISPLAY'
-  };
-  v.start();
-  // sources: 0/TV, HDMI2 (displayname2 "PlayStation 5"), HDMI3 (rename "Fire TV Stick")
-  assert.equal(v.inputArtFor(v.sources[0]), 'data:image/png;base64,BYID',
-    'sourceId resolution is unchanged and wins first');
-  v.sources[1].name = ' HDMI2 '; // the config keys are lowercased and trimmed
-  assert.equal(v.inputArtFor(v.sources[1]), 'data:image/png;base64,BYNAME',
-    'a map keyed like the bridge config ("hdmi2") matches the port label');
-  assert.equal(v.inputArtFor(v.sources[2]), 'data:image/png;base64,BYDISPLAY',
-    'the resolved display name is the third lookup');
-  // The display name honours a custom rename from the settings surface too.
-  v.prefs.customNames = { HDMI3: 'Rig' };
-  f.root.AlvidaaNativeInputArt = { rig: 'data:image/png;base64,BYCUSTOM' };
-  assert.equal(v.inputArtFor(v.sources[2]), 'data:image/png;base64,BYCUSTOM');
-  // End to end: the name-keyed map drives the rendered backdrop layer.
-  delete v.prefs.customNames;
-  f.root.AlvidaaNativeInputArt = { hdmi2: 'data:image/png;base64,BYNAME' };
-  v.dock = 1;
-  v.syncArt();
-  const flat = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })));
-  const incoming = flat.find(n => n.data && n.data.attrs && n.data.attrs['data-art-layer'] === 'incoming');
-  assert.ok(incoming, 'the name-keyed art renders as the incoming backdrop');
-  assert.match(incoming.data.style.backgroundImage, /BYNAME/);
-  v.stop();
-});
-
-test('input art: a remote URL in the map is still refused and the wallpaper is used', () => {
-  const f = setup(), v = f.instance;
-  f.root.AlvidaaNativeInputArt = { hdmi3: 'https://evil.com/art.png' };
-  v.start();
-  assert.equal(v.inputArtFor(v.sources[2]), 'https://evil.com/art.png',
-    'the lookup itself is not the policy');
-  v.dock = 2;
-  v.syncArt();
-  const flat = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })));
-  const leaked = flat.filter(n => n.data && n.data.style &&
-    n.data.style.backgroundImage && n.data.style.backgroundImage.includes('evil.com'));
-  assert.equal(leaked.length, 0, 'allowedInputArt still refuses the remote URL: no art layer');
-  const wall = flat.some(n => n.data && n.data.style && n.data.style.backgroundImage &&
-    n.data.style.backgroundImage.indexOf('linear-gradient(180deg, rgba(56,189,248') === 0);
-  assert.ok(wall, 'the wallpaper fallback is what renders instead');
-  v.stop();
-});
-
-test('input art: an inline SVG data URI is accepted and a remote URL still refused', () => {
-  const f = setup(), v = f.instance;
-  // The device silhouettes (device-art.cjs) arrive as base64 SVG data URIs.
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#94a3b8"><rect x="2" y="7" width="20" height="15" rx="2"/></svg>';
-  const svgUri = 'data:image/svg+xml;base64,' + Buffer.from(svg, 'utf8').toString('base64');
-  // The unencoded form stays out: only the base64 shape is allowlisted.
-  const rawUri = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>';
-  f.root.AlvidaaNativeInputArt = { hdmi2: svgUri, hdmi3: rawUri, tv: 'https://evil.com/art.svg' };
-  v.start();
-  v.dock = 1;
-  v.syncArt();
-  let flat = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })));
-  const incoming = flat.find(n => n.data && n.data.attrs && n.data.attrs['data-art-layer'] === 'incoming');
-  assert.ok(incoming, 'the SVG silhouette renders as the backdrop');
-  assert.match(incoming.data.style.backgroundImage, /data:image\/svg\+xml;base64,/);
-  v.dock = 2;
-  v.syncArt();
-  flat = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })));
-  assert.equal(flat.filter(n => n.data && n.data.style && n.data.style.backgroundImage &&
-    (n.data.style.backgroundImage.includes('evil.com') ||
-     /svg\+xml,</.test(n.data.style.backgroundImage))).length, 0,
-    'a remote URL and an unencoded SVG URI both stay off the canvas');
-  v.stop();
-});
-
 test('build script embeds AlvidaaNativeInputArt when present and works unchanged when absent', () => {
   const { build } = require('./build-native-alvidaa.cjs');
   const os = require('node:os');
@@ -1068,356 +933,3 @@ test('build script embeds AlvidaaNativeInputArt when present and works unchanged
 
   fs.rmSync(dir, { recursive: true, force: true });
 });
-
-// ---- the launcher settings surface -----------------------------------------
-
-function openSettings(v) {
-  v.zone = 'apps';
-  const items = v.appItems();
-  v.app = items.indexOf(items.find(i => i.kind === 'launcher'));
-  v.activate();
-}
-
-test('settings: the Launcher door opens the layer, Back returns to view 2, glass renders', () => {
-  const f = setup(), v = f.instance, k = KEYS;
-  v.start();
-  const items = v.appItems();
-  const door = items.find(i => i.kind === 'launcher');
-  assert.ok(door, 'the Launcher door exists in view 2');
-  assert.equal(door.label, 'Launcher');
-  assert.equal(door.glyph, '\u2630');
-  assert.equal(door.sub, 'Home settings');
-  assert.notEqual(door.glyph, items.find(i => i.kind === 'settings').glyph,
-    'the two settings doors must not look alike');
-  openSettings(v);
-  assert.equal(v.settings, true);
-  assert.equal(v.settingsPage, 'root');
-  assert.equal(v.zone, 'apps');
-  const flat = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })));
-  assert.ok(flat.find(n => n.data && n.data.style &&
-    n.data.style.backgroundColor === 'rgba(3,5,9,0.86)'), 'modal dark glass renders');
-  const texts = flat.flatMap(n => n.children || []).filter(c => typeof c === 'string');
-  assert.ok(texts.includes('HOME SETTINGS'));
-  assert.ok(texts.includes('Auto-switch on boot'));
-  assert.ok(texts.includes('Input names'));
-  assert.ok(texts.includes('Home settings'), 'the door itself is on the row behind the glass');
-  v.handleKey(k.BACK);
-  assert.equal(v.settings, false);
-  assert.equal(v.zone, 'apps', 'Back closes the layer and stays in view 2');
-  v.handleKey(k.UP); // view 2 -> dock
-  assert.equal(v.handleKey(k.BACK), false, 'Back at the dock still belongs to the vendor');
-  v.stop();
-});
-
-test('settings: auto-switch toggle writes real booleans and the row follows', () => {
-  const f = setup(), v = f.instance, k = KEYS;
-  v.start();
-  openSettings(v);
-  assert.equal(v.settingsRows()[0].kind, 'autoswitch');
-  assert.equal(v.settingsRows()[0].value, 'off');
-  v.handleKey(k.ENTER);
-  assert.equal(f.store.get('alvidaa_auto_switch'), 'true', 'stored as a real JSON boolean');
-  assert.equal(v.prefs.autoSwitch, true);
-  assert.equal(v.settingsRows()[0].value, 'on');
-  v.handleKey(k.ENTER);
-  assert.equal(f.store.get('alvidaa_auto_switch'), 'false');
-  assert.equal(v.settingsRows()[0].value, 'off');
-  v.handleKey(k.RIGHT);
-  assert.equal(f.store.get('alvidaa_auto_switch'), 'true', 'Left/Right changes the value too');
-  v.handleKey(k.LEFT);
-  assert.equal(f.store.get('alvidaa_auto_switch'), 'false');
-  v.stop();
-});
-
-test('settings: hiding an app writes the hidden list and the overlay loses it immediately', () => {
-  const f = setup(), v = f.instance, k = KEYS;
-  v.start();
-  openSettings(v);
-  assert.equal(v.settingsRows()[1].kind, 'open-apps');
-  assert.equal(v.settingsRows()[1].sub, '2 shown, 0 hidden');
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // apps page
-  assert.equal(v.settingsPage, 'apps');
-  assert.equal(v.settingsRows().length, 2);
-  assert.equal(v.settingsRows()[0].label, 'Netflix');
-  assert.equal(v.settingsRows()[0].value, 'shown');
-  v.handleKey(k.ENTER); // hide Netflix
-  assert.equal(f.store.get('alvidaa_hidden_apps'), '["1"]');
-  assert.deepEqual(v.apps.map(a => a.appId), ['2'],
-    'the filtered overlay list updates without a restart');
-  assert.equal(v.settingsRows()[0].value, 'hidden');
-  v.handleKey(k.BACK); // root
-  assert.equal(v.settingsPage, 'root');
-  assert.equal(v.settingsRows()[1].sub, '1 shown, 1 hidden', 'the root sub-label follows');
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // apps page again
-  v.handleKey(k.ENTER); // unhide
-  assert.equal(f.store.get('alvidaa_hidden_apps'), '[]');
-  assert.deepEqual(v.apps.map(a => a.appId), ['1', '2']);
-  v.stop();
-});
-
-test('settings: pin and unpin write favorites, the sixth pin is refused with a toast', () => {
-  const f = setup({ storage: { alvidaa_favorites: ['1', '2', 'f3', 'f4', 'f5'] } }),
-    v = f.instance, k = KEYS;
-  v.start();
-  // Prefilled storage holds a raw array until the component writes it back
-  // as JSON, so parse either shape.
-  const favs = () => {
-    const raw = f.store.get('alvidaa_favorites');
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
-  };
-  // Two more valid apps so there is an unpinned row to try pinning.
-  v._lastData.apps.push({ appId: '4', appName: 'Alpha' }, { appId: '5', appName: 'Beta' });
-  v.readPrefs();
-  openSettings(v);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // apps page
-  assert.equal(v.settingsRows().length, 4);
-  assert.equal(v.settingsRows()[0].label, '\u2605 Netflix', 'pinned apps carry the star marker');
-  v.settingsIndex = 2; // Alpha
-  v.handleKey(k.RIGHT); // pin
-  assert.match(v.toast, /favorites are full/);
-  assert.equal(favs().length, 5, 'the stored list stays at 5, nothing dropped silently');
-  v.settingsIndex = 0; // Netflix
-  v.handleKey(k.RIGHT); // unpin always works
-  assert.deepEqual(favs(), ['2', 'f3', 'f4', 'f5']);
-  assert.equal(v.settingsRows()[0].label, 'Netflix');
-  v.handleKey(k.RIGHT); // pin again
-  assert.deepEqual(favs(), ['2', 'f3', 'f4', 'f5', '1']);
-  assert.equal(v.appItems()[0].appId, '2',
-    'view 2 reads the same favorites as the settings list');
-  v.stop();
-});
-
-test('settings: the keyboard renames an input and the dock labels follow', () => {
-  const f = setup(), v = f.instance, k = KEYS;
-  v.start();
-  openSettings(v);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // inputs page
-  assert.equal(v.settingsPage, 'inputs');
-  assert.equal(v.settingsRows().length, 3);
-  assert.equal(v.settingsRows()[1].label, 'PlayStation 5');
-  assert.equal(v.settingsRows()[1].value, '');
-  v.settingsIndex = 1;
-  v.handleKey(k.ENTER); // name editor
-  assert.equal(v.settingsPage, 'name');
-  assert.equal(v.nameDraft, '');
-  // Grid is A-Z then 0-9: P=15, S=18, 5=31; DONE=39.
-  v.nameIndex = 15; v.handleKey(k.ENTER);
-  v.nameIndex = 18; v.handleKey(k.ENTER);
-  v.nameIndex = 31; v.handleKey(k.ENTER);
-  assert.equal(v.nameDraft, 'PS5');
-  const draftTree = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })));
-  assert.ok(draftTree.some(n => (n.children || []).includes('PS5')),
-    'the editor renders the draft');
-  v.nameIndex = 39; v.handleKey(k.ENTER); // DONE
-  assert.equal(v.settingsPage, 'inputs');
-  assert.equal(f.store.get('alvidaa_custom_names'), '{"HDMI2":"PS5"}');
-  assert.equal(v.settingsRows()[1].value, 'custom');
-  assert.equal(v.settingsRows().length, 4, 'a Reset row appeared under the renamed input');
-  assert.equal(v.sourceName(v.sources[1]), 'PS5');
-  v.zone = 'dock';
-  v.dock = 1;
-  const texts = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })))
-    .flatMap(n => n.children || []).filter(c => typeof c === 'string');
-  assert.ok(texts.includes('PS5'), 'the big label above the dock shows the custom name');
-  v.stop();
-});
-
-test('settings: a draft that trims to empty deletes the custom name', () => {
-  const f = setup({ storage: { alvidaa_custom_names: { HDMI2: 'PlayStation 5 Pro' } } }),
-    v = f.instance, k = KEYS;
-  v.start();
-  assert.equal(v.sourceName(v.sources[1]), 'PlayStation 5 Pro');
-  openSettings(v);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // inputs page
-  assert.equal(v.settingsRows()[1].value, 'custom');
-  v.settingsIndex = 1;
-  v.handleKey(k.ENTER); // editor, seeded from the current custom name
-  assert.equal(v.settingsPage, 'name');
-  assert.equal(v.nameDraft, 'PlayStation 5 Pro');
-  v.nameIndex = 38; v.handleKey(k.ENTER); // CLEAR
-  assert.equal(v.nameDraft, '');
-  v.nameIndex = 36; v.handleKey(k.ENTER); // SPACE
-  v.nameIndex = 36; v.handleKey(k.ENTER); // SPACE
-  assert.equal(v.nameDraft, '  ');
-  v.nameIndex = 39; v.handleKey(k.ENTER); // DONE
-  assert.equal(f.store.get('alvidaa_custom_names'), '{}', 'the key is deleted, not stored empty');
-  assert.equal(v.sourceName(v.sources[1]), 'PlayStation 5', 'the vendor name returns');
-  v.stop();
-});
-
-test('settings: the Reset row clears one custom name', () => {
-  const f = setup({ storage: { alvidaa_custom_names: { HDMI2: 'Custom Name' } } }),
-    v = f.instance, k = KEYS;
-  v.start();
-  openSettings(v);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // inputs page
-  assert.equal(v.settingsRows().length, 4);
-  assert.equal(v.settingsRows()[2].kind, 'reset-name');
-  assert.equal(v.settingsRows()[2].label, 'Reset name');
-  v.settingsIndex = 2;
-  v.handleKey(k.ENTER);
-  assert.equal(f.store.get('alvidaa_custom_names'), '{}');
-  assert.equal(v.sourceName(v.sources[1]), 'PlayStation 5');
-  assert.equal(v.settingsRows().length, 3, 'the Reset row disappears with the custom name');
-  v.stop();
-});
-
-test('settings: the only-list row appears only when set and OK clears it', () => {
-  const f = setup(), v = f.instance;
-  v.start();
-  openSettings(v);
-  assert.equal(v.settingsRows().some(r => r.kind === 'only-list'), false);
-  v.stop();
-
-  const g = setup({ storage: { alvidaa_only_apps: ['1'] } }), w = g.instance, k = KEYS;
-  w.start();
-  openSettings(w);
-  const rows = w.settingsRows();
-  assert.equal(rows.length, 4);
-  assert.equal(rows[3].kind, 'only-list');
-  w.settingsIndex = 3;
-  w.handleKey(k.ENTER);
-  assert.equal(g.store.get('alvidaa_only_apps'), '[]');
-  assert.equal(w.settingsRows().some(r => r.kind === 'only-list'), false);
-  assert.deepEqual(w.apps.map(a => a.appId), ['1', '2'],
-    'clearing the only-list restores the hidden-list behaviour');
-  w.stop();
-});
-
-test('settings: the surface renders and navigates with storage absent and writes nothing', () => {
-  const f = setup({ noStorage: true }), v = f.instance, k = KEYS;
-  v.start();
-  openSettings(v);
-  assert.equal(v.settings, true);
-  const texts = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })))
-    .flatMap(n => n.children || []).filter(c => typeof c === 'string');
-  assert.ok(texts.includes('HOME SETTINGS'));
-  v.handleKey(k.ENTER); // toggle auto-switch: silent no-op, no throw
-  assert.equal(v.prefs.autoSwitch, false);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // apps page
-  v.handleKey(k.ENTER); // toggle visibility: no throw
-  v.handleKey(k.RIGHT); // pin: no throw
-  v.handleKey(k.BACK);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // inputs page
-  v.handleKey(k.ENTER); // name editor
-  v.nameIndex = 0; v.handleKey(k.ENTER); // type "A"
-  assert.equal(v.nameDraft, 'A');
-  v.nameIndex = 39; v.handleKey(k.ENTER); // DONE: no throw
-  v.handleKey(k.BACK); // root
-  v.handleKey(k.BACK); // close
-  assert.equal(v.settings, false);
-  assert.equal(f.calls.filter(c => c[0] === 'storage:set').length, 0);
-  v.stop();
-});
-
-test('settings: number hotkeys do not fire while the settings layer is open', () => {
-  const f = setup(), v = f.instance, k = KEYS;
-  v.start();
-  v.sources = Array.from({ length: 5 }, (_, i) => ({ sourceId: 'in' + i, name: 'In ' + i }));
-  openSettings(v);
-  const before = f.calls.length;
-  assert.equal(v.handleKey(k.NUM_1), false);
-  assert.equal(v.handleKey(k.NUM_0), false);
-  assert.equal(v.dock, 0);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // inputs page
-  assert.equal(v.handleKey(k.NUM_3), false);
-  v.handleKey(k.ENTER); // name editor
-  assert.equal(v.settingsPage, 'name');
-  assert.equal(v.handleKey(k.NUM_7), false);
-  assert.equal(f.calls.length, before, 'no source switch fired behind the layer');
-  v.stop();
-});
-
-test('settings: the name draft is capped at 24 characters', () => {
-  const f = setup(), v = f.instance, k = KEYS;
-  v.start();
-  openSettings(v);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.DOWN);
-  v.handleKey(k.ENTER); // inputs page
-  v.handleKey(k.ENTER); // editor
-  v.nameDraft = 'x'.repeat(24);
-  v.nameIndex = 0; // 'A'
-  v.handleKey(k.ENTER);
-  assert.equal(v.nameDraft.length, 24, 'no character past the cap');
-  assert.match(v.toast, /24 characters max/);
-  v.nameIndex = 37; // BACKSPACE still works at the cap
-  v.handleKey(k.ENTER);
-  assert.equal(v.nameDraft.length, 23);
-  v.stop();
-});
-
-test('settings: announce speaks the focused row and keyboard cell', () => {
-  const f = setup(), v = f.instance;
-  const spoken = [];
-  f.sdk.tts = { isEnable: () => true, speak: m => spoken.push(m) };
-  v.start();
-  openSettings(v);
-  v.announce();
-  assert.deepEqual(spoken, ['Auto-switch on boot, off']);
-  v.settingsIndex = 2;
-  v.announce();
-  assert.equal(spoken[1], 'Input names');
-  v.handleKey(KEYS.ENTER); // inputs page
-  v.announce();
-  assert.equal(spoken[2], 'TV');
-  v.handleKey(KEYS.ENTER); // name editor
-  v.announce();
-  assert.equal(spoken[3], 'A', 'keyboard cells speak their character');
-  v.stop();
-});
-
-test('input names prefer the SDK deviceName, then the MQTT displayname2', () => {
-  const f = setup(), v = f.instance;
-  f.component.mounted.call(v);
-  // The vendor JS SDK (all-inputs.getAllInputsData) reports `deviceName`; the
-  // MQTT sourcelist the bridge reads calls the same thing `displayname2`. The
-  // native lane only ever sees the SDK, so deviceName must win — without it
-  // HDMI3 read "HDMI3" while the canvas lane read "Fire TV Stick".
-  assert.equal(v.sourceName({ sourceId: 'HDMI3', name: 'HDMI3', deviceName: 'Fire TV Stick' }), 'Fire TV Stick');
-  assert.equal(v.sourceName({ sourceId: 'HDMI2', name: 'HDMI2', displayname2: 'PlayStation 5' }), 'PlayStation 5');
-  assert.equal(v.sourceName({ sourceId: 'X', name: 'X', deviceName: 'Switch', displayname2: 'Other' }), 'Switch');
-  // A custom name still beats both.
-  v.prefs.customNames = { hdmi3: 'Stick' };
-  assert.equal(v.sourceName({ sourceId: 'HDMI3', name: 'HDMI3', deviceName: 'Fire TV Stick' }), 'Stick');
-});
-
-test('the dock tile draws the device icon as shapes, not as an image', () => {
-  const f = setup(), v = f.instance;
-  f.root.AlvidaaNativeDeviceArt = {
-    rules: [['(fire tv|cast)', 'cast'], ['(switch|playstation)', 'gamepad-2']],
-    icons: { cast: 'data:image/svg+xml;base64,CAST', 'gamepad-2': 'data:image/svg+xml;base64,PAD',
-      box: 'data:image/svg+xml;base64,BOX' },
-    fallback: 'box'
-  };
-  f.component.mounted.call(v);
-  const draw = () => f.component.render.call(v, (tag, data, children) => ({ tag, data, children }));
-  const flat = flatten(draw());
-  // This engine paints neither an SVG data URI (img or background-image) nor the
-  // vendor icon-font class, so the icon has to be divs with borders/backgrounds.
-  assert.equal(flat.filter(n => n.tag === 'img').length, 0, 'no <img> is used for tile art');
-  assert.equal(flat.filter(n => n.data && n.data.style && /url\(/.test(String(n.data.style.backgroundImage || ''))).length, 0,
-    'no tile art is painted as a background-image');
-  const shapes = flat.filter(n => n.data && n.data.style && n.data.style.position === 'absolute' &&
-    (/(^|;|\s)border:/.test(String(n.data.style.border || '')) || n.data.style.backgroundColor));
-  assert.ok(shapes.length >= 6, 'the dock draws shape primitives for the inputs, got ' + shapes.length);
-  // The name still resolves, and the matcher is what picks the shape.
-  assert.equal(v.deviceArtName('Fire TV Stick'), 'cast');
-  assert.equal(v.deviceArtName('PlayStation 5'), 'gamepad-2');
-  assert.equal(v.deviceArtName('something unknown'), 'box');
-});
-

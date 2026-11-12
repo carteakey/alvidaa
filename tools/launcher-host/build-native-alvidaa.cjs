@@ -27,13 +27,6 @@ function build(stockFile, output, expect, options) {
   if (inputArt && typeof inputArt === 'object' && Object.keys(inputArt).length > 0) {
     art += '\nself.AlvidaaNativeInputArt=' + JSON.stringify(inputArt) + ';';
   }
-  // The device silhouettes (issue #60) travel as rules + icons, not as a map of
-  // this TV's inputs: the build does not know which ports exist, and it must
-  // not have to. The component applies the rules to the name the TV reports.
-  const deviceArt = options && options.deviceArt;
-  if (deviceArt && typeof deviceArt === 'object' && deviceArt.icons) {
-    art += '\nself.AlvidaaNativeDeviceArt=' + JSON.stringify(deviceArt) + ';';
-  }
   const candidate = '/* ' + MARKER + '\n * variant: native-alvidaa.js\n */\n' + art + '\n' +
     stock + '\n;\n' +
     PARTS.map(file => fs.readFileSync(path.join(__dirname, file), 'utf8')).join('\n;\n');

@@ -35,7 +35,20 @@
       "parts": ["native-platform-75u8qtuk.js", "free-my-tv-native.js", "free-my-tv-native-75u8qtuk.js", "native-entry.js"],
       "license": "third-party/free-my-tv/LICENSE",
       "verified": [
-        { "model": "75U8QTUK", "firmware": "V0000.09.60I.Q0813" }
+        { "model": "75U8QTUK", "firmware": "V0000.09.60I.Q0813" },
+        { "model": "50U7DSE", "firmware": "V0000.09.62N.Q0923" }
+      ]
+    },
+    {
+      "id": "free-my-tv-web-50u7dse",
+      "name": "Free My TV (web parity, 50U7DSE)",
+      "author": "Roel van der Ven",
+      "summary": "The upstream web program itself on the stock launcher: full look (clock, cards, shelf), the repo's curated shelf (five brand wordmarks on the SHELF gradients), Europe/Berlin build zone, artCache asset lane. No feed worker yet: weather/picks render offline until the worker suite is ported.",
+      "build": "build-native-web-50u7dse.cjs",
+      "parts": ["native-platform-75u8qtuk.js", "native-web-tv.js", "native-web-50u7dse.js", "native-web-screensaver.js", "native-web-scope.js", "native-web-compat.js", "native-web-runtime.js", "native-entry.js"],
+      "license": "third-party/free-my-tv/LICENSE",
+      "verified": [
+        { "model": "50U7DSE", "firmware": "V0000.09.62N.Q0923" }
       ]
     }
   ]

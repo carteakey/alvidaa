@@ -49,8 +49,7 @@ node tools/launcher-host/native-install.cjs bootstrap --model 50a51huv --host <t
 node tools/launcher-host/native-install.cjs install free-my-tv --model 50a51huv --host <tv-ip>
 node tools/launcher-host/native-install.cjs install alvidaa     --model 50a51huv --host <tv-ip>
 
-# back to stock, whichever variant is installed. The watcher is handed back
-# too, so the canvas launcher works again without a manual cp.
+# back to stock, whichever variant is installed
 node tools/launcher-host/native-install.cjs rollback --model 50a51huv --host <tv-ip>
 
 # what is on the TV right now
@@ -74,22 +73,6 @@ node tools/launcher-host/native-install.cjs status --model 50a51huv --host <tv-i
    `firmware/` (gitignored) and the build scripts refuse any other output path.
 5. **One component per build.** The manifest's parts must match the builder's
    `PARTS`, and the entry is always appended last. A test enforces both.
-6. **The installer owns the bridge watcher.** A native Home and the watcher
-   are exclusive: with the watcher on, the bridge bounces the TV to the canvas
-   page within about a second of the VIDAA home appearing, and a working
-   install looks like it silently failed. So `install` and `switch` set
-   `watcher.enabled = false` in the bridge config
-   (`/var/local/alvidaa/config.json`), and `rollback` puts the pre-native
-   original back — the canvas launcher works after a rollback without a
-   manual `cp`. That original is backed up once, as
-   `config.json.bak-native-home`, and no later install ever replaces it;
-   rollback restores it byte-for-byte and keeps it, so a second rollback is a
-   no-op. The installer refuses to touch a config it cannot parse rather than
-   clobbering it, and if a watcher sync fails after the bundle swapped it
-   prints exactly what state the TV is in. `status` reports the watcher as
-   `on`, `off` or `unknown`. `--no-watcher` skips all of it, loudly, for an
-   operator who is deliberately running the canvas launcher; the cost is that
-   the bridge will hide the native Home while the watcher is on.
 
 ## Adding a variant
 

@@ -41,6 +41,7 @@ builds.
 | 55E75LEVS | EU_A (BIH) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.61 | V0000.09.61B.Q0704 | 3290 | Chromium 111 "odin" (ViewPort/5.2.20, aarch64 UA) | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
+| 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -132,6 +133,14 @@ never hand-edit between the markers.
 **65C350LE (Toshiba-branded) — V0000.09.09H.P0930**
 - `pairing` **working** — RemoteNow MQTT pairing over :36669 succeeded first try via Sidee (c5d7598), PIN flow, profile 'modern'. The session has held across helper restarts. Reported 2026-11-12.
 - `launcher` **untested** — Not alvidaa's launcher. For the record, a third-party canvas launcher (gilbertmsipha/cleanyourtv-vidaa, helper lane) does run end-to-end on this unit: tile install over MQTT, 1080p render in the TV browser, and Inputs/HDMI switching through the helper. That says the browser, tile-install and remote-control paths are open on this build, but says nothing about alvidaa's own lanes.
+
+**50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) — V0000.09.62N.Q0923**
+- `launcher` **working** — Lane 3 native Home (Free My TV 75U8QTUK adapter) component swap into operationui app.js; rendered on screen and survived a cold boot. Self-install lane is closed (503 gate).
+- `native_home` **working** — Free My TV (75U8QTUK port) component swap; action paths (app launch / input switch / settings) owner-verified on screen (2026-11-11).
+- `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (../proc/uptime -> ret:true); bare strings are rejected 'invalid path'.
+- `file_bridge_write` **gated** — Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig' — the identity gate. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314), a different surface.
+- `identity_gate` **working** — Per-app {appid,md5,permissions} gate: the 503 appconfig rejection on browser fileWrite. The fetcher write route is not gated.
+- `root` **achieved** — fetcher.fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer; postinst ran uid 0 (CapEff 0000003fffffffff) and started key-only Dropbear on :8008. Boot persistence via re_sshd serviceList autostart re-arms dropbear at every cold boot (~30 s).
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details

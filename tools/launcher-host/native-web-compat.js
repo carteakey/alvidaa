@@ -5,11 +5,21 @@
     var stopped=false,paintTimer=null,snapshot={images:{},media:{}},api=null;
     var base=options.assetBase,colors=options.assets.colors;
     function local(uri){
-      return typeof uri==='string' && /^file:\/\/\/hisenseUI\/var\/local\/(free-my-tv|storeAppIcon)\//.test(uri) &&
+      // 50U7DSE (09.62N) keeps the hisenseUI package read-only; writable staged
+      // assets and feed media live under the vendor artCache symlink instead.
+      return typeof uri==='string' && /^file:\/\/\/hisenseUI\/var\/local\/(artCache\/free-my-tv|free-my-tv|storeAppIcon)\//.test(uri) &&
         !/[\x00-\x20\\"')]/.test(uri) && !/(^|\/)\.\.(\/|$)|%2e|%2f|%5c/i.test(uri);
     }
     function meta(uri){return snapshot.media&&snapshot.media[uri];}
-    function imageURL(uri){var info=meta(uri);return info&&local(info.src)?info.src:local(uri)?uri:'';}
+    function direct(uri){
+      // Per-build direct-image hook: builds whose app artwork lives on the
+      // vendor CDN (75U8QTUK/09.60I, 50U7DSE/09.62N) allow exactly that host
+      // for browser image loads. Everything else stays local-only.
+      var allow=root.AlvidaaWebDirectImage;
+      if(typeof allow!=='function')return false;
+      try{return allow(uri)===true;}catch{return false;}
+    }
+    function imageURL(uri){var info=meta(uri);return info&&local(info.src)?info.src:local(uri)?uri:direct(uri)?uri:'';}
     function LocalImage(){
       var object=this, image=new host.Image(), source='';
       Object.defineProperty(object,'src',{get:function(){return source;},set:function(uri){
@@ -35,14 +45,13 @@
       image.onload=function(){
         if(stopped)return;
         var info=meta(source),style=host.getComputedStyle(node);
-        if(!parseFloat(style.width)){
-          if(!info||!info.width){if(node.onerror)node.onerror();return;}
-          node.style.width=info.width+'px';widthOwned=true;
-        }
-        if(!parseFloat(style.height)){
-          if(!info||!info.height){if(node.onerror)node.onerror();return;}
-          node.style.height=info.height+'px';heightOwned=true;
-        }
+        // Explicit pixel sizes come only from worker metadata: Cobalt does not
+        // expose used sizes, and a node still detached from the document
+        // reports none at all (measured, findings 01). Missing metadata is
+        // not a load failure — the paint proceeds and CSS sizes the box once
+        // attached (upstream's .logo tile rules give it 70%x50%).
+        if(!parseFloat(style.width)&&info&&info.width){node.style.width=info.width+'px';widthOwned=true;}
+        if(!parseFloat(style.height)&&info&&info.height){node.style.height=info.height+'px';heightOwned=true;}
         node.style.backgroundImage='url("'+imageURL(source)+'")';
         if(node.onload)node.onload();
       };
@@ -90,7 +99,15 @@
       TV:options.TV,Image:LocalImage,imageElement:imageElement,
       symbol:function(name,parent,size){return raster(name,parent,size,false);},
       coin:function(index,parent){return raster('coin-'+index,parent,0,true);},
-      lift:function(image){var info=meta(image.src);return info&&info.lift||false;},
+      lift:function(image){
+        var info=meta(image.src);
+        if(info)return info.lift||false;
+        // No worker metadata: fall back to the raw icon in upstream's lifted
+        // shape (bg/ink analysis omitted — showLogo keeps the tile's preset
+        // gradient). Without this, upstream skips showLogo() entirely and
+        // the shelf tile loses its logo treatment.
+        return image.src?{src:image.src}:false;
+      },
       backdrop:function(node,uri){
         var info=meta(uri);if(!info||!local(info.thumb))return;
         node.style.backgroundImage='url("'+info.thumb+'")';node.style.backgroundSize='100% 100%';
