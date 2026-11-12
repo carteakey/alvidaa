@@ -40,6 +40,7 @@ builds.
 | 50A7HAU (internal 50A6GA) | AU (Australia) | MTK9602 | U06.12 | V0000.06.12X.N1212 | 3290 | Chromium 88.0.4324.182 (armv7l) | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | EU_A (BIH) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.61 | V0000.09.61B.Q0704 | 3290 | Chromium 111 "odin" (ViewPort/5.2.20, aarch64 UA) | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
+| 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -127,6 +128,10 @@ never hand-edit between the markers.
 - `euladpp_untar` **untested** — Not tested; the successful root chain used the existing rc.local / otaTest.sh hook instead.
 - `devtools_forge` **untested** — Not demonstrated. The DevKit Device Code was obtained, but an unrelated installation key failed Secure Code verification; this is not a test of checkAccessCode forging.
 - `root` **achieved** — Owner-confirmed on 2026-11-11/12: stock rc.local invokes otaTest.sh as uid 0; static Dropbear 2026.94 on :2222 accepts password/key commands and static SFTP works. Boot-ID change and automatic SSH return after restart/Power-on verified without browser re-arm. Normal PTY remains nonfunctional (UNIX98_PTYS disabled; legacy pairs allocate but transfer no data).
+
+**65C350LE (Toshiba-branded) — V0000.09.09H.P0930**
+- `pairing` **working** — RemoteNow MQTT pairing over :36669 succeeded first try via Sidee (c5d7598), PIN flow, profile 'modern'. The session has held across helper restarts. Reported 2026-11-12.
+- `launcher` **untested** — Not alvidaa's launcher. For the record, a third-party canvas launcher (gilbertmsipha/cleanyourtv-vidaa, helper lane) does run end-to-end on this unit: tile install over MQTT, 1080p render in the TV browser, and Inputs/HDMI switching through the helper. That says the browser, tile-install and remote-control paths are open on this build, but says nothing about alvidaa's own lanes.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details

@@ -30,6 +30,7 @@
 | V0000.06.12X.N1212 (50A7HAU (internal 50A6GA), AU (Australia)) | MTK9602 | untested | untested | untested | untested | untested | [@gonzule](https://github.com/gonzule) |
 | V0000.09.61B.Q0704 (55E75LEVS, EU_A (BIH)) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | open | open | untested | untested | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
 | V0000.09.09C.P0930 (43A6K (internal 43A53FEVS_0011), EU_A (SSDP region 0)) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | open | open | untested | untested | achieved | [@Hlushok](https://github.com/Hlushok) |
+| V0000.09.09H.P0930 (65C350LE (Toshiba-branded), ?) | ? | untested | untested | untested | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 <!-- INVENTORY:END -->
 
 **Read of the table:** the July EU_A reporter observed `fileWrite` rejected

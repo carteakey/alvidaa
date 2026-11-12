@@ -591,6 +591,35 @@
         "devtools_forge": "Not demonstrated. The DevKit Device Code was obtained, but an unrelated installation key failed Secure Code verification; this is not a test of checkAccessCode forging.",
         "root": "Owner-confirmed on 2026-11-11/12: stock rc.local invokes otaTest.sh as uid 0; static Dropbear 2026.94 on :2222 accepts password/key commands and static SFTP works. Boot-ID change and automatic SSH return after restart/Power-on verified without browser re-arm. Normal PTY remains nonfunctional (UNIX98_PTYS disabled; legacy pairs allocate but transfer no data)."
       }
+    },
+    {
+      "id": "V0000.09.09H.P0930",
+      "model": "65C350LE (Toshiba-branded)",
+      "region": "?",
+      "soc": "?",
+      "vidaa_os": "U09.09",
+      "transport_protocol": "not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos')",
+      "browser": "?",
+      "build_date": "2025-09-30",
+      "tested_by": [
+        "gh:VaheSaroyan"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "untested",
+        "native_home": "untested",
+        "file_bridge_traversal": "untested",
+        "file_bridge_write": "untested",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "untested",
+        "notes": "First Toshiba-branded unit in the inventory; Toshiba TVs are Hisense-built and run the same VIDAA. Sidee pairs it with auth_profile 'modern' and detects brand 'tos'. AirPlay /info on :7000 reports operatingSystem Linux, integrator TOSHIBA, firmwareRevision 9.0.250930, sourceVersion 377.40.00. alvidaa's own launcher and the root chain were not attempted on this unit; only pairing is confirmed here."
+      },
+      "capability_detail": {
+        "pairing": "RemoteNow MQTT pairing over :36669 succeeded first try via Sidee (c5d7598), PIN flow, profile 'modern'. The session has held across helper restarts. Reported 2026-11-12.",
+        "launcher": "Not alvidaa's launcher. For the record, a third-party canvas launcher (gilbertmsipha/cleanyourtv-vidaa, helper lane) does run end-to-end on this unit: tile install over MQTT, 1080p render in the TV browser, and Inputs/HDMI switching through the helper. That says the browser, tile-install and remote-control paths are open on this build, but says nothing about alvidaa's own lanes."
+      }
     }
   ]
 }
