@@ -41,6 +41,12 @@ tools/ur9s/web/pub/
 tools/ur9s/web/captures/
 tools/ur9s/web/server.log
 
+# tools/ur9s offline build sources and build tree (tarballs are not shipped —
+# see tools/ur9s/sources/README.md)
+tools/ur9s/sources/*.tar.gz
+tools/ur9s/build/
+
+
 # tools/audio build output (probe binary + pulled libasound)
 tools/audio/dist/
 launcher/pub/installer.ipk
