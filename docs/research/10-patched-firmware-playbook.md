@@ -32,6 +32,7 @@
 | V0000.09.09C.P0930 (43A6K (internal 43A53FEVS_0011), EU_A (SSDP region 0)) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | open | open | untested | untested | achieved | [@Hlushok](https://github.com/Hlushok) |
 | V0000.09.09H.P0930 (65C350LE (Toshiba-branded), ?) | ? | untested | untested | untested | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | V0000.09.62N.Q0923 (50U7DSE (internal 50U73SEVS_01, serial type 50U7SE), EU_A (DEU)) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | open | gated | working | untested | achieved | [@roelven](https://github.com/roelven) |
+| V0000.06.10S.N1222 (VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed), EU_A (DevKit platform MT9602_EU_A; country unconfirmed)) | MTK9602 (MT9602_EU_A; armv7l) | closed | untested | untested | untested | untested | [@PureBreadBagel](https://github.com/PureBreadBagel) |
 <!-- INVENTORY:END -->
 
 **Read of the table:** the July EU_A reporter observed `fileWrite` rejected

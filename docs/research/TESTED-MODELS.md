@@ -42,6 +42,7 @@ builds.
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
+| VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed) | EU_A (DevKit platform MT9602_EU_A; country unconfirmed) | MTK9602 (MT9602_EU_A; armv7l) | U06.10 | V0000.06.10S.N1222 | 2140 | Chromium 88 (armv7l) | untested | untested | [@PureBreadBagel](https://github.com/PureBreadBagel) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -141,6 +142,11 @@ never hand-edit between the markers.
 - `file_bridge_write` **gated** — Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig' — the identity gate. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314), a different surface.
 - `identity_gate` **working** — Per-app {appid,md5,permissions} gate: the 503 appconfig rejection on browser fileWrite. The fetcher write route is not gated.
 - `root` **achieved** — fetcher.fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer; postinst ran uid 0 (CapEff 0000003fffffffff) and started key-only Dropbear on :8008. Boot persistence via re_sshd serviceList autostart re-arms dropbear at every cold boot (~30 s).
+
+**VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed) — V0000.06.10S.N1222**
+- `pairing` **working** — Python vidaa-control successfully completed RemoteNow MQTT PIN pairing; TV control broker reachable on TCP 36669. End-to-end custom launcher not tested.
+- `file_bridge_traversal` **closed** — WebSDK_createFileRequest fileRead of ../proc/version returned an empty string from ordinary HTTP and again through a vidaahub.com DNS-mapped HTTP origin; tested with modes 3 and 0. alvidaa recon v8 returned empty response from WebSDK_createFileRequest for file reads. No successful traversal observed in these tests; whether the cause is an origin gate, path restriction or other interface behaviour is unconfirmed.
+- `root` **untested** — No root method executed. Browser file access attempt failed in tested context; IPK prerequisite tests were only run in the normal browser, not an authorised application context. Root remains untested.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details
