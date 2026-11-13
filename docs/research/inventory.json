@@ -664,7 +664,7 @@
       "browser": "Chromium 88 (armv7l)",
       "build_date": "?",
       "tested_by": [
-        "gh:REPLACE_WITH_YOUR_USERNAME"
+        "gh:PureBreadBagel"
       ],
       "capabilities": {
         "pairing": "working",

@@ -42,7 +42,7 @@ builds.
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
-| VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed) | EU_A (DevKit platform MT9602_EU_A; country unconfirmed) | MTK9602 (MT9602_EU_A; armv7l) | U06.10 | V0000.06.10S.N1222 | 2140 | Chromium 88 (armv7l) | untested | untested | [@REPLACE_WITH_YOUR_USERNAME](https://github.com/REPLACE_WITH_YOUR_USERNAME) |
+| VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed) | EU_A (DevKit platform MT9602_EU_A; country unconfirmed) | MTK9602 (MT9602_EU_A; armv7l) | U06.10 | V0000.06.10S.N1222 | 2140 | Chromium 88 (armv7l) | untested | untested | [@PureBreadBagel](https://github.com/PureBreadBagel) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit

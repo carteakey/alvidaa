@@ -183,7 +183,7 @@ both regenerate from `docs/research/inventory.json`.
 | 43A6K | V0000.09.09C.P0930 | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE | V0000.09.09H.P0930 | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE | V0000.09.62N.Q0923 | working | achieved | [@roelven](https://github.com/roelven) |
-| VS1165UD1_0400 | V0000.06.10S.N1222 | untested | untested | [@REPLACE_WITH_YOUR_USERNAME](https://github.com/REPLACE_WITH_YOUR_USERNAME) |
+| VS1165UD1_0400 | V0000.06.10S.N1222 | untested | untested | [@PureBreadBagel](https://github.com/PureBreadBagel) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — add a firmware entry to [inventory.json](docs/research/inventory.json) (single source of truth; fields and where to find them: [TESTED-MODELS.md](docs/research/TESTED-MODELS.md)) and run `scripts/gen-inventory.py` — every table in the repo regenerates from it.
