@@ -63,3 +63,33 @@ In the normal TV browser, `vowOS.service.syncExecute` was not exposed and the We
 The DevKit information screen confirms `VS1165UD1_0400`, platform `MT9602_EU_A`, VIDAA `U06.10`, and firmware `V0000.06.10S.N1222`.
 
 ![VIDAA DevKit showing model, platform, and firmware](vidaaDevkit_stripped.png)
+
+## What this guide includes and leaves out
+
+This guide documents the Toshiba VS1165UD1_0400 running firmware V0000.06.10S.N1222.
+
+Included:
+- Confirmed TV hardware and firmware information.
+- MQTT pairing results.
+- Unsuccessful browser filesystem tests.
+- Inconclusive IPK prerequisite tests.
+- Screenshots of the diagnostic results.
+
+Not included:
+- A working root exploit.
+- Root installation instructions.
+- Unverified filesystem write methods.
+- Vendor binaries or private credentials.
+
+Root access has not been achieved, and other rooting methods remain untested.
+
+## Teardown
+
+No root payload, IPK package, or boot hook was installed.
+
+To restore the testing environment:
+1. Stop the temporary HTTP and DNS servers on the PC.
+2. Restore the TV's DNS configuration to Automatic.
+3. Remove DevKit through the TV's app management interface if removal is supported and desired.
+
+No firmware was flashed or modified during testing.
