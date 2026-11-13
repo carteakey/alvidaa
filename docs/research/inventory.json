@@ -653,6 +653,36 @@
         "launcher": "Lane 3 native Home (Free My TV 75U8QTUK adapter) component swap into operationui app.js; rendered on screen and survived a cold boot. Self-install lane is closed (503 gate).",
         "native_home": "Free My TV (75U8QTUK port) component swap; action paths (app launch / input switch / settings) owner-verified on screen (2026-11-11)."
       }
+    },
+    {
+      "id": "V0000.06.10S.N1222",
+      "model": "VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed)",
+      "region": "EU_A (DevKit platform MT9602_EU_A; country unconfirmed)",
+      "soc": "MTK9602 (MT9602_EU_A; armv7l)",
+      "vidaa_os": "U06.10",
+      "transport_protocol": "2140",
+      "browser": "Chromium 88 (armv7l)",
+      "build_date": "?",
+      "tested_by": [
+        "gh:REPLACE_WITH_YOUR_USERNAME"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "untested",
+        "native_home": "untested",
+        "file_bridge_traversal": "closed",
+        "file_bridge_write": "untested",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "untested",
+        "notes": "Toshiba/Vestel VIDAA 6.10 unit confirmed by DevKit: internal model VS1165UD1_0400, platform MT9602_EU_A, firmware V0000.06.10S.N1222. RemoteNow MQTT PIN pairing succeeded via Python vidaa-control on TCP 36669. Browser exposes WebSDK_createFileRequest, but tested fileRead requests returned empty responses, including from an HTTP vidaahub.com origin; alvidaa recon v8 likewise reported empty file responses. No traversal was demonstrated in the tested context; the cause of rejection is unconfirmed. No file writes or root hooks attempted. DevKit installed but requires authorisation. Normal-browser IPK precheck did not expose vowOS.service.syncExecute and the localhost:9888 WebSocket failed; this does not establish whether an IPK installer exists in a privileged app context. The localhost:9009/ browser page was blank (inconclusive). Root not achieved or attempted."
+      },
+      "capability_detail": {
+        "pairing": "Python vidaa-control successfully completed RemoteNow MQTT PIN pairing; TV control broker reachable on TCP 36669. End-to-end custom launcher not tested.",
+        "file_bridge_traversal": "WebSDK_createFileRequest fileRead of ../proc/version returned an empty string from ordinary HTTP and again through a vidaahub.com DNS-mapped HTTP origin; tested with modes 3 and 0. alvidaa recon v8 returned empty response from WebSDK_createFileRequest for file reads. No successful traversal observed in these tests; whether the cause is an origin gate, path restriction or other interface behaviour is unconfirmed.",
+        "root": "No root method executed. Browser file access attempt failed in tested context; IPK prerequisite tests were only run in the normal browser, not an authorised application context. Root remains untested."
+      }
     }
   ]
 }
