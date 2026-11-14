@@ -664,7 +664,7 @@
       "browser": "odin resources present; UA not recorded",
       "build_date": "2026-06-01 (kernel)",
       "tested_by": [
-        "owner (own unit, 2026-11-13)"
+        "@LastThylacine"
       ],
       "capabilities": {
         "pairing": "untested",

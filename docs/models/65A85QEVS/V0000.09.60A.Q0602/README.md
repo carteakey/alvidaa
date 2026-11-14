@@ -160,6 +160,20 @@ up on the candidate through the **vendor boot chain** (pid 2366, uid 311 — no
 switch-script launch involved), app.js md5 still the candidate's, root shell
 back ~30 s after reboot.
 
+## What this guide includes and leaves out
+
+| Included | Left out |
+| --- | --- |
+| the fingerprint and firmware constants (`V0000.09.60A.Q0602`, MTK9618, EU_A) | the working payloads (`boot.sh`/`svc.sh`/`rshell`, the IPK `postinst`, the probe pages) |
+| the chain at the architecture level (fetcher → superwatch 83/82 → IPK postinst; PFM boot lane; OTA freeze; lane-3) | the exact byte sequences sent to the superwatch socket and the eval'd `PFMCheck`/`platform.txt` lines |
+| the evidence for each claim (the *What was measured* table, live vs manual-replay) | key material, tokens, certificates, the vendor IPK bundle and other vendor binaries |
+| the teardown path | the unit's LAN address, MAC and friendly name |
+
+The line falls here because the property of the firmware that makes the chain
+possible is publishable, while the artefact that executes it is not (see
+[`docs/DISCLOSURE.md`](../../../DISCLOSURE.md)); the unit is also a personal TV,
+so its network identity is scrubbed from every committed copy.
+
 ## Teardown
 
 Every step is reversible; the rootfs (squashfs, dm-verity) is never written.
