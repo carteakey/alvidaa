@@ -42,6 +42,7 @@ builds.
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
+| 55U67LEVS (55U6LE series) | EU_A | MTK9603 | U09.60 | V0000.09.60A.Q0707 (55U67LEVS) | ? | Chromium 111.5563.5.1 "Odin" (armv7l) | untested | achieved | [unit owner](https://github.com/carteakey/alvidaa) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -141,6 +142,11 @@ never hand-edit between the markers.
 - `file_bridge_write` **gated** — Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig' — the identity gate. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314), a different surface.
 - `identity_gate` **working** — Per-app {appid,md5,permissions} gate: the 503 appconfig rejection on browser fileWrite. The fetcher write route is not gated.
 - `root` **achieved** — fetcher.fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer; postinst ran uid 0 (CapEff 0000003fffffffff) and started key-only Dropbear on :8008. Boot persistence via re_sshd serviceList autostart re-arms dropbear at every cold boot (~30 s).
+
+**55U67LEVS (55U6LE series) — V0000.09.60A.Q0707 (55U67LEVS)**
+- `pairing` **working** — modern profile, colon-formatted MAC, one PIN dialog, tokenissuance with a 2-day access / 30-day refresh token (2026-11-14).
+- `file_bridge_traversal` **open** — path:['../proc/uptime'] -> ret:true with content; path:'../proc/uptime' -> ret:false 'invalid path' (2026-11-14).
+- `root` **achieved** — One-shot uid-0 postinst verified 2026-11-14 (Uid 0, CapEff 000001ffffffffff) after fixing the IPK for the vendor opkg (AppId/AppName + non-empty data.tar.gz). No boot persistence and no shell; /config remounts rw and back cleanly as root.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details
