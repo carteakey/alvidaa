@@ -556,6 +556,37 @@
         "launcher": "Native lane 3: the Free My TV component swap in the writable operation-ui app.js, with the owner allowlist (YouTube / Stremio Lite / TV Browser) and the merged inputs shelf; rendered on screen and survived a cold boot. Bridge lanes 1/2 (pairing + home watcher) were not exercised."
       }
     },
+    
+    {
+      "id": "V0000.09.62C.Q0924",
+      "model": "55U61KEVS",
+      "region": "EU_A (DEU)",
+      "soc": "MTK9618 (aarch64 kernel, armhf userland)",
+      "vidaa_os": "U09.62",
+      "transport_protocol": "?",
+      "browser": "Chromium 111 \"odin\" (aarch64 UA)",
+      "build_date": "2026-09-22",
+      "tested_by": [
+        "gh:miramaki"
+      ],
+      "capabilities": {
+        "pairing": "untested",
+        "launcher": "working",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "open",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "notes": "Retail 55U7KQ, internal 55U61KEVS, EU_A/DEU, VIDAA U09.62. MTK9618 with aarch64 kernel but 32-bit ARM userland (process.arch 'arm'). Reached from the TV Browser page: fetcher fetchFile writes (uid 314), hiutils array-path traversal, superwatch /var/run/superwatch_socket 660 root:616 (install 82 / uninstall 83 / GetDirUsage 85). Root kit = patched static ARMv7 (EABI5) Dropbear key-only on :8008; IPK postinst ran uid 0 with CapEff 0000003fffffffff. Boot persistence via re_sshd in tv.vidaa.jsservice.basic/CHA/services + serviceList (re-arms ~30s after a cold boot). Lane 3 native Home (Free My TV) installed in the writable operation-ui app.js (component swap only); Home/Input/HDMI/TV Settings/AirPlay verified. OTA already off: /OAD/AppUpgradeSwitch.json upgradeFlag 0. transport_protocol not SSDP-exposed on this unit (sibling 55E75LEVS is 3290). Verified boot green."
+      },
+      "capability_detail": {
+        "launcher": "Native lane 3: Free My TV component swap in the writable operation-ui app.js (route[0].component for /Launcher only). The tested SDK interfaces match those of 75U8QTUK (app-service/getAppList, all-inputs/changeSourceTo, setting.open, apc/CMDMETHOD), so the free-my-tv-75u8qtuk adapter was reused unchanged. Home, Input, HDMI switching, TV Settings, and AirPlay verified; survived a cold boot byte-identically. A follow-on 'Arc Home' variant adds MENU->settings (key 409 MENU_SRC), a UTC-safe clock via _V_SDK_.biz.date.getLocalDate, and Recent via _V_SDK_.biz.source.getCurrentAppSource().",
+        "file_bridge_traversal": "hiutils.fileRead traverses with a one-element array path (../proc/uptime read); bare-string paths are rejected 'invalid path:../proc/uptime'.",
+        "file_bridge_write": "The write primitive is the FaaS fetcher: basic/fetcher fetchFile returns ret:true 'download finished', writing as uid 314 to /APPS and /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/ (markers + installer.ipk). WebSDK_createFileRequest is not exposed.",
+        "root": "fetcher.fetchFile -> superwatch 83 (uninstall) / 82 (install) -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 (EABI5) Dropbear, key-only on :8008; boot-persistent via the re_sshd serviceList autostart (re-arms ~30s after a cold boot)."
+      }
+    },
     {
       "id": "V0000.09.09C.P0930",
       "model": "43A6K (internal 43A53FEVS_0011)",

@@ -39,6 +39,7 @@ builds.
 | 32A35HUV | CAN | MTK9602 | U09.01 | V0000.09.01O.P0814 | 3290 | Chromium 111 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 | 50A7HAU (internal 50A6GA) | AU (Australia) | MTK9602 | U06.12 | V0000.06.12X.N1212 | 3290 | Chromium 88.0.4324.182 (armv7l) | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | EU_A (BIH) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.61 | V0000.09.61B.Q0704 | 3290 | Chromium 111 "odin" (ViewPort/5.2.20, aarch64 UA) | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
+| 55U61KEVS | EU_A (DEU) | MTK9618 (aarch64 kernel, armhf userland) | U09.62 | V0000.09.62C.Q0924 | ? | Chromium 111 "odin" (aarch64 UA) | working | achieved | [@miramaki](https://github.com/miramaki) |
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
@@ -118,6 +119,12 @@ never hand-edit between the markers.
 - `file_bridge_write` **open** — basic/fetcher fetchFile wrote markers as uid 314 to /APPS and to tv.vidaa.jsservice.basic/CHA/; direct hiutils.fileWrite was not tested.
 - `devtools_forge` **untested** — not needed for this chain; the superwatch/IPK path was used instead.
 - `root` **achieved** — fetcher.fetchFile → superwatch 83/82 → vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARM32 Dropbear with key + owner password on :22; boot-persistent via the re_sshd serviceList autostart (ARMED ~30 s after each of four cold boots).
+
+**55U61KEVS — V0000.09.62C.Q0924**
+- `launcher` **working** — Native lane 3: Free My TV component swap in the writable operation-ui app.js (route[0].component for /Launcher only). The tested SDK interfaces match those of 75U8QTUK (app-service/getAppList, all-inputs/changeSourceTo, setting.open, apc/CMDMETHOD), so the free-my-tv-75u8qtuk adapter was reused unchanged. Home, Input, HDMI switching, TV Settings, and AirPlay verified; survived a cold boot byte-identically. A follow-on 'Arc Home' variant adds MENU->settings (key 409 MENU_SRC), a UTC-safe clock via _V_SDK_.biz.date.getLocalDate, and Recent via _V_SDK_.biz.source.getCurrentAppSource().
+- `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (../proc/uptime read); bare-string paths are rejected 'invalid path:../proc/uptime'.
+- `file_bridge_write` **open** — The write primitive is the FaaS fetcher: basic/fetcher fetchFile returns ret:true 'download finished', writing as uid 314 to /APPS and /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/ (markers + installer.ipk). WebSDK_createFileRequest is not exposed.
+- `root` **achieved** — fetcher.fetchFile -> superwatch 83 (uninstall) / 82 (install) -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 (EABI5) Dropbear, key-only on :8008; boot-persistent via the re_sshd serviceList autostart (re-arms ~30s after a cold boot).
 
 **43A6K (internal 43A53FEVS_0011) — V0000.09.09C.P0930**
 - `pairing` **working** — RemoteNow PIN pairing and subsequent control worked; SSDP transport_protocol 3290 was independently read again on 2026-11-12.

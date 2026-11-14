@@ -180,6 +180,7 @@ both regenerate from `docs/research/inventory.json`.
 | 32A35HUV | V0000.09.01O.P0814 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 | 50A7HAU | V0000.06.12X.N1212 | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | V0000.09.61B.Q0704 | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
+| 55U61KEVS | V0000.09.62C.Q0924 | working | achieved | [@miramaki](https://github.com/miramaki) |
 | 43A6K | V0000.09.09C.P0930 | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE | V0000.09.09H.P0930 | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE | V0000.09.62N.Q0923 | working | achieved | [@roelven](https://github.com/roelven) |
