@@ -42,6 +42,7 @@ builds.
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
+| 65E86GEVS (serial type 65E8GE) | EM_B | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.09 | V0000.09.09O.P0930 | ? | Chromium 111 "odin" (api 3.0.1) | untested | achieved | [@noctonca](https://github.com/noctonca) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -141,6 +142,14 @@ never hand-edit between the markers.
 - `file_bridge_write` **gated** — Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig' — the identity gate. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314), a different surface.
 - `identity_gate` **working** — Per-app {appid,md5,permissions} gate: the 503 appconfig rejection on browser fileWrite. The fetcher write route is not gated.
 - `root` **achieved** — fetcher.fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer; postinst ran uid 0 (CapEff 0000003fffffffff) and started key-only Dropbear on :8008. Boot persistence via re_sshd serviceList autostart re-arms dropbear at every cold boot (~30 s).
+
+**65E86GEVS (serial type 65E8GE) — V0000.09.09O.P0930**
+- `launcher` **untested** — Launcher Home module identified statically: tv.vidaa.app.operationui (AppId launcher, uid 305:909, branch VIDAA_UI_MT9618_U902_EUAU_MP_20250708), wired via HI_UI_OPERATIONUI in startgui.sh, webpack bundle MODULE_LAUNCHER with apps/{launcher,all-inputs,app-service,ads,...}; SDK contracts (changeSourceTo, getAllInputsData, getAppList) present. No launcher was installed or run on this unit.
+- `file_bridge_traversal` **open** — HiUtils fileRead with '/' traversal read world-readable files outside the mode base (verified read of /proc:/etc files); the exact path form is in the model guide.
+- `file_bridge_write` **open** — HiUtils fileWrite ret:true to /APPS, /OAD, /var/tvservice and /tmp from a page context (no 503 on this build); the appconfig allowlist permits fileRead/fileWrite. The FaaS fetcher (basic/fetcher fetchFile, uid 314) exists as a second write surface; not separately probed.
+- `identity_gate` **n-a** — hiutils enforces appconfig per action (setDebugPort/installApplication -> 503) but permits the fileRead/fileWrite pair, and the phoenix permission check is bypassed by an empty identifier regardless. No per-app gate blocks the open APIs on this build.
+- `devtools_forge` **untested** — Not tested. For the record, setDebugPort and installApplication are refused with 503 appconfig while fileRead/fileWrite are allowed.
+- `root` **achieved** — superwatch_server (uid 0) UDS chowned to gid 616; phoenix (uid 314) is in group 616 and passes the per-command peer-credential check by design. Command 55 RunIpkRestoreCommand builds a shell command from the pkg-name arg without quoting; two frames with a crafted name mint a setuid root shell. /proc/self/status Uid 314 0 0 0, /etc/shadow readable, /data listed. Persistence = writable-service boot hook (arch withheld); teardown in the guide; the vendor bug is still present after cleanup.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details

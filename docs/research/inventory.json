@@ -653,6 +653,39 @@
         "launcher": "Lane 3 native Home (Free My TV 75U8QTUK adapter) component swap into operationui app.js; rendered on screen and survived a cold boot. Self-install lane is closed (503 gate).",
         "native_home": "Free My TV (75U8QTUK port) component swap; action paths (app launch / input switch / settings) owner-verified on screen (2026-11-11)."
       }
+    },
+    {
+      "id": "V0000.09.09O.P0930",
+      "model": "65E86GEVS (serial type 65E8GE)",
+      "region": "EM_B",
+      "soc": "MTK9618 (mt5879; aarch64 kernel, armhf userland)",
+      "vidaa_os": "U09.09",
+      "transport_protocol": "?",
+      "browser": "Chromium 111 \"odin\" (api 3.0.1)",
+      "build_date": "2025-09-15 (from basic.ini branch suffix all-MTK9618_VIDAA_U909_EUAU_Hotfix_MP_20250915; not confirmed independently)",
+      "tested_by": [
+        "gh:noctonca"
+      ],
+      "capabilities": {
+        "pairing": "untested",
+        "launcher": "untested",
+        "native_home": "untested",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "open",
+        "identity_gate": "n-a",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "notes": "First MTK9618 row on the U09.09 branch (sibling 09.09 rows are MTK9602/9603). Model guide: docs/models/65E86GEVS/V0000.09.09O.P0930/. Root = superwatch command 55 RunIpkRestoreCommand over the group-616 UDS: the restore path composes a shell command from the caller-supplied package name WITHOUT quoting, so the name is evaluated by /bin/sh in the root context — an injection subclass, distinct from the install-id chains recorded elsewhere (83/82, 53/54, 85), whose root cause is postinst-as-root policy. Frame is uint32le length + '<sid>:<cmd>:<args>' (same wire as 55E7QTUK). File bridge OPEN for both traversal and write on this build — hiutils appconfig permits fileRead/fileWrite (503 only on setDebugPort/installApplication); the phoenix permission gate is bypassable two ways (empty identifier; forgeable static-key tokens, literal withheld). Launcher Home identified statically as tv.vidaa.app.operationui (AppId launcher, webpack MODULE_LAUNCHER, 17 sub-apps); pairing/launcher lanes and native Home NOT exercised here (untested). Boot persistence via a writable-service boot hook (mechanism documented, hook withheld). Vendor defect remains on the device after our cleanup."
+      },
+      "capability_detail": {
+        "file_bridge_traversal": "HiUtils fileRead with '/' traversal read world-readable files outside the mode base (verified read of /proc:/etc files); the exact path form is in the model guide.",
+        "file_bridge_write": "HiUtils fileWrite ret:true to /APPS, /OAD, /var/tvservice and /tmp from a page context (no 503 on this build); the appconfig allowlist permits fileRead/fileWrite. The FaaS fetcher (basic/fetcher fetchFile, uid 314) exists as a second write surface; not separately probed.",
+        "identity_gate": "hiutils enforces appconfig per action (setDebugPort/installApplication -> 503) but permits the fileRead/fileWrite pair, and the phoenix permission check is bypassed by an empty identifier regardless. No per-app gate blocks the open APIs on this build.",
+        "devtools_forge": "Not tested. For the record, setDebugPort and installApplication are refused with 503 appconfig while fileRead/fileWrite are allowed.",
+        "root": "superwatch_server (uid 0) UDS chowned to gid 616; phoenix (uid 314) is in group 616 and passes the per-command peer-credential check by design. Command 55 RunIpkRestoreCommand builds a shell command from the pkg-name arg without quoting; two frames with a crafted name mint a setuid root shell. /proc/self/status Uid 314 0 0 0, /etc/shadow readable, /data listed. Persistence = writable-service boot hook (arch withheld); teardown in the guide; the vendor bug is still present after cleanup.",
+        "launcher": "Launcher Home module identified statically: tv.vidaa.app.operationui (AppId launcher, uid 305:909, branch VIDAA_UI_MT9618_U902_EUAU_MP_20250708), wired via HI_UI_OPERATIONUI in startgui.sh, webpack bundle MODULE_LAUNCHER with apps/{launcher,all-inputs,app-service,ads,...}; SDK contracts (changeSourceTo, getAllInputsData, getAppList) present. No launcher was installed or run on this unit."
+      }
     }
   ]
 }
