@@ -668,7 +668,7 @@
       ],
       "capabilities": {
         "pairing": "untested",
-        "launcher": "untested",
+        "launcher": "working",
         "file_bridge_traversal": "open",
         "file_bridge_write": "closed",
         "identity_gate": "gated",
