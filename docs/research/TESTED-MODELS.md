@@ -125,6 +125,7 @@ never hand-edit between the markers.
 - `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (../proc/uptime read); bare-string paths are rejected 'invalid path:../proc/uptime'.
 - `file_bridge_write` **open** — The write primitive is the FaaS fetcher: basic/fetcher fetchFile returns ret:true 'download finished', writing as uid 314 to /APPS and /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/ (markers + installer.ipk). WebSDK_createFileRequest is not exposed.
 - `root` **achieved** — fetcher.fetchFile -> superwatch 83 (uninstall) / 82 (install) -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 (EABI5) Dropbear, key-only on :8008; boot-persistent via the re_sshd serviceList autostart (re-arms ~30s after a cold boot).
+
 **43A6K (internal 43A53FEVS_0011) — V0000.09.09C.P0930**
 - `pairing` **working** — RemoteNow PIN pairing and subsequent control worked; SSDP transport_protocol 3290 was independently read again on 2026-11-12.
 - `launcher` **working** — Adapted Alvidaa-based web launcher: app launch, regular/quick TV settings and Home-watcher redirect worked. Native lane 3 was not tested; web relaunch delay remained.
