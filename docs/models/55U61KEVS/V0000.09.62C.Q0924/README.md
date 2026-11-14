@@ -7,10 +7,9 @@
 - **Browser:** Chromium 111 "odin" (aarch64 UA)
 - **Reported by:** gh:miramaki
 
-The first **`09.62`** build rooted in the project, and the first MTK9618 unit with a
-native launcher plus boot persistence. The whole chain is the **same three
-primitives** as the 100U7Q / 75UR9S / 55E75LEVS records, unchanged on this newer
-firmware.
+This report documents verified root access, boot persistence, and native launcher 
+replacement on the 55U61KEVS (retail 55U7KQ), running VIDAA U09.62. The root chain
+uses the same three primitives as the 100U7Q / 75UR9S / 55E75LEVS records.
 
 ## Root chain (verified)
 
