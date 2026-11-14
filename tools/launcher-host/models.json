@@ -40,6 +40,20 @@
       "owner": "305:909",
       "mode": "0640",
       "supervisor": "no APM respawn; the switch script launches explicitly"
+    },
+    "65a85qevs": {
+      "name": "65A85QEVS / V0000.09.60A.Q0602",
+      "app": "/APPS/pkgs/tv.vidaa.app.operationui/CHB/apps/launcher/js/app.js",
+      "state": "/var/local/alvidaa",
+      "switch": "switch-home-65a85qevs.sh",
+      "local_stock": "firmware/65a85qevs/operationui/apps/launcher/js/app.js",
+      "stock_md5": "45626039103fb60060618545dba6f0f5",
+      "stock_sha256": "5c9e0aeaa2eb5653cc8fda0fab7690ed0bacefd2f3801c8f61be9e99c41720d3",
+      "engine": "SystemUI",
+      "owner": "305:909",
+      "mode": "0640",
+      "channel": "CHB (current -> CHB; no CHA on this build; same uid/gid/cache layout as 50u7dse)",
+      "supervisor": "no APM respawn; the switch script launches explicitly; root lane is tvsh (:8008 node rshell), not SSH"
     }
   }
 }

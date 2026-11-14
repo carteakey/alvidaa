@@ -1,0 +1,11 @@
+osPlatform=mtk9618
+osModel=65A85QEVS
+osVersion=V0000.09.60A.Q0602
+osDebugVersion=0
+osChannel=1
+osFormat=1
+logLimitTime=0
+bootPaddingTime=0
+signalList=dtv-launcher
+runMaxCount=1
+userAction=now

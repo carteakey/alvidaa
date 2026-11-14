@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa write-lane test</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 18px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  // Writes exactly two tiny marker files, both in /var/local, both harmless:
+  //   /var/local/alvidaa_probe_a.txt  (via browser fileWrite)
+  //   /var/local/alvidaa_probe_b.txt  (via fetcher.fetchFile)
+  // Nothing is installed, started or overwritten.
+  var SRV = "http://" + location.host;
+  var el = document.getElementById("out");
+
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+  function norm(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function rd(p) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: ["../" + p.replace(/^\/+/, "")], mode: 6 });
+      if (r && typeof r === "object") return { ret: r.ret, msg: norm(r.msg) };
+      return { ret: true, msg: norm(r) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+  function wr(p, data) {
+    try {
+      var r = HiUtils_createRequest("fileWrite",
+        { path: ["../" + p.replace(/^\/+/, "")], mode: 6, writedata: data });
+      if (r && typeof r === "object") return { ret: r.ret, msg: norm(r.msg), code: r.code };
+      return { ret: true, msg: norm(r) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+  function post(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.text(); })
+      .then(function (t) { return t.slice(0, 300); });
+  }
+
+  async function main() {
+    out("alvidaa write-lane test — " + new Date().toISOString(), "hdr");
+    out("origin: " + location.href);
+    out("bridge: HiUtils=" + (typeof HiUtils_createRequest) +
+        "  vowOS.syncExecute=" + (function () {
+          try { return typeof vowOS.service.syncExecute; } catch (e) { return "(no vowOS)"; }
+        })());
+    out("");
+
+    // ---- A: browser fileWrite (array path) --------------------------------
+    out("A) browser fileWrite → /var/local/alvidaa_probe_a.txt", "hdr");
+    var payloadA = "alvidaa-write-test-" + Date.now() + "\n";
+    var w = wr("/var/local/alvidaa_probe_a.txt", payloadA);
+    out("   write ret=" + JSON.stringify(w.ret) + " code=" + JSON.stringify(w.code) +
+        " msg=" + String(w.msg).slice(0, 200), (w.ret === true) ? "ok" : "err");
+    var b = rd("/var/local/alvidaa_probe_a.txt");
+    var okA = b.ret === true && String(b.msg).indexOf("alvidaa-write-test-") !== -1;
+    out("   readback: " + (okA ? "MATCH" : "no match") + "  " +
+        String(b.msg).slice(0, 160).replace(/\s+/g, " "), okA ? "ok" : "err");
+    out("");
+
+    // ---- B: fetcher.fetchFile --------------------------------------------
+    out("B) fetcher.fetchFile → /var/local/alvidaa_probe_b.txt", "hdr");
+    var args = { url: SRV + "/pub/marker.txt", directory: "/var/local/alvidaa_probe_b.txt", permission: 420 };
+    var r1 = null;
+    try {
+      r1 = await Promise.resolve(vowOS.service.syncExecute("basic/fetcher",
+        { api: "fetchFile", args: JSON.stringify(args) }));
+    } catch (e) { r1 = "EXC " + e; }
+    out("   vowOS syncExecute: " + String(norm(r1)).slice(0, 240),
+        String(norm(r1)).indexOf("download") !== -1 ? "ok" : "warn");
+
+    var b2 = rd("/var/local/alvidaa_probe_b.txt");
+    var okB = b2.ret === true && String(b2.msg).length > 0;
+    out("   readback: " + (okB ? "FILE PRESENT" : "absent") + "  " +
+        String(b2.msg).slice(0, 160).replace(/\s+/g, " "), okB ? "ok" : "err");
+
+    if (!okB) {
+      out("   fallback http://localhost:9009/service/basic/fetcher ...", "warn");
+      try {
+        var t1 = await post("http://localhost:9009/service/basic/fetcher",
+          { api: "fetchFile", args: args });
+        out("   9009 → " + t1, "warn");
+      } catch (e) { out("   9009 EXC " + e, "err"); }
+      var b3 = rd("/var/local/alvidaa_probe_b.txt");
+      out("   readback after 9009: " + (b3.ret === true ? "PRESENT" : "absent") + "  " +
+          String(b3.msg).slice(0, 120).replace(/\s+/g, " "), b3.ret === true ? "ok" : "err");
+    }
+    out("");
+    out("done — only the two marker files were touched", "hdr");
+  }
+
+  main().catch(function (e) { out("FATAL " + e, "err"); });
+})();
+</script>
+</body>
+</html>
