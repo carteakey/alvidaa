@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "note": "The AGENTS.md hard rules as data (issue #53), seeded from AGENTS.md, the privilege map and eMMC layout in findings 04/07, and HANDOFF-2026-11-09-LANE3. Every match is a refusal, never a warning; check() applies rules in listed order and returns the first hit. The stock bundle itself (/APPS/.../app.js) is deliberately NOT listed: replacing it is the installer's whole job, gated structurally — bootstrap pins the stock md5/sha256 and takes the once-only backup before any write. The selfTest block arms the typo guard: every rule must catch the paths listed under its own id, every allowed path must pass, and a rule that matches nothing in the list is an error at require time.",
+  "rules": [
+    {
+      "id": "factory-reset-trigger",
+      "match": "/var/tvservice/reset_working",
+      "type": "exact",
+      "reason": "Creating this file starts the root factory-reset flow at the next boot; /var/tvservice is writable for us, which is exactly why it must stay free of triggers (findings 04)."
+    },
+    {
+      "id": "ipk-flipper-trigger",
+      "match": "/APPS/pkgs/NewUpdatedIPK.txt",
+      "type": "exact",
+      "reason": "start-hisense.sh consumes this marker at every boot and runs set_ipk_path.sh as root for each directory it lists — that is the documented root-exec lane, not a product action; the launcher installs nothing through IPK (findings 04)."
+    },
+    {
+      "id": "watcher-backup-pre-native",
+      "match": "/var/local/alvidaa/config.json.bak-nativetest",
+      "type": "exact",
+      "reason": "The true pre-native watcher config, left by the 2026-11-09 manual session (HANDOFF-2026-11-09-LANE3, 'The one thing to know'); native-install seeds the rollback backup from it, so overwriting it loses the only copy of the canvas-launcher setup."
+    },
+    {
+      "id": "watcher-backup-native-home",
+      "match": "/var/local/alvidaa/config.json.bak-native-home",
+      "type": "exact",
+      "reason": "The watcher config as it was before the first CLI-managed native install; rollback restores it byte-for-byte. It is taken once by cp -p on the TV and never replaced — a write here makes rollback restore the wrong config."
+    },
+    {
+      "id": "ota-staging",
+      "match": "/OAD",
+      "type": "prefix",
+      "reason": "/OAD is writable (p42) but it is the OTA lane: otaflag=170 boots rcS.OTA/rc.ota from here and opkg stages downloads in /OAD/pkgs/download. Never write, never delete, never stage UI assets here — verified-boot assets live under /APPS/channelA, never /OAD (AGENTS.md; findings 03/04)."
+    },
+    {
+      "id": "engine-shell",
+      "match": "/APPS/channelA/hisenseUI",
+      "type": "prefix",
+      "reason": "The UI engine's own shell (index.html, static JS). Only the operation-ui launcher module is ours; this tree is the HASHES baseline native-home verifies before every install, and a write here breaks the Home while looking like a successful install (HANDOFF-2026-11-09-LANE3; native-trial.cjs HASHES)."
+    },
+    {
+      "id": "oem-staging",
+      "match": "/var/local/oem",
+      "type": "prefix",
+      "reason": "The root-run deploy_oem_data.sh copies this tree unfiltered into /hidata, /vendor/tvconfig/config and /serialdata at boot. Staging files here is the root OEM-deploy lane, not the launcher's (findings 04)."
+    },
+    {
+      "id": "rootfs-ro",
+      "match": "/opt",
+      "type": "prefix",
+      "reason": "Read-only rootfs (dm-verity squashfs): phoenix, the engine binaries and start scripts (/opt/hisenseUI), vendor packages. Verified boot carries this partition — writes are impossible as well as forbidden (findings 04)."
+    },
+    {
+      "id": "system-application",
+      "match": "/application",
+      "type": "prefix",
+      "reason": "System partition p23, mounted ro: boot scripts source /application/network. Off the rw lane by design (findings 04/07)."
+    },
+    {
+      "id": "system-config",
+      "match": "/config",
+      "type": "prefix",
+      "reason": "System partition p26, mounted ro: daemon_profile and boot configuration. Off the rw lane by design (findings 04/07)."
+    },
+    {
+      "id": "system-usr-local",
+      "match": "/usr/local",
+      "type": "prefix",
+      "reason": "System partition p37, mounted ro: start-hisense.sh, deploy, the login gates. This is the root-side boot chain and stays stock (findings 04/07)."
+    },
+    {
+      "id": "system-vendor",
+      "match": "/vendor",
+      "type": "prefix",
+      "reason": "Vendor libraries and tvconfig. deploy_oem_data.sh writes here as root — that is the vendor's deployer, never ours (findings 04)."
+    },
+    {
+      "id": "system-hidata",
+      "match": "/hidata",
+      "type": "prefix",
+      "reason": "The hidata partitions: critical.ini and the factory/model data boot consumes (findings 04/07)."
+    },
+    {
+      "id": "raw-emmc",
+      "match": "/dev/mmcblk*",
+      "type": "glob",
+      "reason": "Raw eMMC partitions (42 on the reference unit). Dumps read them; nothing ever writes one — a write here is a firmware image bypassing the filesystem, and verified boot must stay green (findings 07)."
+    }
+  ],
+  "selfTest": {
+    "refused": {
+      "factory-reset-trigger": ["/var/tvservice/reset_working"],
+      "ipk-flipper-trigger": ["/APPS/pkgs/NewUpdatedIPK.txt"],
+      "watcher-backup-pre-native": ["/var/local/alvidaa/config.json.bak-nativetest"],
+      "watcher-backup-native-home": ["/var/local/alvidaa/config.json.bak-native-home"],
+      "ota-staging": ["/OAD", "/OAD/pkgs/download/pkg.ipk", "/var/local/alvidaa/../../../OAD/eulaDppTemp"],
+      "engine-shell": ["/APPS/channelA/hisenseUI/index.html", "/APPS/channelA/hisenseUI/static/js/537.js", "/APPS/channelA/operation-ui/../hisenseUI/index.html"],
+      "oem-staging": ["/var/local/oem", "/var/local/oem/logos/acme.png"],
+      "rootfs-ro": ["/opt", "/opt/hisenseUI/startgui.sh", "/opt/pkgs/tv.vidaa.app.phoenix/bin/phoenix"],
+      "system-application": ["/application/network"],
+      "system-config": ["/config/daemon_profile"],
+      "system-usr-local": ["/usr/local/scripts/start-hisense.sh"],
+      "system-vendor": ["/vendor/tvconfig/config/Did"],
+      "system-hidata": ["/hidata/critical/config/critical.ini"],
+      "raw-emmc": ["/dev/mmcblk0p20", "/dev/mmcblk1p5"]
+    },
+    "allowed": [
+      "/APPS/channelA/operation-ui/apps/launcher/js/app.js",
+      "/APPS/pkgs/tv.vidaa.app.operationui/CHA/apps/launcher/js/app.js",
+      "/var/local/alvidaa/config.json",
+      "/var/local/alvidaa/config.json.tmp-native-home",
+      "/var/local/alvidaa/native-home/backup/app.js.stock",
+      "/var/local/alvidaa/native-home/candidate-native-home.js",
+      "/var/local/hisenseUI/cobalt_home/.cache/cobalt/compiled_js",
+      "/var/local/alvidaa/../alvidaa/config.json"
+    ]
+  }
+}

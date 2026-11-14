@@ -9,7 +9,17 @@ server/venv/
 __pycache__/
 *.pyc
 .DS_Store
-firmware/
+# firmware/ is private operational material — pulled stock bundles, partition
+# dumps, the live endpoint working copy (ENDPOINTS.md). Three files inside are
+# deliberately public and tracked: the AdGuard how-to, its per-client
+# blocklist for the TV, and the on-TV firewall policy source (tvfw, deployed
+# to /var/local/tvfw by hand).
+firmware/*
+!firmware/ADGUARD_APPLY.md
+!firmware/adguard-blocklist.txt
+!firmware/tvfw
+
+# private research working notes; the public record lives in docs/research/
 /research/
 
 # native bridge build output

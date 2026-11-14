@@ -6,15 +6,24 @@ reimplemented here); bridge work goes through http://<tv>:8770. Every
 health check degrades gracefully: a doctor that dies when the thing it
 checks is down is useless.
 
-Subcommands: sys, logs, net, doctor, open, apps, sources, ota, privacy
+Subcommands: sys, logs, net, doctor, open, apps, sources, ota, privacy,
+backup, restore, key, power, push, pull
 Environment: TV_HOST overrides the default 192.168.0.11 (the TV is
 DHCP-shuffled — see server/tv).
 """
+import base64
+import datetime
+import hashlib
+import io
 import json
 import os
+import posixpath
+import re
 import socket
+import struct
 import subprocess
 import sys
+import tarfile
 import time
 import urllib.error
 import urllib.request
@@ -548,6 +557,422 @@ def cmd_pull(args):
     return 0 if ok else 1
 
 
+# ------------------------------------------------------------- backup/restore
+# Snapshot the TV's mutable state (issue #16) and put named pieces back.
+# The mutable set: /var/local/alvidaa (bridge config, launcher, native-home
+# state, the once-only stock backups, freeze state), the hook at
+# /var/local/otaTest.sh, the firewall policy /var/local/tvfw and the
+# kill-switch marker /var/local/hook.off — whose EXISTENCE is state (present
+# means the next reboot disarms the hook; reversibility law).
+#
+# Safety shape, per the brief:
+#   - backup is read-only against the TV (tar/md5sum/find reads only) and
+#     refuses to include anything on the never-touch list
+#     (tools/launcher-host/never-touch.json) — a match aborts the whole run,
+#     never a warning;
+#   - restore is explicit and per-path, never a blind untar: --only names
+#     what goes back, the target must sit in the writable lane (/var/local),
+#     a switch in progress (switch.log without switch.done) refuses, and
+#     never-touch applies to writes too;
+#   - key material is excluded from the archive and NAMED in the manifest —
+#     keys and tokens never leave server/keys/ discipline (AGENTS.md), so a
+#     restored dropbear host key would be new key material, not a restored one;
+#   - md5 on the TV (no sha256sum there), sha256 on the host, per-file md5 in
+#     the manifest so the archive is auditable without extracting.
+MUTABLE_PATHS = [
+    "/var/local/alvidaa",
+    "/var/local/otaTest.sh",
+    "/var/local/tvfw",
+    "/var/local/hook.off",
+]
+# Known key material: always excluded, always named in the manifest.
+KEY_PATHS = ["/etc/dropbear"]
+# Basenames that count as key/token material if they ever appear inside the
+# mutable set (defensive: none belong there, and one that does must not ride
+# the archive silently).
+KEY_NAME_RE = re.compile(
+    r"(^|/)(id_(rsa|dsa|ecdsa|ed25519)|authorized_keys|.*_host_key|.*\.key|.*\.pem|.*\.token)$")
+NEVER_TOUCH_JSON = os.path.join(HERE, "launcher-host", "never-touch.json")
+RESTORE_WRITABLE_ROOTS = ["/var/local"]
+# <state>/switch.done semantics: runSwitch removes done and log at kick and
+# writes done at the end, so log-present + done-absent is the mid-flight
+# signature (a fresh TV has neither; a finished switch has both).
+SWITCH_STATE_DIRS = ["/var/local/alvidaa/native-home", "/var/local/alvidaa"]
+RESTORE_STAGE = "/tmp/.alvidaa-restore"
+BB = "/var/local/tvtools/busybox"  # (same path as the ota/privacy sections)
+
+_NT_DOC = None
+
+
+def _nt_normalize(p):
+    """TV-absolute, lexically normalized — mirrors never-touch.cjs normalize():
+    collapse a doubled leading slash (posix normpath would keep '//OAD' and it
+    would slip past a prefix rule), then normalize so dot-dot cannot walk out
+    of a prefix."""
+    p = str(p or "")
+    if p.startswith("/"):
+        p = re.sub(r"^/{2,}", "/", p)
+    return posixpath.normpath(p)
+
+
+def _glob_to_re(pattern):
+    """'*' matches any run of characters except '/'; everything else literal;
+    anchored — mirrors never-touch.cjs globToRegExp."""
+    # split('*') yields the segments BETWEEN asterisks, never the asterisk
+    # itself, so the join is what emits the wildcard. The previous form tested
+    # each segment for equality with "*", which can never be true — every glob
+    # compiled to its literal self with the asterisks stripped, so
+    # '/dev/mmcblk*' became '^/dev/mmcblk$' and the raw-emmc rule was dead in
+    # this guard while never-touch.cjs refused the same path (found 2026-11-13
+    # by cross-checking the two consumers of the same rules file).
+    source = "[^/]*".join(re.escape(part) for part in pattern.split("*"))
+    return re.compile("^" + source + "$")
+
+
+def _never_touch_hit(path):
+    """The first matching never-touch rule for a normalized path, or None.
+    Same rules file, same semantics as never-touch.cjs check()."""
+    global _NT_DOC
+    if _NT_DOC is None:
+        with open(NEVER_TOUCH_JSON, "r", encoding="utf-8") as f:
+            _NT_DOC = json.load(f)
+    p = _nt_normalize(path)
+    for rule in _NT_DOC.get("rules", []):
+        m, t = rule.get("match", ""), rule.get("type")
+        if t == "exact":
+            hit = p == m
+        elif t == "prefix":
+            base = m.rstrip("/")
+            hit = p == base or p.startswith(base + "/")
+        elif t == "glob":
+            hit = _glob_to_re(m).match(p) is not None
+        else:
+            hit = False
+        if hit:
+            return rule
+    return None
+
+
+def _tv_bytes(cmd, timeout=180, data=None):
+    """Binary lane through the server/tv wrapper — tar streams are not text
+    and the tv() text lane would mangle them. `data` rides stdin (the pipe is
+    the lane cmd_push uses; argv dies at ~10KB on dropbear). The seam the
+    tests replace."""
+    out = subprocess.run([TV_WRAPPER, cmd], capture_output=True, timeout=timeout,
+                         input=data)
+    return out.stdout
+
+
+def _exists(path):
+    return tv("[ -e '%s' ] && echo yes || echo no" % path).strip() == "yes"
+
+
+def _is_dir(path):
+    return tv("[ -d '%s' ] && echo yes || echo no" % path).strip() == "yes"
+
+
+def _size_tv(path):
+    out = tv("%s wc -c < '%s' 2>/dev/null" % (BB, path)).strip()
+    return int(out) if out.isdigit() else 0
+
+
+def _walk(path):
+    """Every file under path (path itself if it is a file); [] when absent."""
+    if not _exists(path):
+        return []
+    if not _is_dir(path):
+        return [path]
+    return [line.strip() for line in
+            tv("%s find '%s' -type f 2>/dev/null" % (BB, path)).splitlines()
+            if line.strip()]
+
+
+def _tar_on_tv():
+    out = tv("%s tar --help 2>&1 | head -n 1" % BB)
+    return "applet not found" not in out
+
+
+def _is_file(path):
+    return tv("[ -f '%s' ] && echo yes || echo no" % path).strip() == "yes"
+
+
+def _switch_in_progress():
+    """True while any known switch is mid-flight: its log exists without a
+    done verdict (runSwitch removes both at kick, writes done at the end).
+    File semantics — the markers are files, not directories."""
+    for state in SWITCH_STATE_DIRS:
+        log = _is_file(state + "/switch.log")
+        done = _is_file(state + "/switch.done")
+        if log and not done:
+            return state
+    return None
+
+
+def _collect_backup_set():
+    """(files, excluded) for the mutable set. Any never-touch match aborts the
+    whole backup — a refusal, never a warning (never-touch.json discipline)."""
+    files, excluded = [], []
+    for root in MUTABLE_PATHS + KEY_PATHS:
+        hit = _never_touch_hit(root)
+        if hit:
+            print("ERROR: refusing backup — %s is on the never-touch list [%s]: %s"
+                  % (_nt_normalize(root), hit["id"], hit["reason"]))
+            return None, None
+    for root in MUTABLE_PATHS:
+        for path in _walk(root):
+            hit = _never_touch_hit(path)
+            if hit:
+                print("ERROR: refusing backup — %s is on the never-touch list [%s]: %s"
+                      % (_nt_normalize(path), hit["id"], hit["reason"]))
+                return None, None
+            if KEY_NAME_RE.search(_nt_normalize(path)):
+                excluded.append({"path": _nt_normalize(path),
+                                 "reason": "key/token material never leaves the TV "
+                                           "(server/keys/ discipline)"})
+                continue
+            files.append(_nt_normalize(path))
+    return files, excluded
+
+
+def _backup_dir(out_dir):
+    stamp = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    directory = out_dir or os.path.join(HERE, "..", "firmware", "backup")
+    directory = os.path.abspath(directory)
+    os.makedirs(directory, exist_ok=True)
+    return directory, "alvidaa-backup-%s-%s.tar" % (TV, stamp)
+
+
+def _tar_members_tv(paths):
+    """The TV-side tar stream for the top-level paths, or None when the TV has
+    no tar applet (the fallback pulls files individually and tars on the host)."""
+    if not _tar_on_tv():
+        return None
+    spec = " ".join("'%s'" % p for p in paths)
+    return _tv_bytes("%s tar cf - %s 2>/dev/null" % (BB, spec), timeout=600)
+
+
+def _pull_one(path):
+    """One file over the base64 lane (cmd_pull's transport), verified against
+    the TV-side md5. Returns bytes, or None on any mismatch/absence."""
+    want = _md5_tv(path)
+    if not want:
+        return None
+    data = base64.b64decode("".join(tv("%s base64 '%s'" % (BB, path), timeout=120).split()))
+    return data if hashlib.md5(data).hexdigest() == want else None
+
+
+def cmd_backup(args):
+    out_dir = None
+    rest = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--out":
+            i += 1
+            if i >= len(args):
+                print("usage: alvidaa backup [--out <dir>]")
+                return 2
+            out_dir = args[i]
+        else:
+            rest.append(args[i])
+        i += 1
+    if rest:
+        print("usage: alvidaa backup [--out <dir>]")
+        return 2
+
+    files, excluded = _collect_backup_set()
+    if files is None:
+        return 1
+    entries = []
+    for path in files:
+        entries.append({"path": path, "size": _size_tv(path), "md5": _md5_tv(path)})
+
+    directory, name = _backup_dir(out_dir)
+    archive_path = os.path.join(directory, name)
+    stream = _tar_members_tv([p for p in MUTABLE_PATHS if _exists(p)])
+    if stream is not None:
+        with open(archive_path, "wb") as f:
+            f.write(stream)
+        tar_on_tv = True
+    else:
+        # No tar applet on the TV: pull files individually and tar on the host
+        # with the same member names a TV-side tar would produce (leading '/'
+        # stripped), so restore cannot tell the two apart.
+        with tarfile.open(archive_path, "w") as t:
+            for entry in entries:
+                data = _pull_one(entry["path"])
+                if data is None:
+                    print("ERROR: could not pull %s (md5 mismatch or unreadable) "
+                          "— archive incomplete, not written" % entry["path"])
+                    return 1
+                info = tarfile.TarInfo(entry["path"].lstrip("/"))
+                info.size = len(data)
+                t.addfile(info, io.BytesIO(data))
+        tar_on_tv = False
+
+    with open(archive_path, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    manifest = {
+        "schema": 1,
+        "created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "tv_host": TV,
+        "archive": name,
+        "archive_sha256": digest,
+        "archive_size": os.path.getsize(archive_path),
+        "tar_on_tv": tar_on_tv,
+        "entries": entries,
+        "excluded": [{"path": key, "reason": "key material never leaves the TV "
+                      "(server/keys/ discipline)"} for key in KEY_PATHS] + excluded,
+    }
+    with open(archive_path + ".manifest.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+
+    print("backup %d file(s) -> %s (%d bytes, sha256 %s)  tar-on-tv: %s"
+          % (len(entries), archive_path, manifest["archive_size"], digest[:12] + "…", tar_on_tv))
+    for e in entries:
+        print("  %-58s %8d  md5 %s" % (e["path"], e["size"], e["md5"]))
+    for x in manifest["excluded"]:
+        print("  EXCLUDED %-50s %s" % (x["path"], x["reason"]))
+    print("manifest: %s.manifest.json" % archive_path)
+    return 0
+
+
+def _restore_argparse(args):
+    directory, only = None, None
+    rest = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--only":
+            i += 1
+            if i >= len(args):
+                return None, None, None
+            only = args[i]
+        else:
+            rest.append(args[i])
+        i += 1
+    if len(rest) != 1:
+        return None, None, None
+    return rest[0], only, rest
+
+
+def cmd_restore(args):
+    directory, only, _ = _restore_argparse(args)
+    if directory is None:
+        print("usage: alvidaa restore <dir> --only <path>")
+        return 2
+    manifest_path = os.path.join(directory, "manifest.json")
+    candidates = [manifest_path] if os.path.isfile(manifest_path) else sorted(
+        os.path.join(directory, f) for f in os.listdir(directory)
+        if f.endswith(".manifest.json")) if os.path.isdir(directory) else []
+    if not candidates:
+        print("no manifest in %s (expected <archive>.manifest.json)" % directory)
+        return 2
+    with open(candidates[0], "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+    archive_path = os.path.join(directory, manifest.get("archive", ""))
+    if not os.path.isfile(archive_path):
+        print("archive missing: %s" % archive_path)
+        return 2
+    with open(archive_path, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    if digest != manifest.get("archive_sha256"):
+        print("ERROR: archive sha256 mismatch (manifest %s, actual %s) — refusing; "
+              "the archive is not the one the manifest audited"
+              % (manifest.get("archive_sha256", "?")[:12] + "…", digest[:12] + "…"))
+        return 1
+
+    entries = {e["path"]: e for e in manifest.get("entries", [])}
+    if not only:
+        print("restore is explicit and per-path — never a blind untar. "
+              "Name one with --only; the archive holds:")
+        for path in sorted(entries):
+            print("  %s" % path)
+        return 2
+
+    # The safety refusals fire on the REQUEST, before archive membership is
+    # even consulted: a read-only or never-touch target is refused whether or
+    # not the archive happens to hold it.
+    want = _nt_normalize(only)
+    hit = _never_touch_hit(want)
+    if hit:
+        print("ERROR: refusing restore — %s is on the never-touch list [%s]: %s"
+              % (want, hit["id"], hit["reason"]))
+        return 1
+    if not any(want == r or want.startswith(r.rstrip("/") + "/")
+               for r in RESTORE_WRITABLE_ROOTS):
+        print("ERROR: refusing restore — %s is outside the writable lane (%s): "
+              "read-only partition, or never ours (never-touch.json)"
+              % (want, ", ".join(RESTORE_WRITABLE_ROOTS)))
+        return 1
+    in_progress = _switch_in_progress()
+    if in_progress:
+        print("ERROR: refusing restore — a switch is in progress (%s/switch.log "
+              "without switch.done); put the named file back after it finishes" % in_progress)
+        return 1
+    targets = sorted(p for p in entries
+                     if p == want or p.startswith(want.rstrip("/") + "/"))
+    if not targets:
+        print("ERROR: %s is not in this archive (nothing to restore)" % want)
+        return 2
+
+    # Extract the named members host-side and verify each against the manifest
+    # BEFORE anything is written to the TV.
+    payload = {}
+    with tarfile.open(archive_path, "r") as t:
+        for member in t.getmembers():
+            if not member.isfile():
+                continue
+            member_path = "/" + member.name.lstrip("/")
+            if member_path not in dict.fromkeys(targets):
+                continue
+            data = t.extractfile(member).read()
+            if hashlib.md5(data).hexdigest() != entries[member_path]["md5"]:
+                print("ERROR: md5 mismatch for %s (archive vs manifest) — refusing; "
+                      "nothing was written" % member_path)
+                return 1
+            payload[member_path] = data
+    missing = [p for p in targets if p not in payload]
+    if missing:
+        print("ERROR: archive does not contain %s — refusing" % ", ".join(missing))
+        return 1
+
+    # Stage and stream: one tar of the relative payload over the stdin lane
+    # (the pipe is the lane cmd_push uses), then named mv per file. Only
+    # these writes touch the TV.
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as t:
+        for path, data in payload.items():
+            info = tarfile.TarInfo(path.lstrip("/"))
+            info.size = len(data)
+            t.addfile(info, io.BytesIO(data))
+    out = _tv_bytes(
+        "%s mkdir -p %s && cat > %s/restore.tar && "
+        "%s tar xf %s/restore.tar -C %s/ && %s rm -f %s/restore.tar && echo STAGE-OK"
+        % (BB, RESTORE_STAGE, RESTORE_STAGE, BB, RESTORE_STAGE, RESTORE_STAGE, BB, RESTORE_STAGE),
+        timeout=300, data=buf.getvalue())
+    if b"STAGE-OK" not in out:
+        print("restore failed at staging: %s"
+              % (out.decode(errors="replace").strip()[:200] or "empty"))
+        return 1
+
+    failures = 0
+    for path in sorted(payload):
+        rel = path.lstrip("/")
+        parent = posixpath.dirname(path)
+        out = tv("%s mkdir -p '%s' && mv '%s/%s' '%s' && %s md5sum '%s' 2>/dev/null | %s cut -d' ' -f1"
+                 % (BB, parent, RESTORE_STAGE, rel, path, BB, path, BB), timeout=60)
+        got = out.strip()
+        ok = got == entries[path]["md5"]
+        failures += 0 if ok else 1
+        print("restore %s  md5 %s  %s" % (
+            path, entries[path]["md5"][:12] + "…", "VERIFIED" if ok else "MISMATCH (tv %s)" % got[:12] + "…"))
+    tv("%s rm -rf %s" % (BB, RESTORE_STAGE))
+    if failures:
+        print("ERROR: %d of %d file(s) failed verification — see above" % (failures, len(payload)))
+        return 1
+    print("restored %d file(s) from %s (md5 verified on the TV)" % (len(payload), manifest.get("archive")))
+    return 0
+
+
 # ---------------------------------------------------------------- privacy
 # Kill-list / telemetry visibility (issue #15), READ-ONLY: nothing here
 # touches firewall state. The whole point of reporting the layers
@@ -826,6 +1251,267 @@ def cmd_privacy(args):
     return 2
 
 
+
+# --- key injection (issue #12) ------------------------------------------------
+#
+# Transport order: the vendor MQTT ui_service action `sendkey` is PREFERRED —
+# it is in the documented action surface (findings 01) — but no session-safe
+# route to it exists from the host today: neither the bridge (/api/* in
+# bridge/http.go) nor the server (/api/* in vidaa_server.py) exposes a key
+# action, and opening a second MQTT session would kick the paired client off
+# the broker (AGENTS.md rule). mqtt_route() returns None with that reason and
+# the DEVICE lane carries the key: EV_KEY events written to the remote's
+# /dev/input node over the root SSH lane (server/tv), the exact path the doom
+# lane measured (DOOM.md: BT remote on /dev/input/event3; the MStar IR
+# receiver event1 is silent). When a session-safe MQTT route appears,
+# mqtt_route() grows a real route and the transport order lights up with no
+# call-site change — and the output still says which transport was used,
+# because a silent fallback hides a broken MQTT path.
+#
+# Codes: NOTHING here is verified to reach the launcher. The doom lane measured
+# these codes as *readable* from the BT remote on event3, which is a different
+# claim from "writing them here moves the UI" — and on 2026-11-13 that second
+# claim was measured false for DOWN, RIGHT, ENTER and HOME: zero frame change
+# over a 12-second sample each (findings 13 §9). Writing to /dev/input/eventN
+# does not inject input at all; the kernel discards it. A /dev/uinput virtual
+# keyboard registers and is then ignored by the vendor's key handling.
+#
+# The flag below therefore means "code measured readable from the remote", not
+# "key injection works". Keep it: it is still the right code to send if a lane
+# that the vendor listens to ever exists. HOME stays in the table by contract —
+# it is the owner's escape — but it is not proven to work through this lane.
+KEYS = {
+    "up": (103, True), "down": (108, True),
+    "left": (105, True), "right": (106, True),
+    "ok": (352, True),                                  # measured: not Enter
+    "back": (158, False), "home": (102, False), "esc": (1, False),
+    "enter": (28, False),
+    "volumeup": (115, False), "volumedown": (114, False),
+    "power": (116, False),
+}
+KEY_COUNT_CAP = 5
+DEFAULT_DEVICE = "/dev/input/event3"                    # BT remote (DOOM.md)
+DEFAULT_DELAY_MS = 150
+EV_KEY = 1
+
+
+def mqtt_route():
+    """The session-safe MQTT sendkey route, or (None, reason). The reason is
+    printed by cmd_key when the device lane is used — a silent fallback hides
+    a broken MQTT path."""
+    return None, ("the vendor sendkey action has no session-safe route from "
+                  "the host (no bridge or server endpoint expresses it, and a "
+                  "second MQTT session would kick the paired client off the "
+                  "broker)")
+
+
+def key_event_bytes(code, value):
+    """One 16-byte little-endian input_event as armv7 lays it out: timeval
+    (4+4, zeroed — the kernel stamps evdev writes), type EV_KEY, u16 code,
+    s32 value. Zero timeval keeps the bytes deterministic for the tests."""
+    return struct.pack("<LLHHi", 0, 0, EV_KEY, code, value)
+
+
+def key_tap_cmd(code, device):
+    """Press + release for one key tap, as two printf '%b' writes — %b
+    interprets the escapes in the ARGUMENT, so a 0x25 ('%') byte cannot be
+    eaten as a conversion spec the way it would inside a format string."""
+    esc = lambda b: "".join("\\x%02x" % c for c in b)
+    return ("printf '%%b' '%s' > %s ; printf '%%b' '%s' > %s"
+            % (esc(key_event_bytes(code, 1)), device,
+               esc(key_event_bytes(code, 0)), device))
+
+
+def key_command(name, count, delay_ms, device):
+    """The whole SSH command for a key sequence: tap, delay, tap..."""
+    code = KEYS[name][0]
+    parts = [key_tap_cmd(code, device)]
+    for _ in range(count - 1):
+        parts.append("sleep %.2f" % (delay_ms / 1000.0))
+        parts.append(key_tap_cmd(code, device))
+    return " ; ".join(parts)
+
+
+def cmd_key(args):
+    if not args or args[0].startswith("--"):
+        print("usage: alvidaa.py key <NAME> [--count N] [--delay MS] [--device /dev/input/eventN]")
+        print("keys: %s" % ", ".join(sorted(KEYS)))
+        return 2
+    name, count, delay_ms, device = args[0], 1, DEFAULT_DELAY_MS, DEFAULT_DEVICE
+    i = 1
+    while i < len(args):
+        if args[i] == "--count":
+            i += 1
+            count = int(args[i])
+        elif args[i] == "--delay":
+            i += 1
+            delay_ms = int(args[i])
+        elif args[i] == "--device":
+            i += 1
+            device = args[i]
+        else:
+            print("unknown flag: %s" % args[i])
+            return 2
+        i += 1
+    if name not in KEYS:
+        print("unknown key: %s" % name)
+        print("known keys: %s" % ", ".join(sorted(KEYS)))
+        return 2
+    if count > KEY_COUNT_CAP:
+        print("--count is capped at %d: a key tap, not a hold" % KEY_COUNT_CAP)
+        return 2
+    count = max(1, count)
+    code, verified = KEYS[name]
+    route, reason = mqtt_route()
+    if route is not None:
+        route(name, count, delay_ms)
+        print("transport: mqtt (sendkey via the existing session)")
+        return 0
+    print("transport: device (%s) — MQTT sendkey preferred but unavailable: %s"
+          % (device, reason))
+    print("key: %s (code %d, %s) x%d" % (name, code,
+          "code measured readable from the remote; NOT verified to move the UI"
+          if verified
+          else "GUESS: standard Linux HID, never measured on this remote",
+          count))
+    print(tv(key_command(name, count, delay_ms, device), timeout=25))
+    print("done — if nothing happened, the remote may sit on another event "
+          "node: check /proc/bus/input/devices, or pass --device")
+    return 0
+
+
+# --------------------------------------------------------------------- power
+# Standby / reboot / status (issue #11). Reboot is how a boot-persistence
+# change is proven; standby lets a script wait for the TV instead of a human
+# polling the screen. Findings 12 §4: the /etc/profile reboot route can hang
+# forever, so the direct busybox `reboot -f` is the lane. The kill-switch
+# check lives in the same command: a reboot with a broken hook is how a TV
+# ends up in a loop.
+#
+# Wake-from-standby over the network is NOT measured on the reference unit.
+# standby probes TCP 2222 after the action and reports what it sees —
+# reachable or unreachable — never assumed. There is no network-visible
+# panel read on this hardware, so status says so instead of inventing one;
+# uptime and the port probes are the signals a script can wait on.
+def _tcp_open(port, timeout=4):
+    s = socket.socket()
+    s.settimeout(timeout)
+    try:
+        s.connect((TV, port))
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def _uptime_tv():
+    out = tv("cat /proc/uptime 2>/dev/null").strip().split()
+    try:
+        return float(out[0])
+    except (IndexError, ValueError):
+        return None
+
+
+def _hook_safe_for_reboot():
+    """(safe, reason) — a reboot is safe when the hook cannot loop the TV:
+    the kill-switch disarms the hook at next boot, or the hook has been
+    verified (tvfw applied this boot, or the bridge reports the watchdog
+    alive). hook.off absent + never verified = refuse."""
+    if _exists("/var/local/hook.off"):
+        return True, "kill-switch /var/local/hook.off is present — the hook is disarmed at next boot"
+    marker = tv("cat /var/local/tvfw.applied_at_boot 2>/dev/null").strip()
+    # the marker's first token is a float (T+seconds, e.g. "12.34") — the ota
+    # reader floats() it for the same reason; isdigit() would reject it
+    if marker:
+        try:
+            applied = float(marker.split()[0])
+            return True, "tvfw applied this boot (T+%.2fs) — the hook ran" % applied
+        except ValueError:
+            pass
+    try:
+        hook = (fetch("/api/debug").get("hook") or {})
+        if hook.get("watchdogAlive") and not hook.get("killSwitch"):
+            return True, "hook verified alive via the bridge (watchdog alive, kill-switch absent)"
+    except Exception:
+        pass
+    return False, ("/var/local/hook.off is absent and the hook has never been verified "
+                   "(no tvfw marker this boot, bridge hook state unreadable)")
+
+
+def cmd_power(args):
+    action = args[0] if args else "status"
+
+    if action == "status":
+        uptime = _uptime_tv()
+        if uptime is None:
+            print("uptime      : UNREADABLE — /proc/uptime missing or the lane is down")
+        else:
+            print("uptime      : %.0f s (%.1f h)" % (uptime, uptime / 3600.0))
+        print("ssh 2222    : %s" % ("open" if _tcp_open(2222) else "closed"))
+        print("bridge 8770 : %s" % ("open" if _tcp_open(8770) else "closed"))
+        print("panel state : unmeasured — no network-visible panel read exists on")
+        print("              this hardware; uptime and the ports above are the")
+        print("              signals a script can wait on for 'the TV came back'")
+        print("wake note   : wake-from-standby over the network is UNMEASURED on")
+        print("              the reference unit — do not script against it")
+        return 0
+
+    if action == "standby":
+        # The MQTT power action where available — through the bridge's own
+        # session (one MQTT server per TV; never a second one).
+        status, body = fetch_raw("/api/power?state=standby")
+        text = body.decode(errors="replace") if isinstance(body, bytes) else str(body)
+        try:
+            result = json.loads(text)
+        except Exception:
+            result = None
+        if not (isinstance(result, dict) and result.get("ok")):
+            print("standby refused: no MQTT power action on this bridge (%s %s)"
+                  % (status, text.strip()[:60]))
+            print("  the bridge routes carry no /api/power (checked); a second MQTT")
+            print("  session would kick the paired client — one session per TV.")
+            print("  the device lane would inject the power keycode, which on this")
+            print("  remote is a GUESS (116, key-injection's table) and wake-from-")
+            print("  standby is unmeasured — refused rather than guessed. When the")
+            print("  bridge grows /api/power, this command uses it, no call-site change.")
+            return 1
+        print("standby sent via the bridge MQTT session (%s)" % status)
+        # Wake probe: measure, never assume.
+        reachable = _tcp_open(2222, timeout=3) or _tcp_open(2222, timeout=3)
+        if reachable:
+            print("wake probe  : TV still reachable on 2222 after standby — network")
+            print("              wake is POSSIBLE (probe; unverified for scripting)")
+        else:
+            print("wake probe  : TV dropped off the network after standby —")
+            print("              wake-from-standby is NOT reachable over the network;")
+            print("              physical power is required to bring it back")
+        return 0
+
+    if action == "reboot":
+        yes = "--yes" in args
+        safe, reason = _hook_safe_for_reboot()
+        if not safe:
+            print("ERROR: refusing reboot — %s" % reason)
+            print("  a reboot with a broken hook can loop the TV. Safe path: disarm")
+            print("  the hook first (create /var/local/hook.off), then reboot.")
+            return 1
+        if not yes:
+            print("refusing: reboot needs --yes — it drops the SSH lane and restarts the TV")
+            print("usage: alvidaa power reboot --yes")
+            return 2
+        print("reboot issued (%s reboot -f; findings 12 §4: the /etc/profile route hangs)" % BB)
+        try:
+            tv("%s reboot -f" % BB, timeout=15)
+        except (subprocess.TimeoutExpired, OSError):
+            pass  # the connection dropping mid-command is the reboot working
+        print("verify with 'alvidaa power status': uptime resets, ssh 2222 reopens")
+        return 0
+
+    print("usage: alvidaa power standby|reboot|status")
+    return 2
+
+
 COMMANDS = {
     "sys": cmd_sys,
     "logs": cmd_logs,
@@ -834,10 +1520,14 @@ COMMANDS = {
     "open": cmd_open,
     "apps": cmd_apps,
     "sources": cmd_sources,
+    "key": cmd_key,
+    "power": cmd_power,
     "ota": cmd_ota,
     "privacy": cmd_privacy,
     "push": cmd_push,
     "pull": cmd_pull,
+    "backup": cmd_backup,
+    "restore": cmd_restore,
 }
 
 

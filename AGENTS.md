@@ -17,8 +17,11 @@ Two lanes share one TV:
 ## Ground rules (non-negotiable)
 
 - **Only on a TV you own.** LAN-local. No DRM circumvention. Verified boot
-  stays green — never write to read-only partitions, never touch `/OAD`
-  staging, freeze OTA endpoints before editing UI code.
+  stays green — the hard "never touch" rules (read-only partitions, `/OAD`
+  staging, the stock engine shell, the root-exec triggers) are checked in as
+  [tools/launcher-host/never-touch.json](tools/launcher-host/never-touch.json),
+  and scripts refuse against it via `never-touch.cjs`; every match is a
+  refusal, not a warning. Freeze OTA endpoints before editing UI code.
 - **Reversibility is the design law.** Every change needs a teardown path.
   The hook keeps a rolling backup (`/var/local/otaTest.v1.bak`); check
   `/var/local` state before overwriting — another agent session may be

@@ -55,42 +55,62 @@ cd ~/repos/alvidaa
 export TV_HOST=<tv-ip>          # Settings -> Network -> Network Information
 
 # 0. the TV must answer, and the lane must be root
-./server/tv 'id'                                   # uid=0(root)
+./server/tv 'grep -E "^Uid" /proc/self/status'      # Uid: 0 0 0 0
+# NOT `id` — this build has no id binary (2026-11-10). It also has no curl,
+# wget, nc or sha256sum. md5sum, sed, awk, grep, head, sleep, ps are there.
 
 # 1. the launcher bundle is operation-ui on this build, NOT hisenseUI
 ./server/tv 'ls -ld /APPS/channelA/operation-ui/apps/launcher/js'
 
 # 2. pin the stock bundle before touching it
-./server/tv 'sha256sum /APPS/channelA/operation-ui/apps/launcher/js/app.js'
-# expect 046b41aee0242ced3d3fcd9d5e0c0adb68e17ea3bfe14efa13d6225b6050bfad
-# a mismatch means the bundle moved: re-pin, do not build against it
+./server/tv 'md5sum /APPS/channelA/operation-ui/apps/launcher/js/app.js'
+# this build has no sha256sum, so the pinned sha256 is computed on the Mac from
+# the pulled file in step 3. The md5 above is the quick check; the model profile
+# pins both (tools/launcher-host/models.json).
 
 # 3. pull it and build the candidate (output stays in firmware/ or /tmp)
 ./server/tv 'cat /APPS/channelA/operation-ui/apps/launcher/js/app.js' > firmware/stock-app.js
+shasum -a 256 firmware/stock-app.js
+# expect dc9836fed00d02a2b7399fd3b3daeba1f7d324a47431ccfa1a551ac5487ac01e
+# a mismatch means the bundle moved: re-pin, do not build against it
 node tools/launcher-host/build-native-alvidaa.cjs \
-  firmware/stock-app.js 046b41aee0242ced3d3fcd9d5e0c0adb68e17ea3bfe14efa13d6225b6050bfad \
-  firmware/candidate-alvidaa.js
+  firmware/stock-app.js firmware/candidate-alvidaa.js \
+  046b41aee0242ced3d3fcd9d5e0c0adb68e17ea3bfe14efa13d6225b6050bfad
+# argument order is <stock> <output> <expected-sha256>; the hash is last, and a
+# build that cannot state its stock revision refuses to run at all
 
-# 4. the installer requires the on-TV bridge alive at 127.0.0.1:8770
-./server/tv 'curl -s http://127.0.0.1:8770/api/debug | head -c 200'
-# if it is down, start /var/local/alvidaa/alvidaa-bridge first
-# (see docs/launcher/BRIDGE_DEPLOY.md)
+# 4. the bridge is NOT required by this path. native-install.cjs drives the
+# on-TV switch script over SSH; only the older native-home.cjs installer wanted
+# 127.0.0.1:8770 alive. Check it only if you also want /api/open or screenshots
+# through the bridge — and note this build has no curl, so probe the port from
+# /proc/net/tcp instead.
 
-# 5. stage the candidate and install (atomic swap, stock backup, cache reset)
-scp -P 2222 -i server/keys/tv_root_ed25519 firmware/candidate-alvidaa.js \
-  root@$TV_HOST:/var/local/alvidaa/native-home/candidate.js
-./server/tv 'LD_LIBRARY_PATH=/lib:/usr/local/lib:/basic/lib /opt/pkgs/tv.vidaa.app.phoenix/bin/phoenix /var/local/alvidaa/native-home/native-home.cjs install /var/local/alvidaa/native-home/candidate.js'
+# 5. install or switch, in one command. It builds from the pinned stock, uploads
+# over the SSH lane (scp does NOT work here: no sftp-server), runs the on-TV
+# switch script, waits for its verdict, and owns the watcher.
+node tools/launcher-host/native-install.cjs install alvidaa \
+  --model 50a51huv --host "$TV_HOST"
+# mode is chosen for you: stock -> install, another variant -> switch. The stock
+# backup is taken once by bootstrap and never replaced, so rollback works
+# whichever variant is in place. Measured 2026-11-10: ~40s, engine pid changes,
+# app.js md5 becomes the candidate's.
 
 # 6. verify
-./server/tv '... /var/local/alvidaa/native-home/native-home.cjs status'
+node tools/launcher-host/native-install.cjs status --model 50a51huv --host "$TV_HOST"
 tools/screenshot.sh /tmp/native-home.png
+# the HAL capture takes 6-8s and the tool now polls for it; a black frame while
+# the engine restarts is not proof of a black screen, poll again
 ```
 
 Notes that save a debugging round:
 
-- **The watcher is handled.** The install path sets
-  `config.watcher.enabled = false` itself (`native-trial.cjs:152`), so issue
-  #47's manual `sed` is not needed for this installer.
+- **The watcher is handled.** Both install paths own it now: `native-home.cjs`
+  sets `config.watcher.enabled = false` itself (`native-trial.cjs:152`), and
+  the variant picker CLI (`native-install.cjs`) does the same on
+  install/switch and restores the pre-native config from
+  `config.json.bak-native-home` on rollback. There is no manual step left;
+  see [VARIANTS.md](../../tools/launcher-host/VARIANTS.md), "What the
+  installer guarantees".
 - **Rollback** is `native-home.cjs restore` on the TV (root, no host argument):
   it restores from the state manifest in `/var/local/alvidaa/native-home/` and
   restarts the engine.

@@ -19,6 +19,13 @@
     return local;
   }
   function timezone(){
+    // A per-build part may provide the zone through root.AlvidaaNativeWebZone
+    // when its build has no measured modeljs timezone enumeration. Without
+    // either source upstream runs zoneless: no weather card, and its own Home
+    // Settings city picker still stores an explicit place.
+    if(typeof root.AlvidaaNativeWebZone==='function'){
+      try{return String(root.AlvidaaNativeWebZone());}catch{return '';}
+    }
     // This builder is pinned to the Australian P1015 launcher. This is the
     // same state enumeration used by the native Australian Time Zone page.
     try {
@@ -49,7 +56,8 @@
       xhr.send(JSON.stringify({api:api,args:args}));
     }
     function context(value){
-      value.version=1;value.zoneSource='native-australian-state';
+      value.version=1;
+      value.zoneSource=typeof root.AlvidaaNativeWebZone==='function'?'native-zone-hook':'native-australian-state';
       var encoded=JSON.stringify(value);if(encoded===lastContext||encoded.length>1024*1024)return;
       pendingContext=encoded;
       if(writeTimer!==null)return;
@@ -84,6 +92,18 @@
       XMLHttpRequest:function(){throw Error('Direct browser feed requests are disabled');},
       Image:native.Image,imageElement:native.imageElement});
     scope.window.CONFIG={tmdbKey:'',latitude:'',longitude:'',language:'auto',showCrypto:true,hideApps:[],shelfApps:[]};
+    // Per-build configuration overrides (root.AlvidaaWebConfig): builds without
+    // a part that defines it keep these defaults byte-for-byte. shelfApps and
+    // hideApps are upstream's own config.properties knobs (web/home.js
+    // pickShelf/hidden), so a curated shelf needs no engine changes.
+    var curatedConfig=root.AlvidaaWebConfig;
+    if(curatedConfig){
+      try{
+        var curatedValues=typeof curatedConfig==='function'?curatedConfig():curatedConfig;
+        if(curatedValues&&typeof curatedValues==='object')
+          for(var configKey in curatedValues)scope.window.CONFIG[configKey]=curatedValues[configKey];
+      }catch(_){/* the defaults stand if a part fails */}
+    }
     function keyDown(event){
       if(!scope.key(event))return;
       if(event.preventDefault)event.preventDefault();if(event.stopPropagation)event.stopPropagation();
@@ -130,8 +150,11 @@
       scope.emit('visibilitychange');
       if(!active())return;
       var keys=sdk.key.KEYMAP;
+      var cmd=sdk.apc&&sdk.apc.CMDMETHOD;
+      // CMDMETHOD is populated by vendor services at runtime on MTK9618 builds
+      // (75U8QTUK findings 09); a late or missing service must not throw here.
       if(query.focusArea==='input'||Number(query.value)===keys.SOURCE||Number(query.value)===keys.KEYPAD_INPUT||
-         query.startLauncherFrom===sdk.apc.CMDMETHOD.KEY_INPUT_START)native.openInputs();
+         (cmd&&query.startLauncherFrom===cmd.KEY_INPUT_START))native.openInputs();
       else if(program.control.back)scope.emit('appcontrol');
     }};
   }

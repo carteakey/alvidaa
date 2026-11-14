@@ -39,7 +39,7 @@ test('restoring a non-web Home makes the worker exit without touching Home or it
  assert.equal((await controller.start()).running,false);
  fs.writeFileSync(paths.home,MARKER);assert.equal((await controller.start()).running,true);
 });
-test('an unrelated live PID is never signalled',async t=>{
+test('an unrelated live PID is never signalled', { skip: process.platform === 'linux' ? false : 'reads /proc/sys/kernel/random/boot_id, which is Linux-only; the operation lock is exercised on the TV and in CI on Linux' },async t=>{
  const {paths,controller}=fixture(t);fs.writeFileSync(paths.lock+'.pid',String(process.pid));
  assert.equal(controller.status().conflict,true);
  await assert.rejects(controller.stop(),/unrelated/);await assert.rejects(controller.start(),/Another process/);

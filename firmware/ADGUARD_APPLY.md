@@ -74,6 +74,28 @@ upstream updates or IP changes, then re-add each list or restart AdGuardHome.
   `/control/filtering/check_host?name=<domain>&client=<ip>` — it returns the
   exact matching rule for that client.
 
+## Threat model note — the TV can repoint its own DNS
+
+The hiutils bridge API exposes `setDns` (see findings 03, static pass over the
+archived `jsservice.basic` IPK, 2026-11-04): any page that reaches the TV's
+file bridge can change the TV resolver at runtime — which silently unwinds
+every rule in this runbook without touching AdGuard. Two consequences:
+
+- **Reinforcement**: the same API lets the launcher/bridge re-pin the TV
+  resolver at the kill-list resolver after an OEM reset, DHCP change, or
+  firmware default drift. Candidate hardening, not yet implemented.
+- **Detection**: resolver changes are observable after the fact —
+  previously-blocked domains appearing as *resolved* queries from the TV's
+  source IP in the AdGuard query log. Watch for query-log entries from the TV
+  for domains that `check_host` says are blocked, and for traffic to
+  resolvers other than the AdGuard host.
+
+Related existing bypass, already mitigated: `/APPS/domain/domain_list.json`
+ships DoH config (dns.google via vidaahub.com) that skips the LAN resolver by
+design — the REJECT rules for 8.8.8.8/8.8.4.4:443 from the TV in
+findings 09 exist for exactly this. Any `setDns` hardening should re-check
+those rules stay in place.
+
 ## Credentials
 
 Dashboard credentials are not committed. Intended store: Infisical `/adguard`

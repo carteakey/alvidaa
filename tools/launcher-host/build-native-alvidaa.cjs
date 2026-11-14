@@ -27,6 +27,20 @@ function build(stockFile, output, expect, options) {
   if (inputArt && typeof inputArt === 'object' && Object.keys(inputArt).length > 0) {
     art += '\nself.AlvidaaNativeInputArt=' + JSON.stringify(inputArt) + ';';
   }
+  // The device silhouettes (issue #60) travel as rules + icons, not as a map of
+  // this TV's inputs: the build does not know which ports exist, and it must
+  // not have to. The component applies the rules to the name the TV reports.
+  const deviceArt = options && options.deviceArt;
+  if (deviceArt && typeof deviceArt === 'object' && deviceArt.icons) {
+    art += '\nself.AlvidaaNativeDeviceArt=' + JSON.stringify(deviceArt) + ';';
+  }
+  // Per-app tint (issue #56): dominant colours extracted host-side from the
+  // allowlisted icons (app-colours.cjs), keyed by icon basename. Absent when
+  // the pipeline had no icons, and the component keeps the plain wash.
+  const appColours = options && options.appColours;
+  if (appColours && typeof appColours === 'object' && Object.keys(appColours).length > 0) {
+    art += '\nself.AlvidaaNativeAppColours=' + JSON.stringify(appColours) + ';';
+  }
   const candidate = '/* ' + MARKER + '\n * variant: native-alvidaa.js\n */\n' + art + '\n' +
     stock + '\n;\n' +
     PARTS.map(file => fs.readFileSync(path.join(__dirname, file), 'utf8')).join('\n;\n');

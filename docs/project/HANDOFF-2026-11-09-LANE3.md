@@ -103,10 +103,11 @@ The install record: [findings 13](../models/50A51HUV/09.01O.P0813/findings/13-na
 
 - **Confirm the action paths** (input switch, Apps overlay, app launch, TV
   Settings) and flip findings 13 from "pending" to verified.
-- **Decide the watcher's long-term home.** Either the native Home is the
-  default and the watcher stays off, or the canvas launcher is the default and
-  lane 3 is an opt-in that disables the watcher as part of install. Right now
-  that is a manual step, which is a footgun. The installer should own it.
+- **Decide the watcher's long-term home.** The footgun half of this is closed:
+  `native-install.cjs` owns the watcher now — it disables the watcher on
+  install/switch, restores the once-taken `config.json.bak-native-home` on
+  rollback, and `--no-watcher` opts out loudly. What remains open is only the
+  policy question: which of the two setups is the default.
 - **Real icons**: the variant now accepts `https://*.vidaahub.com/…` for icons.
   If the owner would rather keep zero network access, delete that rule in
   `allowedIcon()` and every app falls back to its brand badge.
@@ -124,7 +125,12 @@ node tools/launcher-host/native-install.cjs rollback --model 50a51huv --host <ip
 ```
 
 Restores the pinned stock `app.js` (`2f175841…`), restores both original JS
-cache dirs, and restarts the engine. Then re-enable the watcher if the canvas
+cache dirs, and restarts the engine — and it hands the watcher back too, from
+`/var/local/alvidaa/config.json.bak-native-home` (taken by the first
+CLI-managed install, never replaced), so the canvas launcher works again
+without a manual `cp`. This TV was installed before the installer owned the
+watcher, so its backup will be taken from the current (watcher-off) config on
+the next `install`; until then, re-enable the watcher by hand if the canvas
 launcher is wanted:
 
 ```sh

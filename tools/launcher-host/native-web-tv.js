@@ -28,6 +28,15 @@
         if (/^file:\/\/\//.test(value) || /^\/(?!\/)/.test(value)) return value;
         if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value) && value.length <= 1048576) return value;
       }
+      // Per-build icon policy: some builds (75U8QTUK/09.60I, 50U7DSE/09.62N)
+      // carry app artwork only as https://img.vidaahub.com URLs. The
+      // owner-approved vendor host is re-enabled by a per-build part through
+      // root.AlvidaaWebIconPolicy; builds without it stay local-only.
+      var policy = root.AlvidaaWebIconPolicy;
+      if (typeof policy === "function") {
+        try { var vendor = policy(app); if (typeof vendor === "string" && vendor) return vendor; }
+        catch (_) { /* fall through to the placeholder tile */ }
+      }
       return "";
     }
     function sourceName(input) {
@@ -48,8 +57,23 @@
         var nativeId = String(app.appId), id = "app:" + nativeId;
         if (!nativeId || nativeId === "206" || nativeId === "vidaa-home" || id in appIds) return;
         appIds[id] = nativeId;
-        apps.push({ id: id, title: app.appName, icon: icon(app),
-          color: /^#[0-9a-f]{6}$/i.test(app.bgColor || "") ? app.bgColor : "" });
+        var entry = { id: id, title: app.appName, icon: icon(app),
+          color: /^#[0-9a-f]{6}$/i.test(app.bgColor || "") ? app.bgColor : "" };
+        // Per-build app policy: a part may curate finished entries (swap in a
+        // staged wordmark, set a brand color) after platform resolution, so
+        // the local/vendor lane order stands for every other build. Without
+        // the hook the platform entry is what the shelf gets.
+        var curate = root.AlvidaaWebAppPolicy;
+        if (typeof curate === "function") {
+          try {
+            var curated = curate(entry, app);
+            if (curated && typeof curated === "object") {
+              if (typeof curated.icon === "string" && curated.icon) entry.icon = curated.icon;
+              if (typeof curated.color === "string" && /^#[0-9a-f]{6}$/i.test(curated.color)) entry.color = curated.color;
+            }
+          } catch (_) { /* the platform entry stands */ }
+        }
+        apps.push(entry);
       });
       inputs = [];
       data.sources.forEach(function (input) {

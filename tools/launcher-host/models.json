@@ -27,6 +27,19 @@
       "owner": "305:909",
       "mode": "0640",
       "supervisor": "no APM respawn; the switch script launches explicitly"
+    },
+    "50u7dse": {
+      "name": "50U7DSE / V0000.09.62N.Q0923",
+      "app": "/APPS/pkgs/tv.vidaa.app.operationui/CHA/apps/launcher/js/app.js",
+      "state": "/var/local/alvidaa",
+      "switch": "switch-home-50u7dse.sh",
+      "local_stock": "firmware/50u7dse/operationui/apps/launcher/js/app.js",
+      "stock_md5": "8b1c61935b182beb9f476ee9d00e54f5",
+      "stock_sha256": "fbffe7293c5d4f118ab5c359da3769b891754cb96d83f6d6dc548791a8920f5e",
+      "engine": "SystemUI",
+      "owner": "305:909",
+      "mode": "0640",
+      "supervisor": "no APM respawn; the switch script launches explicitly"
     }
   }
 }

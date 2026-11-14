@@ -74,6 +74,75 @@ without a device observation stays labelled as a claim.
       aggregates MQTT/pairing/hook state so the app still renders when the
       bridge is down. No key material, and remember the Pi port is LAN-reachable.
 
+## Next — from the Android TV launchers
+
+Two audits of [dumbtv](https://github.com/humblemuzzu/dumbtv) (Fire TV, ADB, no
+root) and [CleanMyTV](https://github.com/wingedpanther/cleanmytv) (Android TV /
+Google TV, Electron) on 2026-11-10. Neither supports VIDAA and neither is a port
+candidate — they are the design and operations reference. The comparison and the
+per-device data-model analysis are in
+[EXISTING-LAUNCHERS.md](docs/launcher/EXISTING-LAUNCHERS.md); these are the items
+worth taking. The two audits were independent and **ranked the same thing
+first**, which is the strongest signal in the list.
+
+- [ ] **Post-install verification gate.** (issue #49) After `install`/`switch`/`rollback`,
+      prove the candidate is actually the component in front: bundle md5 is the
+      candidate's, the engine pid changed and is alive, and a HAL frame comes
+      back non-black. On failure, roll back automatically and say so. Today the
+      install ends at "the switch reported OK" plus a human with
+      `tools/screenshot.sh` — and a working install can look broken (the watcher
+      bounce) or look fine and be stale (the compiled-JS cache). Both audits
+      called this the biggest closeable gap in the reversibility story, and
+      2026-11-10 is the day it cost us a debugging round. `deploy-check.cjs`
+      covers the *before*; this is the *after*.
+- [ ] **Drift check: "what came back".** (issue #50) One read-only command comparing live
+      state against the last-known-good: bundle md5 vs stock vs candidate,
+      watcher on/off vs expected, backup present, hook installed. Prints the
+      named repair per failure. An engine restart or a half-applied session can
+      silently revert state, and dumbtv's whole operations model is built on
+      this loop.
+- [ ] **Host-side recovery record, keyed by device.** (issue #51) Keep a second copy of what
+      was on the TV before alvidaa touched it (stock/candidate md5, watcher and
+      bridge state) on the host, keyed by model+serial and refusing another
+      device. Our backups live only in `/var/local` on the TV, so a bad TV-side
+      change takes the recovery path with it. This is also what makes "another
+      agent session may be working the same TV" auditable rather than a warning
+      in prose.
+- [ ] **Setup doctor.** (issue #52) `native-install.cjs doctor`: name the likely cause from
+      what the host can observe — TV napping with every port closed, a second
+      MQTT server already holding the paired identity, wrong IP, watcher on,
+      dropbear with no PATH. Every owner hits these and they are already
+      documented as traps; this makes them a command.
+- [ ] **Enforced never-touch list.** (issue #53) Turn AGENTS.md's hard rules (never `/OAD`,
+      never a read-only partition, never the stock bundle without a backup) into
+      a checked-in list that the install paths consult and refuse against. A rule
+      enforced in code survives an agent that did not re-read the docs; dumbtv
+      does it in about a hundred lines.
+- [ ] **Recently-used ordering in the apps overlay.** (issue #55) Record launch timestamps
+      to `sdk.storage` (lane 3 already writes on every `launchApp`) and sort
+      newest-first with a stable fallback, behind a settings toggle. Cheapest
+      daily-use win in the list.
+- [ ] **First-frame art discipline.** (issue #54) Resolve the art of on-screen tiles before
+      the first paint, or paint final-geometry placeholders, so tiles do not pop
+      from letter badge to icon after the platform callback lands. dumbtv
+      documents the exact failure mode; we have it today.
+- [ ] **Per-app colour extraction.** (issue #56) Precompute a dominant-colour map host-side
+      from allowlisted icons (same shape as `AlvidaaNativeInputArt`) and fade the
+      background toward the focused app's colour. Both audits proposed it
+      independently. Build-time, because lane 3 cannot safely sample icons at
+      runtime (canvas/CORS).
+- [ ] **Folders, or named rows, in the apps overlay.** (issue #57) Config-ordered groups plus
+      an automatic "Other apps" folder for apps with no art. CleanMyTV's model
+      maps cleanly onto the overlay we already have.
+- [ ] **Idle screen that swallows the wake key.** (issue #58) Wallpaper plus a big clock
+      after N minutes; the transferable detail is that the waking keypress only
+      wakes and does not also activate whatever it landed on.
+- [ ] **A fake TV for integration tests.** (issue #59) We already fake `ssh()` with a
+      command-string map, which is good but shallow. A scripted TV that speaks
+      the switch script's file protocol end to end — with failure flags like
+      `homeStuck` and `crashing` — would let the whole CLI be tested with no
+      hardware, the way CleanMyTV's `fake-adbd` does.
+
 ## Next — research structure
 
 - [ ] **Generate the contributors table** in `README.md` from `tested_by`, the

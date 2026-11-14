@@ -8,7 +8,8 @@ const crypto=require('node:crypto');
 const {STOCK_HASH}=require('./build-native.cjs');
 const {buildProgram}=require('./native-web-program.cjs');
 function hash(data){return crypto.createHash('sha256').update(data).digest('hex');}
-function bundle(assetsDirectory){
+function bundle(assetsDirectory, options){
+  options=options||{};
   const bytes=fs.readFileSync(path.join(assetsDirectory,'assets.json'));
   let assets;
   try{assets=JSON.parse(bytes);}catch{throw Error('Invalid native asset manifest');}
@@ -17,7 +18,15 @@ function bundle(assetsDirectory){
     assert.equal(hash(fs.readFileSync(path.join(assetsDirectory,name))),digest,'Native asset integrity mismatch');
   }
   const assetId=hash(bytes).slice(0,20);
-  const assetBase='file:///hisenseUI/var/local/free-my-tv/assets/'+assetId+'/';
+  // Per-build asset roots: 55A7KAU serves assets from the writable hisenseUI
+  // package itself; 50U7DSE (09.62N) keeps that package read-only and reaches
+  // writable storage through the vendor artCache symlink. '<id>' is replaced
+  // with the content-addressed asset id; omitting the option keeps the
+  // 55A7KAU base and byte-identical candidates for that build.
+  const template=typeof options.assetBase==='string'&&options.assetBase.includes('<id>')
+    ?options.assetBase
+    :'file:///hisenseUI/var/local/free-my-tv/assets/<id>/';
+  const assetBase=template.replace('<id>',assetId);
   const p=buildProgram();
   const fontCSS=fs.readFileSync(path.join(assetsDirectory,'fonts.css'),'utf8').replace(/url\(([^)]+)\)/g,(_all,url)=>'url("'+assetBase+url+'")');
   const data={tree:p.tree,css:p.css,fontCSS,assetBase,assetId,assets:{colors:assets.colors,symbols:assets.symbols}};

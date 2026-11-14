@@ -63,7 +63,7 @@ test('file swaps reject a live engine and unknown shared-shell changes', async t
   f.write('/APPS/channelA/hisenseUI/index.html', 'injected overlay');
   await assert.rejects(perform(f.home, {}, 'install', f.restart, f.ops), /shared shell changed/);
 });
-test('operation lock rejects a live owner and preserves stale-lock evidence', t => {
+test('operation lock rejects a live owner and preserves stale-lock evidence', { skip: process.platform === 'linux' ? false : 'reads /proc/sys/kernel/random/boot_id, which is Linux-only; the operation lock is exercised on the TV and in CI on Linux' }, t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'native-lock-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const release = acquire(dir);

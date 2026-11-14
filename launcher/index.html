@@ -26,6 +26,12 @@
 // hotkeys and A/B flags (?540p/?opaque/?flat) as r1. Review aids: ?pan=0/1
 // pin the view, ?noauto disarms auto-switch. Clicking an off-view tile pans
 // + focuses but does not launch (second click launches).
+//
+// [r5 promoted] per-input art: the bridge sends bg (backdrop) and logo (tile
+// image) on every source (bridge/state.go); the focused input's bg cross-fades
+// over the date wallpaper (~400ms ease, one rAF loop) and its logo leads the
+// big label. Inputs without art keep the wallpaper exactly as before. Same
+// payload fields as next/index-r5.html; no new data paths.
 
 var cv = document.getElementById("c");
 // [next r1] A/B diagnostics for the odin black-render hunt:
@@ -70,6 +76,7 @@ function loadCache() {
       S.serverInstalled = !!c.installed;
       S.hello = true;
       preloadIcons();
+      preloadInputAssets(); // [r5 promoted]
       pickInitialFocus(false);
     }
   } catch (e) {}
@@ -192,12 +199,14 @@ function connect() {
       S.busy = false;
       saveCache();
       preloadIcons();
+      preloadInputAssets(); // [r5 promoted]
       if (firstLive && !S.userInteracted) pickInitialFocus(true);
       clampFocus(); draw();
     } else if (m.t === "tvstate") {
       S.state = m.state; draw();
     } else if (m.t === "sources") {
       S.sources = m.sources || S.sources;
+      preloadInputAssets(); // [r5 promoted]
       if (S.autoSwitchAt) {
         var active = (S.sources || []).filter(function (s) { return s.signal; });
         if (active.length !== 1 || active[0].id !== S.autoSwitchId) cancelAutoSwitch();
@@ -266,6 +275,27 @@ function preloadIcons() {
   }
 }
 
+// [r5 promoted] per-input asset images (bg wallpapers + logos), cached like
+// ICONS. An input with no art simply never appears here and the page keeps
+// the date wallpaper, exactly as before the layer existed.
+var ASSETS = {};
+function assetImage(src) {
+  if (!ASSETS.hasOwnProperty(src)) {
+    var im = new Image();
+    im.onload = function () { draw(); };
+    im.src = src;
+    ASSETS[src] = im;
+  }
+  return ASSETS[src];
+}
+function preloadInputAssets() {
+  var list = S.sources || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].bg) assetImage(list[i].bg);
+    if (list[i].logo) assetImage(list[i].logo);
+  }
+}
+
 // ---------------------------------------------------------------- layout
 var F = {
   clock: "300 58px -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif",
@@ -285,7 +315,8 @@ function items(row) {
   if (row === 0) {
     return (S.sources || []).map(function (s) {
       return { label: s.name || s.id, sub: s.signal ? "signal" : "no signal",
-               signal: s.signal, glyph: s.glyph || "", val: s.id };
+               signal: s.signal, glyph: s.glyph || "", val: s.id,
+               bg: s.bg || "", logo: s.logo || "" }; // [r5 promoted] per-input identity
     });
   }
   // [r3] ONE door to the apps. The owner does not want every app as its own
@@ -403,6 +434,48 @@ function panTick() {
   draw();
   if (t < 1) requestAnimationFrame(panTick);
   else { panCur = panEnd; panRaf = false; }
+}
+
+// [r5 promoted] background cross-fade: the focused input's bg eases in over
+// the current wallpaper (~400ms, one rAF loop, same ease family as the pan);
+// leaving the input — or focusing an input without one — eases back to the
+// date wallpaper. bgCurSrc "default" is the /bg/bgN.png wallpaper; the fade
+// layer draws on top at easeOut alpha and becomes the solid layer when it
+// lands. An image that has not finished loading waits for onload, which
+// redraws.
+var bgCurSrc = "default";
+var bgFadeImg = null, bgFadeSrc = "", bgFadeT0 = 0, bgFadeRaf = false;
+function bgImgFor(src) { return src === "default" ? BG : (src ? assetImage(src) : null); }
+function wantBg() {
+  if (S.row === 0 && S.sources && S.sources.length) {
+    var it = items(0)[S.col];
+    if (it && it.bg) return it.bg;
+  }
+  return "default";
+}
+function updateBgFade() {
+  var want = wantBg();
+  if (want === bgCurSrc && !bgFadeImg) return;
+  if (bgFadeImg && want === bgFadeSrc) return;
+  if (want !== "default" && want !== bgFadeSrc) preloadInputAssets();
+  var img = bgImgFor(want);
+  if (want !== "default" && img && (!img.complete || !img.naturalWidth)) return; // onload redraws
+  bgFadeImg = img;
+  bgFadeSrc = want;
+  bgFadeT0 = Date.now();
+  if (!bgFadeRaf) { bgFadeRaf = true; requestAnimationFrame(bgTick); }
+}
+function bgTick() {
+  if (!bgFadeRaf) return;
+  var t = Math.min(1, (Date.now() - bgFadeT0) / 400);
+  draw();
+  if (t < 1) requestAnimationFrame(bgTick);
+  else {
+    bgCurSrc = bgFadeSrc;
+    bgFadeImg = null;
+    bgFadeRaf = false;
+    draw();
+  }
 }
 
 function drawTile(x, y, focused, it, hotkeyNum) {
@@ -791,10 +864,23 @@ function draw() {
   ctx.fillStyle = "#07080c";
   ctx.fillRect(0, 0, W, H);
 
-  if (BG && BG.complete && BG.naturalWidth) {
-    var sc = Math.max(W / BG.naturalWidth, H / BG.naturalHeight);
-    ctx.drawImage(BG, (W - BG.naturalWidth * sc) / 2, (H - BG.naturalHeight * sc) / 2,
-                  BG.naturalWidth * sc, BG.naturalHeight * sc);
+  // [r5 promoted] background: solid layer (date wallpaper or landed input bg)
+  // plus an optional cross-fading layer, then the single dim over both.
+  updateBgFade();
+  function drawBgLayer(src, alpha) {
+    if (alpha <= 0) return;
+    var img = bgImgFor(src);
+    if (!img || !img.complete || !img.naturalWidth) return;
+    var sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    ctx.save();
+    if (alpha < 1) ctx.globalAlpha = alpha;
+    ctx.drawImage(img, (W - img.naturalWidth * sc) / 2, (H - img.naturalHeight * sc) / 2,
+                  img.naturalWidth * sc, img.naturalHeight * sc);
+    ctx.restore();
+  }
+  drawBgLayer(bgCurSrc, 1);
+  if (bgFadeImg) drawBgLayer(bgFadeSrc, easeOut(Math.min(1, (Date.now() - bgFadeT0) / 400)));
+  if (bgImgFor(bgCurSrc) || bgFadeImg) {
     ctx.fillStyle = "rgba(6, 8, 12, 0.6)";
     ctx.fillRect(0, 0, W, H);
   } else if (!FLAT) {
@@ -856,9 +942,20 @@ function draw() {
   if (S.row === 0) {
     var focusItem = items(0)[S.col];
     if (focusItem) {
+      // [r5 promoted] the input's logo leads the label when it has one; the
+      // machine name stays beside it so the dock still reads as text.
+      var lx = left();
+      if (focusItem.logo) {
+        var limg = assetImage(focusItem.logo);
+        if (limg.complete && limg.naturalWidth) {
+          var lh = 44, lw = limg.naturalWidth * (lh / limg.naturalHeight);
+          ctx.drawImage(limg, left(), 372 - 38, lw, lh);
+          lx = left() + lw + 14;
+        }
+      }
       ctx.font = "700 42px -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif";
       ctx.fillStyle = focusItem.signal ? "#f8fafc" : "#64748b";
-      ctx.fillText(focusItem.label, left(), 372);
+      ctx.fillText(focusItem.label, lx, 372);
       ctx.font = "500 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
       ctx.fillStyle = focusItem.signal ? "#34d399" : "#475569";
       ctx.fillText(focusItem.signal ? "connected" : "no signal", left() + 2, 396);

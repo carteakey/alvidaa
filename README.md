@@ -181,6 +181,9 @@ both regenerate from `docs/research/inventory.json`.
 | 50A7HAU | V0000.06.12X.N1212 | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | V0000.09.61B.Q0704 | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
 | 55U61KEVS | V0000.09.62C.Q0924 | working | achieved | [@miramaki](https://github.com/miramaki) |
+| 43A6K | V0000.09.09C.P0930 | working | achieved | [@Hlushok](https://github.com/Hlushok) |
+| 65C350LE | V0000.09.09H.P0930 | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
+| 50U7DSE | V0000.09.62N.Q0923 | working | achieved | [@roelven](https://github.com/roelven) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — add a firmware entry to [inventory.json](docs/research/inventory.json) (single source of truth; fields and where to find them: [TESTED-MODELS.md](docs/research/TESTED-MODELS.md)) and run `scripts/gen-inventory.py` — every table in the repo regenerates from it.
@@ -233,6 +236,22 @@ than the tree:
 Prior art and the safety stance are in [Credits & safety](#credits--safety) below.
 
 ## Credits & safety
+
+### Prior art
+
+The two projects closest to this one work the same problem on Android
+televisions: [dumbtv](https://github.com/humblemuzzu/dumbtv) cleans up Fire TV /
+Fire OS over ADB and replaces the home screen with its own 107 KB launcher, and
+[CleanMyTV](https://github.com/wingedpanther/cleanmytv) does the same for
+Android TV and Google TV from a Mac/Windows app. They are the reference points
+for what a cleaned-up, ad-free TV looks like, and neither supports VIDAA —
+both are Android work, and Fire OS, Android TV and Google TV all speak ADB and
+have a package manager. A VIDAA TV has neither: its home screen is not an app
+but a Cobalt/JS bundle inside the vendor's own `operation-ui` module, so
+replacing it means editing that bundle on the TV, which is what
+[lane 3](#three-ways-to-run-the-launcher) does. A feature-by-feature comparison
+and what a native port borrows from them:
+[EXISTING-LAUNCHERS.md](docs/launcher/EXISTING-LAUNCHERS.md).
 
 Built on the shoulders of [Bananamafia's hisensehax](https://bananamafia.dev/post/hisensehax/),
 [d3nd3/Hisense-mqtt-keyfiles](https://github.com/d3nd3/Hisense-mqtt-keyfiles),
