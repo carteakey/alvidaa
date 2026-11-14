@@ -653,6 +653,38 @@
         "launcher": "Lane 3 native Home (Free My TV 75U8QTUK adapter) component swap into operationui app.js; rendered on screen and survived a cold boot. Self-install lane is closed (503 gate).",
         "native_home": "Free My TV (75U8QTUK port) component swap; action paths (app launch / input switch / settings) owner-verified on screen (2026-11-11)."
       }
+    },
+    {
+      "id": "V0000.09.60A.Q0602",
+      "model": "65A85QEVS",
+      "region": "EU_A (Czech Republic)",
+      "soc": "MTK9618 (aarch64 kernel, 32-bit ARM userland)",
+      "vidaa_os": "U09.60",
+      "transport_protocol": "untested (SSDP silent; 36669/7000 only)",
+      "browser": "odin resources present; UA not recorded",
+      "build_date": "2026-06-01 (kernel)",
+      "tested_by": [
+        "owner (own unit, 2026-11-13)"
+      ],
+      "capabilities": {
+        "pairing": "untested",
+        "launcher": "untested",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "closed",
+        "identity_gate": "gated",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "native_home": "working",
+        "notes": "Model guide: docs/models/65A85QEVS/V0000.09.60A.Q0602/. MTK9618 with aarch64 kernel and 32-bit ARM userland (process.arch 'arm'); EU_A/CZE; only 36669 and 7000 open, SSDP silent. Read traversal works with a one-element ARRAY path; browser fileWrite is gated 503 appconfig; the FaaS fetcher writes as uid 314 but does NOT mkdir, so fetchFile cannot plant /var/local/pfmParse and the PFM-first lane is closed on a clean unit. Root = fetcher.fetchFile -> superwatch 83/82 -> IPK postinst uid 0 (CapEff 0000003fffffffff). No dropbear/sshd/nc/wget/curl and busybox has no nc applet, so the root shell is the vendor Node 20.19.4 runtime (phoenix) listening on :8008 (inbound ACCEPT re-injected at boot by boot.sh fw — iptables is RAM-only — and re-checked every 30 s by svc.sh). Boot persistence via the PFM lane: DebugPowerup + pfmParse/PFMCheck, eval'd as uid 0 by pfm-manager.sh, self-replanting because pfmAutorun wipes the gate; COLD BOOT VERIFIED twice (uid=0 shell back ~35 s after reboot, no manual step). OTA frozen at network level: OUTPUT REJECT for 131.189.69.51 (ota-tv + upgrade-plc; the signed upgradeFlag is already 0 and /OAD untouched; store APIs are on CloudFront so downloads keep working). Lane 3 native Home (Free My TV, free-my-tv-75u8qtuk variant) installed in the CHB operationui app.js (current -> CHB, no CHA on this build) via tools/65a85q/native_install.py — the native-install.cjs flow over the tvsh lane; dry gate and install both green, engine restart clean, and the 23:24 cold boot brought SystemUI up on the candidate through the vendor boot chain (no switch-script launch). The vendor store host (/var/local/vidaapp-native-store, installed by the store itself alongside Moonlight) keeps running without the ALPAC boot branch and is deliberately left alone."
+      },
+      "capability_detail": {
+        "file_bridge_traversal": "hiutils.fileRead traverses with a one-element array path (../proc/uptime -> ret:true); bare strings are rejected. Read-only probe.",
+        "file_bridge_write": "Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig'; WebSDK_createFileRequest does not exist on this build. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314).",
+        "identity_gate": "The 503 appconfig rejection on browser fileWrite; the fetcher route is not gated the same way.",
+        "root": "fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer (Architecture: mtk9618); postinst ran uid 0 and started the Node root shell on :8008. fetchFile cannot create directories, so the PFM payload is planted by the postinst, not by the fetcher.",
+        "pairing": "Not exercised: no client cert on the host. The chain needs no pairing."
+      }
     }
   ]
 }

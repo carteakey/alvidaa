@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa PFM read probe</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 18px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  // READ-ONLY. Nothing is written.
+  var el = document.getElementById("out");
+
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+  function norm(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function rd(path) {
+    try {
+      if (typeof HiUtils_createRequest !== "function") return { ret: false, msg: "no bridge" };
+      var r = HiUtils_createRequest("fileRead", { path: [path], mode: 6 });
+      if (r && typeof r === "object") return { ret: r.ret, msg: norm(r.msg) };
+      return { ret: true, msg: norm(r) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+  function show(path) {
+    var r = rd(path);
+    var ok = r.ret === true && String(r.msg).length > 0;
+    var body = String(r.msg).replace(/\s+$/, "");
+    if (body.length > 900) body = body.slice(0, 900) + "\n…(" + body.length + " chars)";
+    out((ok ? "[OK]   " : "[FAIL] ") + path + "  ret=" + JSON.stringify(r.ret), ok ? "ok" : "err");
+    out("    " + body.replace(/\n/g, "\n    "));
+    out("");
+  }
+
+  out("alvidaa PFM read probe — " + new Date().toISOString(), "hdr");
+  out("origin: " + location.href);
+  out("");
+  out("firmware hook scripts", "hdr");
+  show("../usr/local/scripts/start-kilby.sh");
+  out("pfm manager", "hdr");
+  show("../usr/local/scripts/pfm-manager.sh");
+  out("gate + control + pfm files", "hdr");
+  ["../var/local/DebugPowerup",
+   "../var/local/DebugPFM_Ctrl",
+   "../var/local/pfmParse/PFMCheck",
+   "../var/local/pfmParse/Data/platform.txt",
+   "../var/local/pfmParse",
+   "../var/local",
+   "../tmp/DebugPFM_Data"].forEach(show);
+  out("vidaa.cloud kit artefacts (read only)", "hdr");
+  ["../var/local/alpac-agent",
+   "../var/local/alpac-agent-public",
+   "../var/local/vidaapp-persist.txt"].forEach(function (p) {
+    var r = rd(p);
+    out((r.ret === true ? "[OK]   " : "[FAIL] ") + p + "  ret=" + JSON.stringify(r.ret) +
+        "  head=" + String(r.msg).slice(0, 120).replace(/\s+/g, " "), r.ret === true ? "ok" : "warn");
+  });
+  out("");
+  out("done — nothing was written", "hdr");
+})();
+</script>
+</body>
+</html>

@@ -45,4 +45,11 @@ tools/ur9s/web/server.log
 tools/audio/dist/
 launcher/pub/installer.ipk
 launcher/pub/*.ipk
+launcher/pub/ipk/*.ipk
+tools/alvidaa_ipk/*.ipk
+
+# 65A85Q session working data: collected TV files (vendor text) land quoted in
+# docs/models/65A85QEVS/*/FINDINGS.md; raw dumps stay local like /research/
+tvcollect/
+tvroot*.out
 /pub/

@@ -42,6 +42,7 @@ builds.
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
+| 65A85QEVS | EU_A (Czech Republic) | MTK9618 (aarch64 kernel, 32-bit ARM userland) | U09.60 | V0000.09.60A.Q0602 | untested (SSDP silent; 36669/7000 only) | odin resources present; UA not recorded | untested | achieved | @owner (own unit, 2026-11-13) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -141,6 +142,13 @@ never hand-edit between the markers.
 - `file_bridge_write` **gated** — Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig' — the identity gate. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314), a different surface.
 - `identity_gate` **working** — Per-app {appid,md5,permissions} gate: the 503 appconfig rejection on browser fileWrite. The fetcher write route is not gated.
 - `root` **achieved** — fetcher.fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer; postinst ran uid 0 (CapEff 0000003fffffffff) and started key-only Dropbear on :8008. Boot persistence via re_sshd serviceList autostart re-arms dropbear at every cold boot (~30 s).
+
+**65A85QEVS — V0000.09.60A.Q0602**
+- `pairing` **untested** — Not exercised: no client cert on the host. The chain needs no pairing.
+- `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (../proc/uptime -> ret:true); bare strings are rejected. Read-only probe.
+- `file_bridge_write` **closed** — Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig'; WebSDK_createFileRequest does not exist on this build. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314).
+- `identity_gate` **gated** — The 503 appconfig rejection on browser fileWrite; the fetcher route is not gated the same way.
+- `root` **achieved** — fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer (Architecture: mtk9618); postinst ran uid 0 and started the Node root shell on :8008. fetchFile cannot create directories, so the PFM payload is planted by the postinst, not by the fetcher.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details
