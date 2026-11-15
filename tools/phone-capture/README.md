@@ -54,8 +54,12 @@ and pass the Formatted Date as the script: digits survive into
 ## Notes
 
 - The frame is grabbed ~0.1 s after the script starts; the 2–5 s that follow
-  (PNG, conversion, transfer) do not change which moment you get.
-- The TV's own YouTube app cannot be captured (no frame; the script says so).
+  (PNG, conversion, transfer) do not change which moment you get — as long as no
+  other capture is running. The TV processes captures one at a time, so a second
+  tap during the first one's 2–4 s is captured only when its turn comes.
+- Rarely no frame arrives at all (seen twice in a row during a slow app start
+  with a mostly black screen); the script then says so — try again once the
+  picture is up.
 - Errors come back as one line of text starting with `ERROR:` instead of base64,
   so **Base64 Decode** is the step that fails. To see the message, put an **If**
   (Shell Script Result begins with `ERROR`) → **Show Alert** before it.

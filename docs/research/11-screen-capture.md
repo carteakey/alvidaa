@@ -6,8 +6,9 @@ the root-SSH lane, 2026-11-14/15. Other MTK models ship the same tool
 read from this unit's binaries and may differ elsewhere.
 
 **Boundary:** this documents taking a picture of what the TV shows, on a TV you
-own. Protected content is not worked around: the TV's own YouTube app cannot be
-captured at all, and that is recorded, not bypassed.
+own, with the manufacturer's built-in capture tool. Nothing about the TV's
+content protection is changed or bypassed; DRM apps such as Netflix were not
+tested.
 
 ## How it works
 
@@ -48,7 +49,7 @@ magnifier. Its debug dump writes to `/OAD` — never trigger it.
 |---|---|
 | Launcher / TV UI | works |
 | HDMI, SDR (Chromecast with Kodi; PC desktop) | works, colours 1:1 (a white window reads 242/250/254) |
-| TV's own YouTube app (`main:Youtube`) | **no file at all** (not a black frame); capture works again as soon as the launcher is in front |
+| TV's own YouTube app (`main:Youtube`) | works (video + YouTube's controls, owner screenshot 2026-11-15). Two earlier attempts during a slow app start, screen mostly black, produced **no file at all**; cause unknown, not reproduced |
 | Netflix / other DRM apps, live TV | not tested |
 
 Video is captured however it is decoded, because the frame comes from the
@@ -95,7 +96,7 @@ the request:
 | step | time |
 |---|---|
 | SSH connect until the TV command runs | ~0.2 s |
-| request → frame grabbed (incl. PC render + input lag) | **~0.11 s** |
+| request → frame grabbed, TV idle (incl. PC render + input lag) | **~0.11 s** |
 | frame → PNG complete | 1.7 s (mostly black) to 3.6 s (busy picture) — compression only |
 
 The captured moment is fixed ~0.1 s after the request; the slow part is writing
@@ -104,6 +105,18 @@ never saw a partial file (four runs, end marker `IEND` present at first sight),
 so `sysmain` encodes first and writes or renames at the end. `phone-shot.sh`
 still waits for `IEND` rather than trusting a fixed delay. From an iPhone Shortcut ("Run Script Over SSH",
 first action → frame): 316–355 ms.
+
+**Requests are queued, not parallel.** Three `screenshot` calls 0.2 s apart came
+back after 2.9 s, 6.4 s and 8.6 s: `sysmain` keeps a queue (`Capture queue is
+full` is one of its strings) and processes one request at a time. The three
+frames differed a lot in size during video playback, so each frame was most
+likely grabbed when its turn came, not when it was requested (inferred, not
+measured with the clock page). Consequences:
+
+- the ~0.11 s above only holds when no other capture is running; a request
+  that arrives during one waits until it is done;
+- the lane tops out at roughly **0.3–0.45 frames per second**, so it can make a
+  slideshow of a UI flow, not a recording.
 
 ## Tools
 

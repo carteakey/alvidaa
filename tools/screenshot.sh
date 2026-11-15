@@ -9,7 +9,7 @@
 #
 # What comes out (measured on a 55U61KEVS, docs/research/11-screen-capture.md):
 # the composed picture, video + UI, always 1920x1080; HDMI sources work;
-# the TV's own YouTube app produces no file at all. HDR sources come out on the
+# rarely no file arrives at all (seen during a slow app start). HDR sources come out on the
 # raw PQ curve and look flat: --hdr adds a tone-mapped copy.
 #
 # Usage: tools/screenshot.sh [--hdr] [output.png]   (default /tmp/alvidaa-<ts>.png)
@@ -37,7 +37,7 @@ SSH="ssh -p 2222 -i $KEY -o BatchMode=yes -o StrictHostKeyChecking=no \
 $SSH "/usr/local/bin/screenshot /tmp $NAME >/dev/null 2>&1; \
       n=0; while [ \$n -lt 100 ] && [ ! -s /tmp/$NAME ]; do sleep 0.2; n=\$((n+1)); done; \
       ls -la /tmp/$NAME" \
-  || { echo "no frame after 20 s (the TV's own YouTube app cannot be captured)" >&2; exit 1; }
+  || { echo "no frame after 20 s" >&2; exit 1; }
 
 # pull (the HAL writes PNG bytes despite the .jpg name)
 $SSH "cat /tmp/$NAME" > "$OUT" 2>/dev/null

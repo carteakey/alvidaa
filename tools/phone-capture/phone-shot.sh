@@ -34,7 +34,7 @@ n=0
 while [ $n -lt 100 ] && ! { [ -s "$F" ] && /bin/grep -q IEND "$F"; }; do /bin/sleep 0.2; n=$((n+1)); done
 if ! /bin/grep -q IEND "$F" 2>/dev/null; then
   /bin/sleep 5; /bin/rm -f "$F"
-  echo "ERROR: no frame (the TV's own YouTube app cannot be captured)"
+  echo "ERROR: no frame after 20 s, try again"
   exit 1
 fi
 
