@@ -33,6 +33,7 @@ a filterable index. Generated from this tree by
 - [`research/EXPLOITS.md`](research/EXPLOITS.md) — generated method inventory
 - [`research/TESTED-MODELS.md`](research/TESTED-MODELS.md) — how to report a TV
 - [`research/10-patched-firmware-playbook.md`](research/10-patched-firmware-playbook.md) — generations where the `../` bridge route is closed
+- [`research/11-screen-capture.md`](research/11-screen-capture.md) — how the vendor screen capture works, what it can capture, HDR, timing
 
 Both JSON files are the source; the tables are generated. Edit the JSON and run
 `scripts/gen-inventory.py` / `scripts/gen-exploits.py`, then `scripts/check.sh`.
