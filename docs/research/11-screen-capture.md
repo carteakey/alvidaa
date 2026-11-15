@@ -99,7 +99,10 @@ the request:
 | frame → PNG complete | 1.7 s (mostly black) to 3.6 s (busy picture) — compression only |
 
 The captured moment is fixed ~0.1 s after the request; the slow part is writing
-the PNG and does not move it. From an iPhone Shortcut ("Run Script Over SSH",
+the PNG and does not move it. The PNG appears in one step: polling every 10–20 ms
+never saw a partial file (four runs, end marker `IEND` present at first sight),
+so `sysmain` encodes first and writes or renames at the end. `phone-shot.sh`
+still waits for `IEND` rather than trusting a fixed delay. From an iPhone Shortcut ("Run Script Over SSH",
 first action → frame): 316–355 ms.
 
 ## Tools

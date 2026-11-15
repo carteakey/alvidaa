@@ -28,14 +28,15 @@ read up _ < /proc/uptime
 set -- ${SSH_ORIGINAL_COMMAND:-shot}
 case "$1" in raw|hdr|png) MODE=$1 ;; *) MODE=auto ;; esac
 
+# Wait for a complete PNG: on the 55U61KEVS the file appears in one step, end
+# marker included, but checking for IEND keeps this independent of that.
 n=0
-while [ $n -lt 100 ] && [ ! -s "$F" ]; do /bin/sleep 0.2; n=$((n+1)); done
-if [ ! -s "$F" ]; then
+while [ $n -lt 100 ] && ! { [ -s "$F" ] && /bin/grep -q IEND "$F"; }; do /bin/sleep 0.2; n=$((n+1)); done
+if ! /bin/grep -q IEND "$F" 2>/dev/null; then
   /bin/sleep 5; /bin/rm -f "$F"
   echo "ERROR: no frame (the TV's own YouTube app cannot be captured)"
   exit 1
 fi
-/bin/sleep 0.3   # let the writer finish the last bytes
 
 if [ "$MODE" = png ]; then
   NOTE="png: original"
@@ -44,9 +45,9 @@ else
   NOTE=$("$SHOTCONV" "$F" "$OUT" "$MODE" 2>&1)
   if [ -s "$OUT" ]; then
     /usr/local/bin/openssl base64 -A -in "$OUT"
-  else   # converter failed: send the original rather than nothing
-    NOTE="$NOTE (converter failed, sent original)"
-    /usr/local/bin/openssl base64 -A -in "$F"
+  else   # converter failed: say so instead of sending a PNG the phone saves as .jpg
+    NOTE="$NOTE (converter failed)"
+    echo "ERROR: converter failed; send the word png to get the original PNG"
   fi
 fi
 printf '%s uptime=%s input=%s %s\n' "$(/bin/date +%H:%M:%S)" "$up" \

@@ -1,7 +1,9 @@
 # phone-capture — one tap on a phone, a screenshot of the TV
 
-What was on screen when you tapped, as a JPEG in the phone's share sheet,
-~0.3–0.5 s from tap to captured frame. Built on the vendor capture tool (see
+What was on screen when you tapped, as a JPEG in the phone's share sheet.
+Measured: 316–355 ms from the Shortcut's first action to the captured frame;
+the time iOS takes to launch the Shortcut comes on top (felt as roughly half a
+second in total). Built on the vendor capture tool (see
 [docs/research/11-screen-capture.md](../../docs/research/11-screen-capture.md))
 and, for HDR sources, [`shotconv`](../shotconv/).
 
@@ -54,6 +56,11 @@ and pass the Formatted Date as the script: digits survive into
 - The frame is grabbed ~0.1 s after the script starts; the 2–5 s that follow
   (PNG, conversion, transfer) do not change which moment you get.
 - The TV's own YouTube app cannot be captured (no frame; the script says so).
+- Errors come back as one line of text starting with `ERROR:` instead of base64,
+  so **Base64 Decode** is the step that fails. To see the message, put an **If**
+  (Shell Script Result begins with `ERROR`) → **Show Alert** before it.
+  If `shotconv` fails, the script reports that rather than sending a PNG the
+  Shortcut would save as `.jpg`; the word `png` still returns the original.
 - The tool captures whatever is on screen, including a work laptop on HDMI.
 
 ## Teardown
