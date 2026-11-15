@@ -23,8 +23,9 @@ boot-persistent via the `re_sshd` serviceList autostart. See
 The Free My TV component swap in the writable `operation-ui` `app.js`
 (`route[0].component` for `/Launcher` only). The tested SDK interfaces match
 those of the 75U8QTUK, so the `free-my-tv-75u8qtuk` adapter was reused unchanged. A
-follow-on "Arc Home" variant adds MENU→settings, a UTC-safe clock, and a Recent
-row. See [findings/02-native-home.md](findings/02-native-home.md) and
+follow-on "Arc Home" variant adds MENU→settings, a UTC-safe clock, a Recent
+row, optional weather and an icon font, and found that the TV settings are a
+web app in the same SystemUI page. See [findings/02-native-home.md](findings/02-native-home.md) and
 [findings/03-arc-home.md](findings/03-arc-home.md).
 
 ## Capability summary

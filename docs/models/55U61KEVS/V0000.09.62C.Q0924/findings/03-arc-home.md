@@ -41,3 +41,39 @@ by appId or name. The poll must survive the launcher page's `stop()`/`deactivate
 `biz.apmMessage` is **not** usable for this — its "AppAction" messages only cover
 operationui's own pages, not every app. The stock launcher's "recent" row is cloud
 content (FVP), not a list of locally opened apps.
+
+## The launcher page can reach the internet (2026-11-14)
+
+SystemUI is started as
+`/opt/hisenseUI/bin/SystemUI --url=file:///hisenseUI/index.html --csp_mode=disable`,
+so there is no content security policy in the way: an `XMLHttpRequest` from the
+launcher page to an outside HTTPS API (Arc's optional weather, Open-Meteo, which
+allows any origin) works. The stock launcher also calls its own cloud API from
+page JS (`hubAxios`). Arc keeps weather off by default, so a fresh install makes
+no requests.
+
+## Embedded fonts and an icon font work (2026-11-14)
+
+`@font-face` with base64 TTF data works. A small custom icon font (glyphs in the
+Private Use Area, built from SVG outlines with fontTools) renders correctly and
+takes `color` like text — a way to draw monochrome icons without depending on
+how well Cobalt handles SVG.
+
+## The TV settings and Quick Menu are a web app in the same page (2026-11-15)
+
+Confirms EvzenP's finding for the 75UR9S ([PR 74](https://github.com/carteakey/alvidaa/pull/74)) on this model: the settings
+overlay opened by MENU / `setting.open("settings")` is the `setting` web app in
+package `tv.vidaa.app.ui`, not a native program. It lives under
+`/opt/pkgs/tv.vidaa.app.ui/system-ui/apps/setting/` (`/opt` →
+`/mnt/tvroot/opt`, **erofs read-only** — never written). SystemUI loads every app
+into the one `index.html` document, and `setting/js/app.js` registers itself the
+same way the launcher does:
+
+```js
+(self._V_M_=self._V_M_||{}).setting=()=>s("fA/v").Z
+```
+
+So code appended to the writable launcher bundle shares a document with the
+settings app and could restyle it (injected CSS) or wrap `_V_M_.setting`, with
+the launcher's normal rollback — not done yet. Other `system-ui` apps there:
+`volume-bar`, `mixbar`, `lock-screen`, `multiview`, `karaoke`, `e-manual`, `usb`, …
