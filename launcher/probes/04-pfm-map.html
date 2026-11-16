@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa PFM map</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 15px/1.32 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 8px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  // READ-ONLY map of the PFM lane. Nothing is written.
+  var el = document.getElementById("out");
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+  function norm(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function rd(p) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: [p], mode: 6 });
+      if (r && typeof r === "object") return { ret: r.ret, msg: norm(r.msg), code: r.code };
+      return { ret: true, msg: norm(r) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+  function status(p, label) {
+    var r = rd(p);
+    var m = String(r.msg || "");
+    var note = m.length ? m.replace(/\s+/g, " ").slice(0, 90) : "";
+    out((r.ret === true ? "[YES] " : "[NO ] ") + (label || p) + "   " + note,
+        r.ret === true ? "ok" : "err");
+    return r;
+  }
+  function dump(label, p, from, len) {
+    var r = rd(p);
+    out("");
+    out("== " + label + "  (" + p + ")  ret=" + JSON.stringify(r.ret), "hdr");
+    if (r.ret !== true) { out("   " + String(r.msg).slice(0, 200), "err"); return; }
+    var s = String(r.msg);
+    out("   len=" + s.length + "  showing " + from + ".." + (from + len));
+    out(s.substr(from, len));
+  }
+
+  out("alvidaa PFM map — " + new Date().toISOString(), "hdr");
+  out("scroll down: 3 sections (status / start-kilby / pfm-manager)", "warn");
+  out("");
+
+  out("§1 status", "hdr");
+  status("../var/local/pfmParse", "dir /var/local/pfmParse");
+  status("../var/local/pfmParse/PFMCheck", "PFMCheck");
+  status("../var/local/pfmParse/Data/platform.txt", "Data/platform.txt");
+  status("../var/local/DebugPowerup", "DebugPowerup");
+  status("../var/local/DebugPFM_Ctrl", "DebugPFM_Ctrl");
+  status("../tmp/DebugPFM_Data", "/tmp/DebugPFM_Data");
+  status("../usr/local/scripts/start-kilby1.sh", "start-kilby1.sh");
+  status("../usr/local/scripts/start-kilby2.sh", "start-kilby2.sh");
+  status("../usr/local/scripts/pfm-manager.sh", "pfm-manager.sh");
+
+  out("");
+  out("§2 platform.txt content", "hdr");
+  var pt = rd("../var/local/pfmParse/Data/platform.txt");
+  out("ret=" + JSON.stringify(pt.ret));
+  out(String(pt.msg).slice(0, 400));
+
+  dump("start-kilby.sh tail", "../usr/local/scripts/start-kilby.sh", 760, 1500);
+  dump("pfm-manager.sh head", "../usr/local/scripts/pfm-manager.sh", 0, 2200);
+
+  out("");
+  out("done — nothing was written", "hdr");
+})();
+</script>
+</body>
+</html>

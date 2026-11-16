@@ -207,7 +207,10 @@ def pair(host=None, pin_arg=None):
             except queue.Empty:
                 pass
             if sys.stdin and sys.stdin.isatty():
-                r, _, _ = select.select([sys.stdin], [], [], 0.1)
+                try:
+                    r, _, _ = select.select([sys.stdin], [], [], 0.1)
+                except (OSError, ValueError):
+                    r = []  # Windows: select() accepts sockets only; use argv PIN or keys/.pin
                 if r:
                     line = sys.stdin.readline().strip()
                     if len(line) == 4 and line.isdigit():

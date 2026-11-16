@@ -39,10 +39,14 @@ builds.
 | 32A35HUV | CAN | MTK9602 | U09.01 | V0000.09.01O.P0814 | 3290 | Chromium 111 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 | 50A7HAU (internal 50A6GA) | AU (Australia) | MTK9602 | U06.12 | V0000.06.12X.N1212 | 3290 | Chromium 88.0.4324.182 (armv7l) | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | EU_A (BIH) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.61 | V0000.09.61B.Q0704 | 3290 | Chromium 111 "odin" (ViewPort/5.2.20, aarch64 UA) | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
+| 55U61KEVS | EU_A (DEU) | MTK9618 (aarch64 kernel, armhf userland) | U09.62 | V0000.09.62C.Q0924 | ? | Chromium 111 "odin" (aarch64 UA) | working | achieved | [@miramaki](https://github.com/miramaki) |
 | 43A6K (internal 43A53FEVS_0011) | EU_A (SSDP region 0) | MTK9602 (DevKit platform MTK9602_EU_A; armv7l) | U09.09 | V0000.09.09C.P0930 | 3290 | Chromium 111.0.0.0 UA / odin (armv7l; exact patch unconfirmed) | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE (Toshiba-branded) | ? | ? | U09.09 | V0000.09.09H.P0930 | not-exposed-over-SSDP (dd.xml stub on :3366 carrying only friendlyName/manufacturer/modelName; pairing handled by Sidee, profile 'modern', brand 'tos') | ? | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE (internal 50U73SEVS_01, serial type 50U7SE) | EU_A (DEU) | MTK9618 (mt16587/mt5879; aarch64 kernel, armhf userland) | U09.62 | V0000.09.62N.Q0923 | 3290 | Chromium 111 "odin" (multi-shell UA: Weblayer/1.2.1, WebNavigator/6.1.10; aarch64) | working | achieved | [@roelven](https://github.com/roelven) |
 | 65E86GEVS (serial type 65E8GE) | EM_B | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.09 | V0000.09.09O.P0930 | ? | Chromium 111 "odin" (api 3.0.1) | untested | achieved | [@noctonca](https://github.com/noctonca) |
+| 55U67LEVS (55U6LE series) | EU_A | MTK9603 | U09.60 | V0000.09.60A.Q0707 (55U67LEVS) | ? | Chromium 111.5563.5.1 "Odin" (armv7l) | untested | achieved | [unit owner](https://github.com/carteakey/alvidaa) |
+| VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed) | EU_A (DevKit platform MT9602_EU_A; country unconfirmed) | MTK9602 (MT9602_EU_A; armv7l) | U06.10 | V0000.06.10S.N1222 | 2140 | Chromium 88 (armv7l) | untested | untested | [@PureBreadBagel](https://github.com/PureBreadBagel) |
+| 65A85QEVS | EU_A (Czech Republic) | MTK9618 (aarch64 kernel, 32-bit ARM userland) | U09.60 | V0000.09.60A.Q0602 | untested (SSDP silent; 36669/7000 only) | odin resources present; UA not recorded | working | achieved | [@LastThylacine](https://github.com/LastThylacine) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -120,6 +124,12 @@ never hand-edit between the markers.
 - `devtools_forge` **untested** — not needed for this chain; the superwatch/IPK path was used instead.
 - `root` **achieved** — fetcher.fetchFile → superwatch 83/82 → vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARM32 Dropbear with key + owner password on :22; boot-persistent via the re_sshd serviceList autostart (ARMED ~30 s after each of four cold boots).
 
+**55U61KEVS — V0000.09.62C.Q0924**
+- `launcher` **working** — Native lane 3: Free My TV component swap in the writable operation-ui app.js (route[0].component for /Launcher only). The tested SDK interfaces match those of 75U8QTUK (app-service/getAppList, all-inputs/changeSourceTo, setting.open, apc/CMDMETHOD), so the free-my-tv-75u8qtuk adapter was reused unchanged. Home, Input, HDMI switching, TV Settings, and AirPlay verified; survived a cold boot byte-identically. A follow-on 'Arc Home' variant adds MENU->settings (key 409 MENU_SRC), a UTC-safe clock via _V_SDK_.biz.date.getLocalDate, and Recent via _V_SDK_.biz.source.getCurrentAppSource().
+- `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (../proc/uptime read); bare-string paths are rejected 'invalid path:../proc/uptime'.
+- `file_bridge_write` **open** — The write primitive is the FaaS fetcher: basic/fetcher fetchFile returns ret:true 'download finished', writing as uid 314 to /APPS and /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/ (markers + installer.ipk). WebSDK_createFileRequest is not exposed.
+- `root` **achieved** — fetcher.fetchFile -> superwatch 83 (uninstall) / 82 (install) -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 (EABI5) Dropbear, key-only on :8008; boot-persistent via the re_sshd serviceList autostart (re-arms ~30s after a cold boot).
+
 **43A6K (internal 43A53FEVS_0011) — V0000.09.09C.P0930**
 - `pairing` **working** — RemoteNow PIN pairing and subsequent control worked; SSDP transport_protocol 3290 was independently read again on 2026-11-12.
 - `launcher` **working** — Adapted Alvidaa-based web launcher: app launch, regular/quick TV settings and Home-watcher redirect worked. Native lane 3 was not tested; web relaunch delay remained.
@@ -150,6 +160,20 @@ never hand-edit between the markers.
 - `identity_gate` **n-a** — hiutils enforces appconfig per action (setDebugPort/installApplication -> 503) but permits the fileRead/fileWrite pair, and the phoenix permission check is bypassed by an empty identifier regardless. No per-app gate blocks the open APIs on this build.
 - `devtools_forge` **untested** — Not tested. For the record, setDebugPort and installApplication are refused with 503 appconfig while fileRead/fileWrite are allowed.
 - `root` **achieved** — superwatch_server (uid 0) UDS chowned to gid 616; phoenix (uid 314) is in group 616 and passes the per-command peer-credential check by design. Command 55 RunIpkRestoreCommand builds a shell command from the pkg-name arg without quoting; two frames with a crafted name mint a setuid root shell. /proc/self/status Uid 314 0 0 0, /etc/shadow readable, /data listed. Persistence = writable-service boot hook (arch withheld); teardown in the guide; the vendor bug is still present after cleanup.
+**55U67LEVS (55U6LE series) — V0000.09.60A.Q0707 (55U67LEVS)**
+- `pairing` **working** — modern profile, colon-formatted MAC, one PIN dialog, tokenissuance with a 2-day access / 30-day refresh token (2026-11-14).
+- `file_bridge_traversal` **open** — path:['../proc/uptime'] -> ret:true with content; path:'../proc/uptime' -> ret:false 'invalid path' (2026-11-14).
+- `root` **achieved** — One-shot uid-0 postinst verified 2026-11-14 (Uid 0, CapEff 000001ffffffffff) after fixing the IPK for the vendor opkg (AppId/AppName + non-empty data.tar.gz). No boot persistence and no shell; /config remounts rw and back cleanly as root.
+**VS1165UD1_0400 (Toshiba/Vestel; retail model unconfirmed) — V0000.06.10S.N1222**
+- `pairing` **working** — Python vidaa-control successfully completed RemoteNow MQTT PIN pairing; TV control broker reachable on TCP 36669. End-to-end custom launcher not tested.
+- `file_bridge_traversal` **closed** — WebSDK_createFileRequest fileRead of ../proc/version returned an empty string from ordinary HTTP and again through a vidaahub.com DNS-mapped HTTP origin; tested with modes 3 and 0. alvidaa recon v8 returned empty response from WebSDK_createFileRequest for file reads. No successful traversal observed in these tests; whether the cause is an origin gate, path restriction or other interface behaviour is unconfirmed.
+- `root` **untested** — No root method executed. Browser file access attempt failed in tested context; IPK prerequisite tests were only run in the normal browser, not an authorised application context. Root remains untested.
+**65A85QEVS — V0000.09.60A.Q0602**
+- `pairing` **untested** — Not exercised: no client cert on the host. The chain needs no pairing.
+- `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (../proc/uptime -> ret:true); bare strings are rejected. Read-only probe.
+- `file_bridge_write` **closed** — Browser fileWrite (HiUtils_createRequest) returns 503 'client request permission check error, please check appconfig'; WebSDK_createFileRequest does not exist on this build. The working write primitive is the FaaS fetcher (basic/fetcher fetchFile, uid 314).
+- `identity_gate` **gated** — The 503 appconfig rejection on browser fileWrite; the fetcher route is not gated the same way.
+- `root` **achieved** — fetchFile wrote sw2.js + installer.ipk; superwatch 83/82 installed re.installer (Architecture: mtk9618); postinst ran uid 0 and started the Node root shell on :8008. fetchFile cannot create directories, so the PFM payload is planted by the postinst, not by the fetcher.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details

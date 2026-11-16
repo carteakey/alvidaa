@@ -89,6 +89,21 @@ for f in ('dropbear', 'dropbearkey'):
     print(f"{f}: replaced {n} occurrence(s)")
 PYEOF
 
+# Patch 3: SFTPSERVER_PATH -> /APPS/.re_sshd/sftp-srvr, the wrapper that
+# execs the static OpenSSH sftp-server (findings 02). Dropbear delegates the
+# sftp subsystem to an external binary; the stock path does not exist on
+# the TV. Same length, byte search, count must be exactly 1.
+python3 - <<'PYEOF'
+old = b'/usr/libexec/sftp-server'
+new = b'/APPS/.re_sshd/sftp-srvr'
+assert len(old) == len(new), "patch strings must be the same length"
+b = open('dropbear', 'rb').read()
+n = b.count(old)
+assert n == 1, f"expected exactly 1 SFTPSERVER_PATH literal, found {n}"
+open('dropbear', 'wb').write(b.replace(old, new))
+print(f"patch 3 applied: SFTPSERVER_PATH -> {new.decode()}")
+PYEOF
+
 cp -f dropbear    "$OUT/dropbear-root"
 cp -f dropbearkey "$OUT/dropbearkey"
 chmod 755 "$OUT/dropbear-root" "$OUT/dropbearkey"

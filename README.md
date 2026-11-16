@@ -180,10 +180,14 @@ both regenerate from `docs/research/inventory.json`.
 | 32A35HUV | V0000.09.01O.P0814 | working | achieved | [@EmoFa](https://github.com/EmoFa) |
 | 50A7HAU | V0000.06.12X.N1212 | untested | untested | [@gonzule](https://github.com/gonzule) |
 | 55E75LEVS | V0000.09.61B.Q0704 | working | achieved | [@mustafaGlobal](https://github.com/mustafaGlobal) |
+| 55U61KEVS | V0000.09.62C.Q0924 | working | achieved | [@miramaki](https://github.com/miramaki) |
 | 43A6K | V0000.09.09C.P0930 | working | achieved | [@Hlushok](https://github.com/Hlushok) |
 | 65C350LE | V0000.09.09H.P0930 | untested | untested | [@VaheSaroyan](https://github.com/VaheSaroyan) |
 | 50U7DSE | V0000.09.62N.Q0923 | working | achieved | [@roelven](https://github.com/roelven) |
 | 65E86GEVS | V0000.09.09O.P0930 | untested | achieved | [@noctonca](https://github.com/noctonca) |
+| 55U67LEVS | V0000.09.60A.Q0707 (55U67LEVS) | untested | achieved | [unit owner](https://github.com/carteakey/alvidaa) |
+| VS1165UD1_0400 | V0000.06.10S.N1222 | untested | untested | [@PureBreadBagel](https://github.com/PureBreadBagel) |
+| 65A85QEVS | V0000.09.60A.Q0602 | working | achieved | [@LastThylacine](https://github.com/LastThylacine) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — add a firmware entry to [inventory.json](docs/research/inventory.json) (single source of truth; fields and where to find them: [TESTED-MODELS.md](docs/research/TESTED-MODELS.md)) and run `scripts/gen-inventory.py` — every table in the repo regenerates from it.
