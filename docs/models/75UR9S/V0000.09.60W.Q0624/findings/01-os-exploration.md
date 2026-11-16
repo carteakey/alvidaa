@@ -144,17 +144,29 @@
 
 ```sh
 #!/bin/sh
-. /etc/profile 2>/dev/null
+. /etc/profile >/dev/null 2>&1
 exec /bin/bash "$@"
 ```
 
 `/etc/profile` is the single source of truth for the vendor environment:
 `PATH`, `LD_LIBRARY_PATH` (this TV has **no `/etc/ld.so.cache`** — dynamic
 vendor binaries like `jq`/`opkg`/`kprop` resolve only via it), `DTO_CHIP`,
-`UTOPIA_LINUX`, `VERSION`. No per-variable dropbear patching, and it stays
-correct across firmware updates without recompiling. Side effects are
-harmless (`stty`, `ulimit`, a couple of echoes — the `Loading /etc/profile...`
-login banner is vendor behaviour, same as the serial console).
+`UTOPIA_LINUX`. No per-variable dropbear patching, and it stays correct across
+firmware updates without recompiling.
+
+**Banner suppression (2026-11-10).** The profile's *stdout* is a login banner,
+not environment: line 1 `echo "Loading /etc/profile..."` and, near the bottom,
+`cat /basic/build.macro | grep 2102` which prints the `USB_UPG_VERSION=...`
+and `VERSION=...` lines. Those two are **display-only** — `VERSION`/
+`USB_UPG_VERSION` are never `export`ed (verified: they are absent from the
+session env). The original wrapper redirected only stderr (`2>/dev/null`), so
+the banner leaked into every remote/one-shot session. Sinking stdout
+(`>/dev/null 2>&1`) removes all three lines while every real export is
+unaffected — and it stays correct if a future firmware adds more echoes.
+Remaining side effects are harmless (`stty`, `umask`, sourcing
+`init_coredump.rc`). Verified on TV 2026-11-10: clean one-shot **and**
+`ssh -tt` PTY sessions, full `PATH`/`LD_LIBRARY_PATH`, `jq`/`opkg`/`kprop`
+run unmodified.
 
 **Build recipe** (`tools/ur9s/scripts/build_dropbear_a7k.sh`): identical to
 the U7Q parent (`tools/u7q/scripts/build_dropbear_a7k.sh`), differing only in

