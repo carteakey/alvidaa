@@ -7,8 +7,8 @@ read from this unit's binaries and may differ elsewhere.
 
 **Boundary:** this documents taking a picture of what the TV shows, on a TV you
 own, with the manufacturer's built-in capture tool. Nothing about the TV's
-content protection is changed or bypassed; DRM apps such as Netflix were not
-tested.
+content protection is changed or bypassed, and protected (DRM) video is not
+captured: see below.
 
 ## How it works
 
@@ -49,11 +49,15 @@ magnifier. Its debug dump writes to `/OAD` — never trigger it.
 |---|---|
 | Launcher / TV UI | works |
 | HDMI, SDR (Chromecast with Kodi; PC desktop) | works, colours 1:1 (a white window reads 242/250/254) |
-| TV's own YouTube app (`main:Youtube`) | works (video + YouTube's controls, owner screenshot 2026-11-15). Two earlier attempts during a slow app start, screen mostly black, produced **no file at all**; cause unknown, not reproduced |
+| TV's own YouTube app (`main:Youtube`) | works (video + YouTube's controls, owner screenshot 2026-11-15). Two earlier attempts during a slow app start, screen mostly black, produced **no file at all**; cause unknown, not reproduced (possibly protected video starting, as below; unverified) |
+| Crunchyroll app (`main:206\|2372`) | menus work. During video playback: **no file at all**, not even the UI layer (2 of 2 attempts, 2026-11-17; nothing in `dmesg`) |
 | Netflix / other DRM apps, live TV | not tested |
 
 Video is captured however it is decoded, because the frame comes from the
-display pipeline, not from an app's framebuffer.
+display pipeline, not from an app's framebuffer, **except protected video**:
+while DRM-protected playback is on screen, the whole request is refused and no
+file is written, most likely by the secure video path. That is the TV's content
+protection doing its job; nothing here works around it.
 
 ## HDR comes out raw
 
