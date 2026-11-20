@@ -9,7 +9,8 @@
 #
 # What comes out (measured on a 55U61KEVS, docs/research/11-screen-capture.md):
 # the composed picture, video + UI, always 1920x1080; HDMI sources work;
-# rarely no file arrives at all (seen during a slow app start). HDR sources come out on the
+# no file arrives during DRM-protected playback (app menus work), rarely
+# otherwise (seen during a slow app start). HDR sources come out on the
 # raw PQ curve and look flat: --hdr adds a tone-mapped copy.
 #
 # Usage: tools/screenshot.sh [--hdr] [output.png]   (default /tmp/alvidaa-<ts>.png)
