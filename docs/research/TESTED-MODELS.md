@@ -48,6 +48,7 @@ builds.
 | 55U67LEVS (55U6LE series) | EU_A | MTK9603 | U09.60 | V0000.09.60A.Q0707 (55U67LEVS) | ? | Chromium 111.5563.5.1 "Odin" (armv7l) | untested | achieved | [unit owner](https://github.com/carteakey/alvidaa) |
 | 65E86GEVS (serial type 65E8GE) | EM_B | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.09 | V0000.09.09O.P0930 | ? | Chromium 111 "odin" (api 3.0.1) | untested | achieved | [@noctonca](https://github.com/noctonca) |
 | 65A70LAVT (serial type 65A7NA) | AU (EM_C, countryID AUS) | MTK9603 (MT5896) | U09.60 | V0000.09.60A.Q0707 (65A70LAVT) | ? | Chromium 111.5563.5.1 "Odin" (armv7l) | untested | achieved | [u/sl3yr84](https://reddit.com/user/sl3yr84) |
+| 55U65QEVS (retail 55U7QTUK; serial type 55U6QE) | EU_A (Great Britain) | MTK9618 (aarch64 kernel 5.4.302, 32-bit ARM userland; mt5879) | U09.60 | V0000.09.60A.Q0602 (55U65QEVS) | untested (SSDP silent in recon; 36669/7000 answer) | Chromium 111 "odin" (WebExplorer/5.2.1) | working | achieved | [@gwerneckp](https://github.com/gwerneckp) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -184,6 +185,12 @@ never hand-edit between the markers.
 - `file_bridge_traversal` **open** — bridge ../ escape verified with readable output (mode 0 -> /tmp, mode 4 -> /data).
 - `identity_gate` **working** — fileWrite -> 503 'client request permission check error, please check appconfig'; same gate as 43A5LE/55U67LEVS. Cross-confirmed on a second unit (85U8Q, V0000.09.60F.Q0528).
 - `root` **achieved** — uid 0 via the rc.local otaTest.sh hook; boot-persistent. Dropbear 2024.86 on :8008, key-only.
+
+**55U65QEVS (retail 55U7QTUK; serial type 55U6QE) — V0000.09.60A.Q0602 (55U65QEVS)**
+- `pairing` **working** — Sidee, modern profile; used only as an out-of-band way to open the browser during development.
+- `launcher` **working** — Lane 3 component swap on CHB; install/rollback identical to 65a85qevs (pinned md5 match).
+- `identity_gate` **gated** — Hisense_SupportAppConfig() = true; editing websdk/Appinfo.json byte-identically still returns the 503.
+- `root` **achieved** — Node TCP shell on :8008 as uid 0 (no dropbear/sshd/nc on this build; all persistent fs nosuid). Re-armed by the BaseService autostart ~19 s after each boot.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details

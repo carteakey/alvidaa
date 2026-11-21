@@ -844,6 +844,37 @@
         "identity_gate": "fileWrite -> 503 'client request permission check error, please check appconfig'; same gate as 43A5LE/55U67LEVS. Cross-confirmed on a second unit (85U8Q, V0000.09.60F.Q0528).",
         "root": "uid 0 via the rc.local otaTest.sh hook; boot-persistent. Dropbear 2024.86 on :8008, key-only."
       }
+    },
+    {
+      "id": "V0000.09.60A.Q0602 (55U65QEVS)",
+      "model": "55U65QEVS (retail 55U7QTUK; serial type 55U6QE)",
+      "region": "EU_A (Great Britain)",
+      "soc": "MTK9618 (aarch64 kernel 5.4.302, 32-bit ARM userland; mt5879)",
+      "vidaa_os": "U09.60",
+      "transport_protocol": "untested (SSDP silent in recon; 36669/7000 answer)",
+      "browser": "Chromium 111 \"odin\" (WebExplorer/5.2.1)",
+      "build_date": "2026-07-27 (operationui build stamp)",
+      "tested_by": [
+        "@gwerneckp"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "working",
+        "native_home": "working",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "closed",
+        "identity_gate": "gated",
+        "root": "achieved",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "notes": "Model guide: docs/models/55U65QEVS/V0000.09.60A.Q0602/. Retail 55U7QTUK reports platform model 55U65QEVS and serial type 55U6QE — neither string appears elsewhere in this repo. Identical build string to 65A85QEVS: fileWrite 503 appconfig, array-path-only fileRead, fetcher fetchFile writes as uid 314, FaaS exec at https://localhost:9888/function/basic/fetch/<name>, superwatch 83/82 -> uid-0 postinst. Boot persistence via a BaseService in tv.vidaa.jsservice.basic/CHA/services + one serviceList.json entry (NOT PFM): the vendor manager starts it at uid 314 on every boot and it re-arms the IPK whenever nothing listens on :8008. The service directory MUST contain package.json or BaseService's constructor throws and the manager silently drops the service. Verified across a wall-plug power cycle. Native Home: operationui CHB app.js md5 45626039103fb60060618545dba6f0f5, byte-identical to the 65A85QEVS stock bundle. Negative: file:// pages have no network at all, so a launcher-resident arm call is impossible; servicelist.db is the DVB channel table, not an autostart list."
+      },
+      "capability_detail": {
+        "launcher": "Lane 3 component swap on CHB; install/rollback identical to 65a85qevs (pinned md5 match).",
+        "root": "Node TCP shell on :8008 as uid 0 (no dropbear/sshd/nc on this build; all persistent fs nosuid). Re-armed by the BaseService autostart ~19 s after each boot.",
+        "identity_gate": "Hisense_SupportAppConfig() = true; editing websdk/Appinfo.json byte-identically still returns the 503.",
+        "pairing": "Sidee, modern profile; used only as an out-of-band way to open the browser during development."
+      }
     }
   ]
 }
