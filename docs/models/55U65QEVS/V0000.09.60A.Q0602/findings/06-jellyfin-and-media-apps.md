@@ -39,10 +39,10 @@ package manager and appear in the launcher.
 
 | Content | Result |
 |---|---|
-| 4K Dolby Vision (profiles 5 and 7), 4 films incl. *Spider-Man*, *Obsession* | **direct play**, DV passthrough |
+| 4K Dolby Vision, profile 5 and profile 7 titles | **direct play**, DV passthrough |
 | Dolby Digital Plus 5.1 / Dolby Digital 5.1 | **direct play** |
-| TrueHD 7.1 (*John Wick*) | **direct play**, sound works |
-| DTS (*The Wire*) | **direct play** |
+| TrueHD 7.1 (Blu-ray remux) | **direct play**, audio decoded |
+| DTS 5.1 (TV-rip series episode) | **direct play** |
 | 1080p H.264 | direct play |
 | Bitmap (PGS) subtitles | **forces a full HEVC→H.264 software transcode** and loses HDR |
 
