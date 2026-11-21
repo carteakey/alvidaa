@@ -846,7 +846,7 @@
       }
     },
     {
-      "id": "V0000.09.60A.Q0602",
+      "id": "V0000.09.60A.Q0602 (55U65QEVS)",
       "model": "55U65QEVS (retail 55U7QTUK; serial type 55U6QE)",
       "region": "EU_A (Great Britain)",
       "soc": "MTK9618 (aarch64 kernel 5.4.302, 32-bit ARM userland; mt5879)",
@@ -858,7 +858,7 @@
         "@gwerneckp"
       ],
       "capabilities": {
-        "pairing": "working (Sidee, modern profile; used only as an out-of-band way to open the browser)",
+        "pairing": "working",
         "launcher": "working",
         "native_home": "working",
         "file_bridge_traversal": "open",
@@ -872,7 +872,8 @@
       "capability_detail": {
         "launcher": "Lane 3 component swap on CHB; install/rollback identical to 65a85qevs (pinned md5 match).",
         "root": "Node TCP shell on :8008 as uid 0 (no dropbear/sshd/nc on this build; all persistent fs nosuid). Re-armed by the BaseService autostart ~19 s after each boot.",
-        "identity_gate": "Hisense_SupportAppConfig() = true; editing websdk/Appinfo.json byte-identically still returns the 503."
+        "identity_gate": "Hisense_SupportAppConfig() = true; editing websdk/Appinfo.json byte-identically still returns the 503.",
+        "pairing": "Sidee, modern profile; used only as an out-of-band way to open the browser during development."
       }
     }
   ]
