@@ -1105,7 +1105,7 @@ test('settings: the Launcher door opens the layer, Back returns to view 2, glass
   const texts = flat.flatMap(n => n.children || []).filter(c => typeof c === 'string');
   assert.ok(texts.includes('HOME SETTINGS'));
   assert.ok(texts.includes('Auto-switch on boot'));
-  assert.ok(texts.includes('Input names'));
+  assert.ok(texts.includes('Inputs'));
   assert.ok(texts.includes('Home settings'), 'the door itself is on the row behind the glass');
   v.handleKey(k.BACK);
   assert.equal(v.settings, false);
@@ -1204,7 +1204,7 @@ test('settings: the keyboard renames an input and the dock labels follow', () =>
   v.handleKey(k.DOWN);
   v.handleKey(k.ENTER); // inputs page
   assert.equal(v.settingsPage, 'inputs');
-  assert.equal(v.settingsRows().length, 3);
+  assert.equal(v.settingsRows().length, 4);
   assert.equal(v.settingsRows()[1].label, 'PlayStation 5');
   assert.equal(v.settingsRows()[1].value, '');
   v.settingsIndex = 1;
@@ -1223,7 +1223,7 @@ test('settings: the keyboard renames an input and the dock labels follow', () =>
   assert.equal(v.settingsPage, 'inputs');
   assert.equal(f.store.get('alvidaa_custom_names'), '{"HDMI2":"PS5"}');
   assert.equal(v.settingsRows()[1].value, 'custom');
-  assert.equal(v.settingsRows().length, 4, 'a Reset row appeared under the renamed input');
+  assert.equal(v.settingsRows().length, 5, 'a Reset row appeared under the renamed input');
   assert.equal(v.sourceName(v.sources[1]), 'PS5');
   v.zone = 'dock';
   v.dock = 1;
@@ -1266,14 +1266,14 @@ test('settings: the Reset row clears one custom name', () => {
   v.handleKey(k.DOWN);
   v.handleKey(k.DOWN);
   v.handleKey(k.ENTER); // inputs page
-  assert.equal(v.settingsRows().length, 4);
+  assert.equal(v.settingsRows().length, 5);
   assert.equal(v.settingsRows()[2].kind, 'reset-name');
   assert.equal(v.settingsRows()[2].label, 'Reset name');
   v.settingsIndex = 2;
   v.handleKey(k.ENTER);
   assert.equal(f.store.get('alvidaa_custom_names'), '{}');
   assert.equal(v.sourceName(v.sources[1]), 'PlayStation 5');
-  assert.equal(v.settingsRows().length, 3, 'the Reset row disappears with the custom name');
+  assert.equal(v.settingsRows().length, 4, 'the Reset row disappears with the custom name');
   v.stop();
 });
 
@@ -1377,7 +1377,7 @@ test('settings: announce speaks the focused row and keyboard cell', () => {
   assert.deepEqual(spoken, ['Auto-switch on boot, off']);
   v.settingsIndex = 2;
   v.announce();
-  assert.equal(spoken[1], 'Input names');
+  assert.equal(spoken[1], 'Inputs');
   v.handleKey(KEYS.ENTER); // inputs page
   v.announce();
   assert.equal(spoken[2], 'TV');
@@ -2269,5 +2269,120 @@ test('backdrop switcher: cycles bundled gallery wallpapers and minimal dark in H
   v.handleKey(k.RIGHT);
   assert.equal(v.settingsRows()[idx].value, 'Minimal Dark');
   assert.equal(v.activeWallpaper(), '');
+  v.stop();
+});
+
+test('inputs: hidden inputs filter dock, smart focus, and auto-switch while staying in allInputs', () => {
+  const f = setup({
+    storage: {
+      alvidaa_hidden_inputs: ['0'],
+      alvidaa_auto_switch: true
+    }
+  }), v = f.instance;
+  v.start();
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI2', 'HDMI3']);
+  assert.deepEqual(Array.from(v.allInputs(), s => String(s.sourceId)), ['0', 'HDMI2', 'HDMI3']);
+  assert.equal(v.dock, 1, 'smart focus picks the sole live visible input (HDMI3)');
+  assert.equal(v.autoSwitchId, 'HDMI3', 'auto-switch considers only visible live inputs');
+  v.stop();
+});
+
+test('inputs: input order sorts dock and appends unseen inputs in vendor order', () => {
+  const f = setup({
+    storage: {
+      alvidaa_input_order: ['HDMI3', '0']
+    }
+  }), v = f.instance;
+  v.start();
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI3', '0', 'HDMI2']);
+  assert.deepEqual(Array.from(v.allInputs(), s => String(s.sourceId)), ['HDMI3', '0', 'HDMI2']);
+  v.stop();
+});
+
+test('settings: Inputs toggles show/hide with Left/Right, refuses hiding last input, and opens Reorder inputs', () => {
+  const f = setup(), v = f.instance, k = KEYS;
+  v.start();
+  openSettings(v);
+  const rootIdx = v.settingsRows().findIndex(r => r.kind === 'open-inputs');
+  assert.equal(v.settingsRows()[rootIdx].label, 'Inputs');
+  assert.equal(v.settingsRows()[rootIdx].sub, '3 inputs');
+  v.settingsIndex = rootIdx;
+  v.handleKey(k.ENTER); // Inputs page
+  assert.equal(v.settingsPage, 'inputs');
+  assert.equal(v.settingsRows().length, 4);
+  assert.equal(v.settingsRows()[3].kind, 'open-input-order');
+  assert.equal(v.settingsRows()[3].label, 'Reorder inputs');
+
+  // Hide TV (index 0) and HDMI3 (index 2) via Left/Right; verify last visible input cannot be hidden.
+  v.settingsIndex = 0;
+  v.handleKey(k.RIGHT);
+  assert.equal(f.store.get('alvidaa_hidden_inputs'), '["0"]');
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI2', 'HDMI3']);
+  assert.equal(v.settingsRows()[0].value, 'hidden');
+
+  v.settingsIndex = 2;
+  v.handleKey(k.RIGHT);
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI2']);
+
+  v.settingsIndex = 1; // HDMI2 is the sole visible input
+  v.handleKey(k.RIGHT);
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI2'], 'last visible input stays shown');
+  assert.equal(v.toast, 'keep at least one input');
+
+  // Unhide HDMI3 so two inputs are visible again.
+  v.settingsIndex = 2;
+  v.handleKey(k.LEFT);
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI2', 'HDMI3']);
+
+  // Enter Reorder inputs from the bottom row of Inputs.
+  v.settingsIndex = 3;
+  v.handleKey(k.ENTER);
+  assert.equal(v.settingsPage, 'input-order');
+  assert.equal(v.settingsRows().length, 3, 'no Reset order row until custom order is saved');
+  assert.equal(v.settingsRows()[0].label, '1. TV');
+  assert.equal(v.settingsRows()[0].value, 'hidden');
+  assert.equal(v.settingsRows()[1].value, '\u2039  #2  \u203a');
+
+  // OK on an input row in Reorder inputs does not toggle show/hide.
+  v.settingsIndex = 0;
+  v.handleKey(k.ENTER);
+  assert.equal(v.settingsRows()[0].value, 'hidden', 'OK is a no-op on reorder items');
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI2', 'HDMI3']);
+
+  // Reorder with Left/Right: move HDMI3 (index 2) left twice -> index 1 -> index 0; focus tracks moved item.
+  v.settingsIndex = 2;
+  v.handleKey(k.LEFT);
+  assert.equal(v.settingsIndex, 1);
+  assert.deepEqual(Array.from(v.allInputs(), s => String(s.sourceId)), ['0', 'HDMI3', 'HDMI2']);
+  assert.deepEqual(Array.from(v.sources, s => String(s.sourceId)), ['HDMI3', 'HDMI2']);
+  assert.equal(v.settingsRows().length, 4, 'Reset order row appears once custom order is set');
+
+  v.handleKey(k.LEFT);
+  assert.equal(v.settingsIndex, 0);
+  assert.deepEqual(Array.from(v.allInputs(), s => String(s.sourceId)), ['HDMI3', '0', 'HDMI2']);
+  // Clamps cleanly at start.
+  v.handleKey(k.LEFT);
+  assert.equal(v.settingsIndex, 0);
+
+  // Render REORDER INPUTS panel cleanly.
+  const texts = flatten(f.component.render.call(v, (tag, data, children) => ({ tag, data, children })))
+    .flatMap(n => n.children || []).filter(c => typeof c === 'string');
+  assert.ok(texts.includes('REORDER INPUTS'));
+  assert.ok(texts.includes('Reset order'));
+
+  // Activate Reset order row.
+  v.settingsIndex = 3;
+  v.handleKey(k.ENTER);
+  assert.equal(f.store.get('alvidaa_input_order'), '[]');
+  assert.deepEqual(Array.from(v.allInputs(), s => String(s.sourceId)), ['0', 'HDMI2', 'HDMI3']);
+  assert.equal(v.settingsRows().length, 3, 'Reset order row disappears after reset');
+
+  // Back returns to Inputs, then Back again returns to root and reflects hidden count.
+  v.handleKey(k.BACK);
+  assert.equal(v.settingsPage, 'inputs');
+  v.handleKey(k.BACK);
+  assert.equal(v.settingsPage, 'root');
+  const updatedRoot = v.settingsRows().find(r => r.kind === 'open-inputs');
+  assert.equal(updatedRoot.sub, '2 shown, 1 hidden');
   v.stop();
 });

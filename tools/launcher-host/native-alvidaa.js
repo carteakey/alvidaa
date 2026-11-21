@@ -169,6 +169,18 @@
       }
       return false;
     }
+    function inInputList(list, input) {
+      if (!Array.isArray(list) || !list.length || !input || input.sourceId == null) return false;
+      var id = String(input.sourceId).trim().toLowerCase();
+      var name = text(input.name).toLowerCase();
+      var rename = text(input.rename).toLowerCase();
+      for (var i = 0; i < list.length; i++) {
+        var item = String(list[i]).trim().toLowerCase();
+        if (!item) continue;
+        if (item === id || (name && item === name) || (rename && item === rename)) return true;
+      }
+      return false;
+    }
     // Per-app tint (issue #56): the build bakes a dominant colour per icon,
     // luminance-capped at extraction (app-colours.cjs). The clamp here runs
     // too, because a map can also be hand-made — a white icon must never wash
@@ -206,7 +218,8 @@
           artIncomingOpacity: 1,
           outgoingArtOpacity: 1,
           prefs: {
-            hiddenApps: [], onlyApps: [], customNames: {}, lastUsed: null,
+            hiddenApps: [], onlyApps: [], hiddenInputs: [], inputOrder: [],
+            customNames: {}, lastUsed: null,
             autoSwitch: false, recentOrder: true, recent: {}, favorites: [],
             idleMinutes: 0, clock12h: false, wallpaper: "fjord", groups: []
           }
@@ -239,6 +252,8 @@
           this.prefs = {
             hiddenApps: readPref("alvidaa_hidden_apps", []),
             onlyApps: readPref("alvidaa_only_apps", []),
+            hiddenInputs: readPref("alvidaa_hidden_inputs", []),
+            inputOrder: readPref("alvidaa_input_order", []),
             customNames: readPref("alvidaa_custom_names", {}),
             lastUsed: readPref("alvidaa_last_used", null),
             autoSwitch: isTruthy(readPref("alvidaa_auto_switch", false)),
@@ -253,8 +268,49 @@
           if (this._lastData && this._lastData.apps) {
             this.apps = this.sortRecent(this.filterApps(this._lastData.apps));
           }
+          if (this._lastData && this._lastData.sources &&
+              (!this._managedSources || this.sources === this._managedSources)) {
+            this.sources = this.sortInputs(this.filterInputs(this._lastData.sources));
+            this._managedSources = this.sources;
+          }
           this.clamp();
+          this.syncArt();
           this.syncTint();
+        },
+        filterInputs: function (sources) {
+          var vm = this;
+          return (sources || []).filter(function (input) {
+            if (!input || input.sourceId == null) return false;
+            return vm.inputVisible(input);
+          });
+        },
+        sortInputs: function (sources) {
+          var list = (sources || []).filter(function (input) {
+            return input && input.sourceId != null;
+          });
+          var order = this.prefs && this.prefs.inputOrder;
+          if (!Array.isArray(order) || !order.length) return list;
+          var pos = {};
+          for (var i = 0; i < order.length; i++) {
+            var key = String(order[i]).trim().toLowerCase();
+            if (key && pos[key] == null) pos[key] = i;
+          }
+          var ranked = [];
+          for (var j = 0; j < list.length; j++) {
+            var sid = String(list[j].sourceId).trim().toLowerCase();
+            ranked.push({
+              input: list[j],
+              rank: pos[sid] != null ? pos[sid] : order.length + j,
+              index: j
+            });
+          }
+          ranked.sort(function (a, b) {
+            if (a.rank !== b.rank) return a.rank - b.rank;
+            return a.index - b.index;
+          });
+          var out = [];
+          for (var k = 0; k < ranked.length; k++) out.push(ranked[k].input);
+          return out;
         },
         filterApps: function (apps) {
           var vm = this;
@@ -303,9 +359,8 @@
             vm._payloadReceived = true;
             vm._lastData = data;
             vm.apps = vm.sortRecent(vm.filterApps(data.apps));
-            vm.sources = data.sources.filter(function (input) {
-              return input && input.sourceId != null;
-            });
+            vm.sources = vm.sortInputs(vm.filterInputs(data.sources));
+            vm._managedSources = vm.sources;
             var liveKey = vm.sources.filter(signalOf).map(function (input) {
               return String(input.sourceId);
             }).join(",");
@@ -902,6 +957,15 @@
           if (Array.isArray(hidden) && hidden.length) return !inAppList(hidden, app);
           return true;
         },
+        allInputs: function () {
+          var raw = (this._lastData && this._lastData.sources) || this.sources;
+          return this.sortInputs(raw);
+        },
+        inputVisible: function (input) {
+          var hidden = this.prefs && this.prefs.hiddenInputs;
+          if (Array.isArray(hidden) && hidden.length) return !inInputList(hidden, input);
+          return true;
+        },
         settingsRows: function () {
           var vm = this, rows = [];
           if (this.settingsPage === "name") return rows;
@@ -921,16 +985,21 @@
             return rows;
           }
           if (this.settingsPage === "inputs") {
-            this.sources.forEach(function (input) {
+            var hasOrder = Array.isArray(this.prefs && this.prefs.inputOrder) &&
+              this.prefs.inputOrder.length > 0;
+            this.allInputs().forEach(function (input) {
               if (!input || input.sourceId == null) return;
+              var visible = vm.inputVisible(input);
               var custom = vm.prefs && vm.prefs.customNames &&
                 text(vm.prefs.customNames[String(input.sourceId)]);
               rows.push({
                 kind: "input", input: input,
                 label: vm.sourceName(input),
-                value: custom ? "custom" : "",
-                sub: String(input.sourceId),
-                speak: vm.sourceName(input) + (custom ? ", custom name" : "")
+                value: !visible ? "hidden" : (custom ? "custom" : ""),
+                sub: String(input.sourceId) + (!visible && custom ? " \u00b7 custom" : ""),
+                speak: vm.sourceName(input) +
+                  (custom ? ", custom name" : "") +
+                  (!visible ? ", hidden" : "")
               });
               if (custom) {
                 rows.push({
@@ -940,10 +1009,47 @@
                 });
               }
             });
+            if (this.allInputs().length > 1) {
+              rows.push({
+                kind: "open-input-order",
+                label: "Reorder inputs",
+                sub: hasOrder ? "custom order active" : "change dock order",
+                speak: "Reorder inputs"
+              });
+            }
+            return rows;
+          }
+          if (this.settingsPage === "input-order") {
+            this.allInputs().forEach(function (input, idx) {
+              if (!input || input.sourceId == null) return;
+              var visible = vm.inputVisible(input);
+              var live = signalOf(input);
+              rows.push({
+                kind: "input-order-item", input: input,
+                label: (idx + 1) + ". " + vm.sourceName(input),
+                sub: String(input.sourceId) + (live ? " \u00b7 connected" : ""),
+                value: visible ? "\u2039  #" + (idx + 1) + "  \u203a" : "hidden",
+                speak: vm.sourceName(input) + ", position " + (idx + 1) +
+                  (visible ? "" : ", hidden")
+              });
+            });
+            var order = this.prefs && this.prefs.inputOrder;
+            if (Array.isArray(order) && order.length) {
+              rows.push({
+                kind: "reset-input-order",
+                label: "Reset order",
+                sub: "restores the TV's default input order",
+                speak: "Reset input order"
+              });
+            }
             return rows;
           }
           var total = this.allApps().length, customCount = 0;
-          this.sources.forEach(function (input) {
+          var allIn = this.allInputs();
+          var hiddenInCount = Math.max(0, allIn.length - this.sources.length);
+          var hasInputOrder = Array.isArray(this.prefs && this.prefs.inputOrder) &&
+            this.prefs.inputOrder.length > 0;
+          allIn.forEach(function (input) {
             if (vm.prefs && vm.prefs.customNames &&
                 text(vm.prefs.customNames[String(input.sourceId)])) customCount++;
           });
@@ -958,9 +1064,12 @@
             sub: this.apps.length + " shown, " + (total - this.apps.length) + " hidden"
           });
           rows.push({
-            kind: "open-inputs", label: "Input names",
-            sub: this.sources.length + " inputs" +
-              (customCount ? " \u00b7 " + customCount + " renamed" : "")
+            kind: "open-inputs", label: "Inputs",
+            sub: (hiddenInCount ?
+              (this.sources.length + " shown, " + hiddenInCount + " hidden") :
+              (allIn.length + " inputs")) +
+              (customCount ? " \u00b7 " + customCount + " renamed" : "") +
+              (hasInputOrder ? " \u00b7 custom order" : "")
           });
           var only = this.prefs && this.prefs.onlyApps;
           if (Array.isArray(only) && only.length) {
@@ -1059,6 +1168,58 @@
           writePref("alvidaa_only_apps", []);
           this.readPrefs();
         },
+        toggleInputVisible: function (input) {
+          if (!input || input.sourceId == null) return;
+          var visible = this.inputVisible(input);
+          if (visible && this.sources.length <= 1) {
+            this.showToast("keep at least one input");
+            return;
+          }
+          var hidden = Array.isArray(this.prefs.hiddenInputs) ? this.prefs.hiddenInputs.slice() : [];
+          var id = String(input.sourceId).trim().toLowerCase();
+          var name = text(input.name).toLowerCase();
+          var rename = text(input.rename).toLowerCase();
+          var keep = [];
+          for (var i = 0; i < hidden.length; i++) {
+            var entry = String(hidden[i]).trim().toLowerCase();
+            if (entry === id || (name && entry === name) || (rename && entry === rename)) continue;
+            keep.push(hidden[i]);
+          }
+          if (visible) keep.push(String(input.sourceId));
+          writePref("alvidaa_hidden_inputs", keep);
+          this.readPrefs();
+        },
+        moveInput: function (input, dir) {
+          if (!input || input.sourceId == null || !dir) return;
+          var all = this.allInputs();
+          var order = [];
+          var at = -1;
+          var targetId = String(input.sourceId);
+          for (var i = 0; i < all.length; i++) {
+            var sid = String(all[i].sourceId);
+            order.push(sid);
+            if (sid === targetId) at = i;
+          }
+          var next = at + (dir < 0 ? -1 : 1);
+          if (at < 0 || next < 0 || next >= order.length) return;
+          var tmp = order[at];
+          order[at] = order[next];
+          order[next] = tmp;
+          writePref("alvidaa_input_order", order);
+          this.readPrefs();
+          if (this.settings && this.settingsPage === "input-order") {
+            this.settingsIndex = next;
+            this.clamp();
+          }
+        },
+        resetInputOrder: function () {
+          writePref("alvidaa_input_order", []);
+          this.readPrefs();
+          if (this.settings && this.settingsPage === "input-order") {
+            this.settingsIndex = 0;
+            this.clamp();
+          }
+        },
         openNameEditor: function (input) {
           if (!input || input.sourceId == null) return;
           this.settingsPage = "name";
@@ -1121,10 +1282,12 @@
           else if (row.kind === "idle") this.cycleIdle(1);
           else if (row.kind === "open-apps") { this.settingsPage = "apps"; this.settingsIndex = 0; this.clamp(); }
           else if (row.kind === "open-inputs") { this.settingsPage = "inputs"; this.settingsIndex = 0; this.clamp(); }
+          else if (row.kind === "open-input-order") { this.settingsPage = "input-order"; this.settingsIndex = 0; this.clamp(); }
           else if (row.kind === "only-list") this.clearOnlyList();
           else if (row.kind === "app") this.toggleAppVisible(row.app);
           else if (row.kind === "input") this.openNameEditor(row.input);
           else if (row.kind === "reset-name") this.resetName(row.input);
+          else if (row.kind === "reset-input-order") this.resetInputOrder();
         },
         nudgeSettingsRow: function (dir) {
           var row = this.settingsRows()[this.settingsIndex];
@@ -1134,6 +1297,8 @@
           else if (row.kind === "clock12h") this.toggleClock12h();
           else if (row.kind === "wallpaper") this.cycleWallpaper(dir);
           else if (row.kind === "app") this.togglePin(row.app);
+          else if (row.kind === "input") this.toggleInputVisible(row.input);
+          else if (row.kind === "input-order-item") this.moveInput(row.input, dir);
           else if (row.kind === "idle") this.cycleIdle(dir);
         },
         handleSettingsKey: function (code) {
@@ -1147,6 +1312,12 @@
             return false;
           }
           if (code === keys.BACK || code === keys.RETURN) {
+            if (this.settingsPage === "input-order") {
+              this.settingsPage = "inputs";
+              this.settingsIndex = 0;
+              this.clamp();
+              return true;
+            }
             if (this.settingsPage !== "root") {
               this.settingsPage = "root";
               this.clamp();
@@ -2332,11 +2503,12 @@
           var spX = 440, spY = 120, spW = 1040, spH = 840;
           var spPanel = [specularEdge(spW, 44, 0.35)];
           var spTitles = { root: "HOME SETTINGS", apps: "APPS",
-            inputs: "INPUT NAMES", name: "RENAME INPUT" };
+            inputs: "INPUTS", "input-order": "REORDER INPUTS", name: "RENAME INPUT" };
           var spHints = {
             root: "OK select \u00b7 \u2039 \u203a change \u00b7 BACK close",
             apps: "OK show/hide \u00b7 \u2039 \u203a pin \u00b7 BACK back",
-            inputs: "OK rename \u00b7 BACK back",
+            inputs: "OK select \u00b7 \u2039 \u203a show/hide \u00b7 BACK back",
+            "input-order": "\u2039 \u203a reorder \u00b7 BACK back",
             name: "OK key \u00b7 BACK cancel"
           };
           spPanel.push(h("div", { style: box(56, 36, spW - 112, 26, {
@@ -2397,7 +2569,8 @@
               Math.max(0, spRows.length - spVisible)));
             if (!spRows.length) {
               spPanel.push(label(56, spListY + 8, 24,
-                this.settingsPage === "inputs" ? "no inputs reported" : "no apps reported",
+                (this.settingsPage === "inputs" || this.settingsPage === "input-order") ?
+                  "no inputs reported" : "no apps reported",
                 "#475569", 500));
             }
             for (var ri = spFirst; ri < spRows.length && ri < spFirst + spVisible; ri++) {
@@ -2426,7 +2599,8 @@
               if (spRow.value) {
                 var valPositive = spRow.value === "on" || spRow.value === "shown" || spRow.value === "custom";
                 var valAccent = spRow.value === "12-hour" || /min$/.test(spRow.value) ||
-                  spRow.kind === "wallpaper" && spRow.value !== "Minimal Dark";
+                  (spRow.kind === "wallpaper" && spRow.value !== "Minimal Dark") ||
+                  (spRow.kind === "input-order-item" && spRow.value !== "hidden");
                 spInner.push(h("div", { style: box(spW - 112 - 200, (rowCardH - 36) / 2, 176, 36, {
                   borderRadius: 18,
                   backgroundColor: valPositive ? "rgba(16,185,129,0.16)" :
