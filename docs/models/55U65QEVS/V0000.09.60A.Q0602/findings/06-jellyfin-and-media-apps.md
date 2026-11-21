@@ -1,46 +1,41 @@
 # 06 — Jellyfin (and other media apps) on this unit
 
-Two questions: does Jellyfin's **web client** work here, and is a **native** client
-worth building? Short answers: the web client works very well; a native client is
-not viable.
+Jellyfin web client: supported. Native client: not viable on this hardware.
 
-## The web client already knows this platform
+## Web client
 
-`jellyfin-web` detects VIDAA by user agent and has platform-specific behaviour for
-it — MKV is remuxed rather than played directly, HDR is assumed, and Backspace is
-treated as Back. No fork or patch is required; serving the stock web UI to this
-browser is the supported path.
+`jellyfin-web` detects VIDAA by user agent and applies platform behaviour: MKV is
+remuxed rather than played directly, HDR is assumed, Backspace is treated as Back.
+No fork or patch is required.
 
-Naming, for anyone publishing: the Jellyfin maintainers declined an official VIDAA
-app (`jellyfin-web#8006`), and third parties may not use the Jellyfin name, logo or
-package id for their own wrapper. Personal use is unaffected; a published shell
-needs its own name.
+A published wrapper needs its own name: the maintainers declined an official VIDAA
+app (`jellyfin-web#8006`), and the Jellyfin name, logo and package id are not
+available to third parties.
 
 ## Native client: no
 
-Assessed against the facts in [05](05-media-stack.md):
+Assessed against [05](05-media-stack.md):
 
 | Candidate | Why it fails or limps here |
 |---|---|
-| Jellyfin Desktop (Qt + mpv) | no X11/Wayland/DRM; Qt's `linuxfb`/`directfb` backends are limited and mpv has no working video output for the vendor decoder → software decode only |
-| Kodi + Jellyfin add-on | Kodi is GLES-through-KMS/GBM today; the vendor GLES path is DirectFB; upstream dropped vendor decoder ports |
+| Jellyfin Desktop (Qt + mpv) | no X11/Wayland/KMS; Qt `linuxfb`/`directfb` backends are limited; mpv has no video output for the vendor decoder → software decode |
+| Kodi + Jellyfin add-on | Kodi targets GLES via KMS/GBM; vendor GLES here is via DirectFB; vendor decoder ports were removed upstream |
 | Flutter / mpv-based shells | need KMS/DRM (`flutter-pi`, `--vo=gpu`) |
 | jellyfin-androidtv / Findroid | Android runtime absent |
-| Purpose-built native | would have to target vendor GLES + the vendor media pipeline, both undocumented |
+| Purpose-built native | must target vendor GLES and the vendor media pipeline; both undocumented |
 
-Software-decoding 4K HEVC Main10 on four A73s is not achievable, so the browser's
-path to the vendor decoder is the only 4K route on this hardware.
+Software decode of 4K HEVC Main10 is not achievable on four A73s; the browser's path
+to the vendor decoder is the only 4K route.
 
-## What was actually installed
+## Installed app
 
-A TV-shaped Jellyfin client — **Moonfin** (MPL-2.0) — was packaged as an IPK with
-`Architecture: mtk9618` and installed alongside the system apps; a matching
-`jellyfind` entry now appears in
-`/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/services/`. That is the packaged-app route
-working end to end: the vendor OPKG accepted a third-party app and the launcher
-shows it.
+**Moonfin** (MPL-2.0) packaged as an IPK with `Architecture: mtk9618`, installed by
+the vendor opkg, with a `jellyfind` entry in
+`/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/services/`. Artifact:
+`/APPS/jellyfin-moonfin.ipk` (11.4 MB). Third-party apps are accepted by this
+package manager and appear in the launcher.
 
-## Playback matrix (owner's library, via Jellyfin, on this unit)
+## Playback matrix (measured library)
 
 | Content | Result |
 |---|---|
@@ -51,21 +46,21 @@ shows it.
 | 1080p H.264 | direct play |
 | Bitmap (PGS) subtitles | **forces a full HEVC→H.264 software transcode** and loses HDR |
 
-So: keep the default audio track, prefer text subtitles (server-side extraction or
-external `.srt`), and 4K HDR direct play is reliable.
+Keep the default audio track; prefer text subtitles (server extraction or external
+`.srt`). Under those conditions 4K HDR direct play is reliable.
 
-## Two findings worth keeping
+## Two non-app results
 
-**A dark-scene "line" is a TV picture setting, not the app.** With the panel in
-*Custom* or *IQ*, dynamic contrast/local dimming lifts blacks; *Dolby Vision Dark*
-is the accurate mode and the artefact disappears. Nothing to fix in software.
+**A dark-scene line is a TV picture setting.** In *Custom* or *IQ* mode, dynamic
+contrast / local dimming lifts blacks; *Dolby Vision Dark* is the accurate mode and
+the artefact disappears. No software change is involved.
 
-**Non-default choices re-encode.** Selecting a non-default audio track, or a
-subtitle that must be burned in, makes the server transcode the whole video and
-lose HDR. Plain playback never triggers it.
+**Non-default tracks re-encode.** Selecting a non-default audio track, or a subtitle
+that must be burned in, causes a full video transcode and HDR loss; default playback
+does not.
 
 ## Remote keys
 
-Directional pad, OK and Back work; **Back arrives as `Backspace`**. Media transport
-keys (play/pause, ff/rw, stop) had not been observed reaching the app at the time
-of writing — worth mapping explicitly if a client needs them.
+Directional pad, OK and Back reach the page; **Back arrives as `Backspace`**. Media
+transport keys (play/pause, ff/rw, stop) were not observed reaching page
+JavaScript; map them explicitly if a client needs them.

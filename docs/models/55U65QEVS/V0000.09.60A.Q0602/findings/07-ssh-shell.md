@@ -1,35 +1,32 @@
 # 07 — A key-only SSH shell on this build (dropbear), and the traps on the way
 
-The unit has no `sshd`, `dropbear`, `nc` or `socat`, and every writable filesystem
-is `nosuid`, so a setuid helper is impossible. Two working arrangements exist:
-a Node TCP shell (what the `65A85QEVS` guide uses) and a **static armv7 dropbear**
-started by the IPK postinst. This note records the second, because SSH is the more
-comfortable channel and it survives a reboot.
+No `sshd`, `dropbear`, `nc` or `socat` is present, and every writable filesystem is
+`nosuid`, so a setuid helper is impossible. Two arrangements work: a Node TCP shell
+(as on `65A85QEVS`), or a **static armv7 dropbear** started by the IPK postinst and
+re-armed at every boot. This note covers the second.
 
 ## The binary
 
-Static **ARMv7** (userland is 32-bit even though the kernel is aarch64), built
-against **musl** rather than glibc:
+Static **ARMv7** (userland is 32-bit; the kernel is aarch64), built against **musl**:
 
-- glibc-static still `dlopen`s NSS for `getpwuid()`; a binary built against a
-  newer glibc than the target's 2.31 can fail user lookup at login.
-- musl has passwd/group lookup compiled in, so a musl-static dropbear is genuinely
-  self-contained. Built with `--disable-zlib --disable-pam --disable-shadow
-  --disable-logintfunc -DDROPBEAR_SVR_PASSWORD_AUTH=0`, ~380 KB.
+- glibc-static still `dlopen`s NSS for `getpwuid()`; linking against a newer glibc
+  than the target's 2.31 can fail user lookup at login.
+- musl compiles passwd/group lookup in, so a musl-static dropbear is self-contained.
 
-## Four traps, all of which cost a boot cycle
+Configure: `--disable-zlib --disable-pam --disable-shadow --disable-lastlog
+--disable-loginfunc -DDROPBEAR_SVR_PASSWORD_AUTH=0`. Result: 380 KB, armv7 EABI5,
+static-pie.
 
-| Trap | Symptom | Fix |
+## Requirements and failure modes
+
+| Requirement | Failure if unmet | Implementation |
 |---|---|---|
-| **`/etc/shells` does not exist** | `User 'root' has invalid shell, rejected` in dropbear's log, `Permission denied (publickey)` to the client | binary-patch the literal `/etc/shells` → `/APPS/shell` (a writable file listing allowed shells) |
-| **`-g` is not a valid option** when password auth is compiled out | `Invalid option -g`, dropbear exits immediately | don't pass it; key-only is already the only method |
-| **`$HOME` is `/`** (root's home is the read-only rootfs) | dropbear looks for `/.ssh/authorized_keys`, finds nothing | bind-mount a writable copy of `/etc/passwd` over `/etc/passwd` with root's home pointing at `/APPS/home/root` |
-| **`sed -i` breaks the bind mount** | the mounted `/etc/passwd` shows the *old* contents after editing | `sed … > /tmp/x; cat /tmp/x > /etc/passwd` — write in place, same inode |
+| `/etc/shells` must exist and list the login shell | `User 'root' has invalid shell, rejected`; client sees `Permission denied (publickey)` | binary-patch the literal `/etc/shells` → `/APPS/shell`, a writable file listing allowed shells |
+| `-g` is unavailable when password auth is compiled out | `Invalid option -g`; dropbear exits | omit it; key-only is the only compiled method |
+| `$HOME` must be writable | root's home is `/` on the read-only rootfs, so `~/.ssh/authorized_keys` cannot exist | bind-mount a writable `passwd` over `/etc/passwd` with root's home at `/APPS/home/root` |
+| the overlay must be written in place | `busybox sed -i` writes a new file and renames it, so an existing bind mount keeps the orphaned inode and shows old contents | `sed … > /tmp/x; cat /tmp/x > /var/local/etc/passwd` |
 
-The last one is the subtle one: `busybox sed -i` writes a new file and renames it,
-so a bind mount made before the edit keeps pointing at the orphaned inode.
-
-## Shape of the working setup
+## Layout
 
 ```
 /APPS/.re_ssh/dropbear            static armv7, /etc/shells → /APPS/shell
@@ -41,17 +38,18 @@ so a bind mount made before the edit keeps pointing at the orphaned inode.
 /APPS/home/root/.ssh/authorized_keys
 ```
 
-`tvsh` exists because the rootfs is read-only and `/etc/profile` does interactive
-work that breaks non-interactive commands; it sets `PATH` (so `busybox` resolves)
-and `LD_LIBRARY_PATH` (so `opkg` resolves `libarchive`).
+`tvsh` is the login shell. The rootfs is read-only and `/etc/profile` performs
+interactive work that breaks non-interactive commands, so `tvsh` sets `PATH` (for
+`busybox`) and `LD_LIBRARY_PATH` (for `opkg`, which needs `libarchive` from
+`/usr/local/lib`) before exec'ing bash.
 
-## Re-applied at every boot
+## Boot re-apply
 
-The same postinst that installs the payload does the overlay, the key, the
-`iptables` accepts for 2222/8008 and starts dropbear; a `BaseService`
+The postinst performs the overlay, the key, the `iptables` accepts for 2222 and
+8008, and starts dropbear. A `BaseService`
 ([02](02-base-service-persistence.md)) re-runs that postinst at every boot when
-nothing is listening. Verified across a power cycle: SSH accepts a key ~20 s after
-boot, no page, no PC.
+nothing listens. Measured: key auth accepted ~20 s after a power cycle, with no
+intermediate step.
 
 ## Teardown
 

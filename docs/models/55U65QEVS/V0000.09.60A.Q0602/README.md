@@ -1,117 +1,110 @@
-# 55U65QEVS / V0000.09.60A.Q0602 — root, boot-persistent via BaseService (MTK9618, EU_A/GBR)
+# 55U65QEVS / V0000.09.60A.Q0602 — MTK9618, EU_A (GBR)
 
-**Status:** verified on 2026-11-20 on one retail unit. The browser write lane is
-**closed** by the `503 appconfig` identity gate; root is **achieved** through the
-`fetcher → superwatch → IPK postinst` chain (same family as `55E75LEVS`/09.61B,
-`50U7DSE`/09.62N, `65A85QEVS`/`09.60A`), and is **boot-persistent** through the
-vendor js-service autostart — a `BaseService` in
-`tv.vidaa.jsservice.basic/CHA/services/` plus one `serviceList.json` entry, which
-re-runs the install ~20 s after every cold boot. Root survives a wall-plug power
-cycle with no page, no PC and no pairing.
+Firmware reference for the Hisense platform model **55U65QEVS** (retail
+`55U7QTUK`, serial type `55U6QE`, `ProjectId 140`), build `V0000.09.60A.Q0602`,
+build stamp `a20260727u`.
 
-> **Applies to the retail `55U7QTUK`**, whose platform identity is **`55U65QEVS`**
-> (serial type `55U6QE`, `ProjectId 140`; SoC **MTK9618**, kernel 5.4.302
-> aarch64 with 32-bit ARM userland, VIDAA `U09.60`, region `EU_A`, country
-> `GBR`) running `V0000.09.60A.Q0602` (build stamp `a20260727u`).
-> `55U7QTUK`, `55U65QEVS` and `55U6QE` appear nowhere else in this repo: the
-> retail SKU is not the platform model, and searching only the retail string
-> finds nothing.
+- Browser write lane: closed (`503 appconfig`).
+- Read traversal: open, array path only.
+- Write primitive: FaaS fetcher (`fetchFile`, uid 314).
+- Root: achieved via `fetcher → superwatch 83/82 → opkg postinst` (uid 0).
+- Boot persistence: vendor js-service autostart (`BaseService`), no boot-chain
+  writes, no `eval` at boot.
+- Launcher: lane-3 component swap, `operationui` channel CHB.
 
-> **Owner-run, own TV only.** No key material or vendor bundle is published with
-> this guide. The IPK builder here is a minimal proof-of-root; the shell is the
-> vendor Node runtime, not a patched Dropbear.
+## Platform
 
-## What the chain rests on
+| | |
+|---|---|
+| SoC | MTK9618 (kernel `mt5879`) |
+| CPU | 4× Cortex-A73 (`CPU part 0xd09`), aarch64 kernel 5.4.302 |
+| Userland | 32-bit ARM (armhf), glibc 2.31; compiled binaries must be armv7 EABI5 |
+| OS | VIDAA U09.60, JS API 3.0.1, Chromium 111 (`odin`), Cobalt shell engine |
+| Display | 3840×2160 panel; framebuffer 1920×1080; app surface reports 720p |
+| Graphics | OpenGL ES via DirectFB; no `/dev/dri`, no KMS/DRM |
+| Video | hardware decode inside the vendor `mediamain` GStreamer process |
+| Verified boot | dm-verity + AVB, `verifiedbootstate=green`, A/B slots (`_b` live) |
+| SELinux | permissive (`enforce=0`) |
 
-1. **The browser write lane is closed.** `HiUtils_createRequest("fileWrite", …)`
-   returns `ret:false` with `client request permission check error, please check
-   appconfig`, and `Hisense_SupportAppConfig()` is `true` — the same gate as
-   `65A85QEVS` on the identical build string.
-2. **Read traversal is array-only.** `{path:["../proc/uptime"]}` → `ret:true`;
-   a bare string is rejected `invalid path`. Relative paths resolve against
-   `/APPS`, so `ModelInfo.ini` is readable without traversal at all.
-3. **The fetcher is the write primitive.** `vowOS.service.syncExecute("basic/fetcher",
-   {api:"fetchFile", args:"{\"url\",\"directory\",\"permission\"}"})` writes as
-   uid 314 with no appconfig check; it does not `mkdir`, so the target directory
-   must exist.
-4. **FaaS exec.** `POST https://localhost:9888/function/basic/fetch/<name>` runs a
-   module written into `CHA/functions/fetch/` as uid 314 (Node 20.19.4,
-   `process.arch=arm`, group `616(superwatch)`). `http://localhost:9009` works as
-   a fallback.
-5. **Superwatch 83/82 → uid-0 postinst.** `sw2.js` writes `4-byte LE length +
-   payload` to `/var/run/superwatch_socket`; ids `83` (uninstall) and `82`
-   (install) are accepted; `opkg --force-reinstall install <ipk>` runs the IPK's
-   `postinst` as uid 0 (`CapEff 0000003fffffffff`). The IPK `control` must carry
-   `Architecture: mtk9618` and `AppId`/`AppName`.
-6. **Boot persistence is the vendor js-service autostart** — see
-   [findings/02](findings/02-base-service-persistence.md). This is the part worth
-   reading: it does not use PFM, does not eval anything at boot, and fails
-   benignly.
+## Chain
 
-## What was measured
+1. **`fileRead`** — `HiUtils_createRequest("fileRead", {path:["../proc/uptime"], mode:6})`
+   → `ret:true`. A bare-string path returns `invalid path`. Relative paths resolve
+   against `/APPS`.
+2. **`fileWrite`** — `HiUtils_createRequest("fileWrite", …)` → `ret:false`,
+   `client request permission check error, please check appconfig`.
+   `Hisense_SupportAppConfig()` → `true`.
+3. **FaaS write** — `vowOS.service.syncExecute("basic/fetcher",
+   {api:"fetchFile", args:JSON.stringify({url,directory,permission})})` writes as
+   uid 314. No `mkdir`: the target directory must exist.
+4. **FaaS exec** — `POST https://localhost:9888/function/basic/fetch/<name>` runs a
+   module placed in `tv.vidaa.jsservice.basic/CHA/functions/fetch/` as uid 314
+   (Node 20.19.4, group `616(superwatch)`). `http://localhost:9009` also answers.
+5. **Superwatch** — `sw2.js` sends `4-byte LE length + payload` to
+   `/var/run/superwatch_socket`; ids `83` (uninstall) and `82` (install) run
+   `opkg --force-reinstall install <ipk>`; the IPK `postinst` executes as uid 0
+   (`CapEff 0000003fffffffff`). Control fields required: `Architecture: mtk9618`,
+   `AppId`, `AppName`.
+6. **Boot persistence** — `BaseService` + one `serviceList.json` entry; the vendor
+   service manager starts it at uid 314 on every boot and it re-arms step 5 when
+   nothing listens on `:8008`. [findings/02](findings/02-base-service-persistence.md)
 
-| Claim | Evidence | Source |
-| --- | --- | --- |
-| Identity | `critical.ini [Critical] Model=55U65QEVS`, `Serial=55U6QE`, `ProjectId=140`; `[Hardware] ChipVersion=MTK9618`; `[Market] RegionStr=EU_A` | live |
-| SoC, three ways | `ModelInfo.ini SocModel=MTK9618`; `GetChipSetName()`→`MTK9618`; `GetPlayerFeatureInfo()`→`009006000.VD9618O_GL` | live |
-| Kernel / userland | `5.4.302` aarch64, `process.arch=arm`, `mt5879` in cmdline | live |
-| Verified boot | `verifiedbootstate=green`, `device_state=locked`, `veritymode=enforcing`, dm-verity with FEC + `restart_on_corruption`, **A/B slots** (`slot_suffix=_b`) | live |
-| `fileWrite` gated | `503 appconfig`, `SupportAppConfig()=true` | live |
-| `fileRead` traversal | array path only, bare string `invalid path` | live |
-| Fetcher write | `ret:true "download finished"` as uid 314 | live |
-| FaaS exec | `probe.js` → `uid 314`, `node 20.19.4`; `/var/run/superwatch_socket` present `0660` | live |
-| Superwatch | `83`/`82` → `ret:true`; `ipk_install_status` → `step:finish` | live |
-| `postinst` uid 0 | `Uid: 0 0 0 0`, `CapEff 0000003fffffffff` | live |
-| Root shell on 8008 | Node `rshell.js`, uid 0, reachable from the LAN | live |
-| **Boot persistence** | `hearthd start … ARMED: root shell up on 8008` 19 s after a **wall-plug** power cycle; `boot_id` changed | live |
-| Native Home (lane 3) | `app.js` md5 **45626039103fb60060618545dba6f0f5** — byte-identical to the `65A85QEVS` stock bundle this repo already pins | live |
+## Measurements
 
-## Deltas worth knowing
+| Item | Value | Source |
+|---|---|---|
+| `critical.ini [Critical]` | `Model=55U65QEVS`, `Serial=55U6QE`, `ProjectId=140` | live |
+| `critical.ini [Hardware]` | `ChipVersion=MTK9618` | live |
+| `ModelInfo.ini` | `SocModel=MTK9618`, `Name=55U6QE`, `SwVersion=V0000.09.60A.Q0602` | live |
+| `critical.ini [System]` | `Version=V0000.09.09P.P0930` (factory baseline) | live |
+| `GetChipSetName()` | `MTK9618` | live |
+| `GetPlayerFeatureInfo()` | `009006000.VD9618O_GL` | live |
+| `fileWrite` | `503 appconfig` | live |
+| fetcher `fetchFile` | `ret:true "download finished"`, uid 314 | live |
+| superwatch `83`/`82` | `ret:true`, `ipk_install_status → step:finish` | live |
+| `postinst` identity | `Uid: 0 0 0 0`, `CapEff 0000003fffffffff` | live |
+| boot persistence | root shell listening ~20 s after a power cycle | live |
 
-- **`/var/local` is `drwxrwxrwx`**, `/APPS` and `/OAD` likewise. That is why the
-  fetcher needs no help creating files at the top level.
-- **`/var/log` is tmpfs** (4 MB); runtime logs die at reboot. `/var/local` is a
-  real ext4 and persists — a factory reset does not clean it.
-- **No `alpac-agent`** on this unit (`/var/local/alpac-agent` absent), so nothing
-  re-arms `DebugPowerup` from the vendor side.
-- **The `rc.local` `otaTest.sh` hook is commented out** on this build, so that
-  root lane (used on the `50A51HUV`) does not exist here.
-- **SELinux is permissive** (`enforce=0`).
-- **`inittab` runs `getty` on `ttyS0,115200`** — a serial console exists.
-- **No `sshd`/`dropbear`/`nc`/`socat`/`wget`/`curl`**, and every persistent
-  filesystem is `nosuid`, which is why the shell is Node, not a binary.
+## Partitions
+
+rw: `/APPS` p54 · `/APPS2` p46 · `/var/local` p49 · `/OAD` p55 · `/data` p12 ·
+`/vendor/persist` p33 · `/Customer` p27 · `/certificate` p5 · `/vendor/uuenv` p4 ·
+`/var/tvservice` p44 · `/cache` p11
+
+ro: `/` (squashfs + dm-verity) · `/vendor/tvconfig` + `/config` p25 ·
+`/vendor/lib` dm-1 · `/application` dm-2 · `/hidata/{critical,factory,model,common}`
+p42/43/45/51 · `/oemdata` p52 · `/project_id` p35 · `/serialdata` p50 · `/3rd` dm-5
+
+tmpfs: `/var/run`, `/var/log` (4 MB), `/var/crash`
+
+`/APPS`, `/APPS2`, `/var/local` and `/OAD` are mounted `nosuid`; all are `0777` at
+the top level.
+
+## Findings
+
+| | |
+|---|---|
+| [01](findings/01-identity-and-bridge.md) | identity, bridge surface, installed packages |
+| [02](findings/02-base-service-persistence.md) | boot persistence via the vendor js-service autostart |
+| [03](findings/03-native-home-port.md) | native Home (lane 3): bundle, SDK contracts, engine quirks |
+| [04](findings/04-negative-results.md) | approaches that do not work, with the observed error |
+| [05](findings/05-media-stack.md) | CPU, display layers, graphics, decoder, runtimes |
+| [06](findings/06-jellyfin-and-media-apps.md) | Jellyfin web/desktop/Android options; measured playback |
+| [07](findings/07-ssh-shell.md) | static dropbear shell: requirements and constraints |
 
 ## Teardown
 
 ```sh
-# 1. persistence: restore the pristine list and drop the service
 cp -p /APPS/.re/backup/serviceList.json.pristine \
       /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/services/serviceList.json
 rm -rf /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/services/hearthd
-# 2. shell + payloads
-/usr/local/bin/busybox pkill -f rshell.js
-rm -f /APPS/.hearthd.log /APPS/installer.ipk
-rm -rf /APPS/.re
-rm -f /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js
-# 3. package (if the IPK is still installed)
+kill $(pidof dropbear) 2>/dev/null
+umount /etc/passwd 2>/dev/null
+rm -rf /APPS/.re /APPS/.re_ssh /APPS/home/root /APPS/bin/tvsh /APPS/shell
+rm -f /APPS/installer.ipk /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js
 opkg remove re.installer
-# 4. launcher, if it was replaced
 cp -p /APPS/.re/backup/app.js.stock \
       /APPS/pkgs/tv.vidaa.app.operationui/CHB/apps/launcher/js/app.js
 chown 305:909 /APPS/pkgs/tv.vidaa.app.operationui/CHB/apps/launcher/js/app.js
 chmod 0640 /APPS/pkgs/tv.vidaa.app.operationui/CHB/apps/launcher/js/app.js
 ```
-
-The rootfs, `/vendor/*`, `/OAD` and the boot chain are never written.
-
-## Cross-reference
-
-- Boot persistence mechanism and its failure modes:
-  [findings/02](findings/02-base-service-persistence.md)
-- Native Home port specifics (SDK contracts, Cobalt quirks):
-  [findings/03](findings/03-native-home-port.md)
-- What did **not** work, so nobody repeats it: [findings/04](findings/04-negative-results.md)
-- Hardware and media stack (A73, framebuffer vs app surface, GLES-over-DirectFB): [findings/05](findings/05-media-stack.md)
-- Jellyfin and packaged media apps, with a playback matrix: [findings/06](findings/06-jellyfin-and-media-apps.md)
-- A key-only SSH shell (dropbear) and its four traps: [findings/07](findings/07-ssh-shell.md)
-- Identity and bridge evidence: [findings/01](findings/01-identity-and-bridge.md)
