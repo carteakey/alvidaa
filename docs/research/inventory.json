@@ -855,7 +855,7 @@
    "browser": "Chromium 111 \"odin\" (WebExplorer/5.2.1)",
    "build_date": "2026-07-27 (operationui build stamp)",
    "tested_by": [
-    "@gwern"
+    "@gwerneckp"
    ],
    "capabilities": {
     "pairing": "working (Sidee, modern profile; used only as an out-of-band way to open the browser)",
