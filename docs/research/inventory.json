@@ -558,15 +558,16 @@
     },
     {
       "id": "V0000.09.62C.Q0924",
-      "model": "55U61KEVS",
-      "region": "EU_A (DEU)",
+      "model": "55U61KEVS; 75E86GAVS (retail 75U8KQTUK)",
+      "region": "EU_A (DEU); EU_A (HUN)",
       "soc": "MTK9618 (aarch64 kernel, armhf userland)",
       "vidaa_os": "U09.62",
-      "transport_protocol": "?",
+      "transport_protocol": "3290",
       "browser": "Chromium 111 \"odin\" (aarch64 UA)",
       "build_date": "2026-09-22",
       "tested_by": [
-        "gh:miramaki"
+        "gh:miramaki",
+        "gh:jaypaulb"
       ],
       "capabilities": {
         "pairing": "untested",
@@ -577,13 +578,13 @@
         "euladpp_untar": "untested",
         "devtools_forge": "untested",
         "root": "achieved",
-        "notes": "Retail 55U7KQ, internal 55U61KEVS, EU_A/DEU, VIDAA U09.62. MTK9618 with aarch64 kernel but 32-bit ARM userland (process.arch 'arm'). Reached from the TV Browser page: fetcher fetchFile writes (uid 314), hiutils array-path traversal, superwatch /var/run/superwatch_socket 660 root:616 (install 82 / uninstall 83 / GetDirUsage 85). Root kit = patched static ARMv7 (EABI5) Dropbear key-only on :8008; IPK postinst ran uid 0 with CapEff 0000003fffffffff. Boot persistence via re_sshd in tv.vidaa.jsservice.basic/CHA/services + serviceList (re-arms ~30s after a cold boot). Lane 3 native Home (Free My TV) installed in the writable operation-ui app.js (component swap only); Home/Input/HDMI/TV Settings/AirPlay verified. OTA already off: /OAD/AppUpgradeSwitch.json upgradeFlag 0. transport_protocol not SSDP-exposed on this unit (sibling 55E75LEVS is 3290). Verified boot green."
+        "notes": "Retail 55U7KQ, internal 55U61KEVS, EU_A/DEU, VIDAA U09.62. MTK9618 with aarch64 kernel but 32-bit ARM userland (process.arch 'arm'). Reached from the TV Browser page: fetcher fetchFile writes (uid 314), hiutils array-path traversal, superwatch /var/run/superwatch_socket 660 root:616 (install 82 / uninstall 83 / GetDirUsage 85). Root kit = patched static ARMv7 (EABI5) Dropbear key-only on :8008; IPK postinst ran uid 0 with CapEff 0000003fffffffff. Boot persistence via re_sshd in tv.vidaa.jsservice.basic/CHA/services + serviceList (re-arms ~30s after a cold boot). Lane 3 native Home (Free My TV) installed in the writable operation-ui app.js (component swap only); Home/Input/HDMI/TV Settings/AirPlay verified. OTA already off: /OAD/AppUpgradeSwitch.json upgradeFlag 0. transport_protocol not SSDP-exposed on this unit (sibling 55E75LEVS is 3290). Verified boot green. Second unit (75E86GAVS, retail 75U8KQTUK, EU_A/HUN) arrived on V0000.09.09O.P0930 and took an apparently unrefusable OTA to this build mid-investigation; every primitive was re-verified post-OTA (fileRead array-path, fetcher write, superwatch 82 install, postinst uid 0). Stock operation-ui app.js is byte-identical to this pin (323596 bytes, 305:909 0640, md5 8b1c61935b182beb9f476ee9d00e54f5). transport_protocol 3290 read from the retained device descriptor. Sidee modern-cert pairing accepted. Dropbear build notes: 2022.83 compiled with DROPBEAR_SVR_PASSWORD_AUTH 0 rejects -s (flag absent), and -R fails because /etc/dropbear is read-only — pass an explicit -r keyfile on /APPS."
       },
       "capability_detail": {
         "launcher": "Native lane 3: Free My TV component swap in the writable operation-ui app.js (route[0].component for /Launcher only). The tested SDK interfaces match those of 75U8QTUK (app-service/getAppList, all-inputs/changeSourceTo, setting.open, apc/CMDMETHOD), so the free-my-tv-75u8qtuk adapter was reused unchanged. Home, Input, HDMI switching, TV Settings, and AirPlay verified; survived a cold boot byte-identically. A follow-on 'Arc Home' variant adds MENU->settings (key 409 MENU_SRC), a UTC-safe clock via _V_SDK_.biz.date.getLocalDate, and Recent via _V_SDK_.biz.source.getCurrentAppSource().",
         "file_bridge_traversal": "hiutils.fileRead traverses with a one-element array path (../proc/uptime read); bare-string paths are rejected 'invalid path:../proc/uptime'.",
         "file_bridge_write": "The write primitive is the FaaS fetcher: basic/fetcher fetchFile returns ret:true 'download finished', writing as uid 314 to /APPS and /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/ (markers + installer.ipk). WebSDK_createFileRequest is not exposed.",
-        "root": "fetcher.fetchFile -> superwatch 83 (uninstall) / 82 (install) -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 (EABI5) Dropbear, key-only on :8008; boot-persistent via the re_sshd serviceList autostart (re-arms ~30s after a cold boot)."
+        "root": "fetcher.fetchFile -> superwatch 83 (uninstall) / 82 (install) -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 (EABI5) Dropbear, key-only on :8008; boot-persistent via the re_sshd serviceList autostart (re-arms ~30s after a cold boot). 75E86GAVS notes: same chain; the minimal IPK needs `mv` of every bundled file out of the opkg extract root (/APPS/pkgs/APPS/.re_sshd) before use, and the postinst environment lacks id/rmdir/setsid — read /proc/self/status instead of id, use dropbear's own daemonizing (no setsid)."
       }
     },
     {
