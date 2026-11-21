@@ -111,4 +111,7 @@ The rootfs, `/vendor/*`, `/OAD` and the boot chain are never written.
 - Native Home port specifics (SDK contracts, Cobalt quirks):
   [findings/03](findings/03-native-home-port.md)
 - What did **not** work, so nobody repeats it: [findings/04](findings/04-negative-results.md)
+- Hardware and media stack (A73, framebuffer vs app surface, GLES-over-DirectFB): [findings/05](findings/05-media-stack.md)
+- Jellyfin and packaged media apps, with a playback matrix: [findings/06](findings/06-jellyfin-and-media-apps.md)
+- A key-only SSH shell (dropbear) and its four traps: [findings/07](findings/07-ssh-shell.md)
 - Identity and bridge evidence: [findings/01](findings/01-identity-and-bridge.md)
