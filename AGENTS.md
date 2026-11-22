@@ -33,6 +33,16 @@ Two lanes share one TV:
 - **FINDINGS discipline**: every discovery — bug, trap, errno — goes into
   `docs/models/50A51HUV/09.01O.P0813/findings/` the same hour it happens. That discipline is why the
   root chain worked.
+- **Ask before committing; ask again before pushing.** A local commit and a
+  push are two separate decisions, and a local commit may legitimately stay
+  local. Never run `git commit`, `git push`, `git tag`, a force-push, or
+  create/update a PR without an explicit go from the owner for *that* step.
+  Before asking, show what would go online: the diff, the file list, the
+  commit subject, and a scan for secrets, unit identifiers (MAC, serial,
+  boot id), LAN addresses and vendor binaries — the publication policy is in
+  [docs/DISCLOSURE.md](docs/DISCLOSURE.md). "Commit" is never read as "push",
+  and a branch that already tracks a fork PR is still the owner's to
+  publish.
 
 ## Map
 
