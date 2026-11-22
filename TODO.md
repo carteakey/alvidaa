@@ -216,6 +216,17 @@ first**, which is the strongest signal in the list.
       first attempt, dropbear uid 0). See the 75UR9S guide's *Boot
       persistence* section — including the `nosuid`-on-every-persistent-fs
       finding that rules out SUID on this build.
+- [ ] **65UR9S: launcher lane never attempted.** The root chain is documented
+      and verified; the launcher lane (pairing, page/WS, home-watcher) was not
+      touched on this build. The region string was never read off the unit, so
+      `inventory.json` keeps `?` — read it off the device, do not guess it.
+- [ ] **65UR9S: a real SSH daemon still needs an ARM binary.** The root channel
+      is the vendor Node runtime serving a shell on `:8008`: this build has no
+      sshd, no dropbear, no `nc`/`wget`/`curl`, and a busybox without an `nc`
+      applet. Shipping a key-only dropbear for this build needs a
+      cross-compiler on the operator host — the 65A70LAVT and 75U8QTUK guides
+      show the shape of that deliverable, and the 65UR9S guide's findings/02
+      records why the zero-compile lane was taken instead.
 - [ ] **Launcher shadow package** via the `GET_PKG_DEST` gateway (measured
       feasible on 43Q60SEVS, not enforced). `SafeStart` and the 63.8 MB payload
       are the constraints; see the 43Q60SEVS guide's open follow-ups.

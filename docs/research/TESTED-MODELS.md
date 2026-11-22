@@ -29,6 +29,7 @@ builds.
 | HE40E5600FFWTS | ? (EU, German-language docs) | MT53xx / MT5863 class (armv7 Cortex-A53) | pre-9 (Linux 3.18.25, glibc 2.18, BusyBox 1.18.5, sysvinit) | V0100.01.00A.N0410 | untested (vector did not use MQTT) | hisenseUI (Chromium 59.0.3071.115, opera4x) + hisense_browser (separate process, DevTools 9224, --disable-web-security) | untested | achieved | [@oOHiyoriOo](https://github.com/oOHiyoriOo) |
 | 100U7Q (100U70QEVS) | EU_A | MT9655 (32-bit ARM userland) | U09.60 | V0000.09.60I.Q0813 | untested | untested | untested | achieved | [@oOHiyoriOo](https://github.com/oOHiyoriOo) |
 | 75UR9S | EU (Czech Republic) | MT9655 (32-bit ARM userland) | U09.0 | V0000.09.60W.Q0624 | untested | untested | untested | achieved | [@EvzenP](https://github.com/EvzenP) |
+| 65UR9S | ? | MT9655 (32-bit ARM userland) | U09.0 (from the 09.60 firmware generation; not read from the device) | V0000.09.60V.Q0618 | untested | Chromium 111 "WebViewer/7.0.15" (Cobalt, aarch64 UA) | untested | achieved | unit owner |
 | 43E7DS (43Q60SEVS_02, serial type 43E7SE) | EU_A (DEU) | MTK9603 | U09.60 | 09.60W.Q0612 (EU_A) | ? | Chromium 111 "odin" (multi-shell UAs: WebExplorer/1.2.8, SurfMaster/7.0.0, Weblayer, NetSurfer) | working | achieved | [@ryjr2ddznn-lab](https://github.com/ryjr2ddznn-lab) |
 | 50A6Q (50A60QXVT) | UAE / intl (SSDP region 4) | NT72690 (Novatek; aarch64 kernel, armhf ELF32 userland) | U09.61 | V0000.09.61B.Q0721 | 3290 | Odin Chromium 111.5563.5.1 (aarch64) | untested | achieved | [@aadnaane](https://github.com/aadnaane) |
 | 55A7KAU (internal 55U66GAVT) | AU (AUS; GetCountryCode AUS, SSDP region 6) | MTK9602 | U09.09 | V0000.09.09O.P1015 | 3290 | Chromium 111 "odin" | working | achieved | [@JacksonDCollins](https://github.com/JacksonDCollins) |
@@ -95,6 +96,9 @@ never hand-edit between the markers.
 
 **75UR9S — V0000.09.60W.Q0624**
 - `root` **achieved** — Root + key-only SSH on 8008 verified 2026-11-04; boot persistence verified 2026-11-06 — the re_sshd serviceList autostart re-arms dropbear at every cold boot.
+
+**65UR9S — V0000.09.60V.Q0618**
+- `root` **achieved** — Root shell on TCP 8008 verified 2026-11-22 (uid 0, CapEff 000001ffffffffff, from the operator PC over the LAN). Boot persistence verified across a real reboot: the re_sshd service armed the channel on its first attempt, ~31 s after boot, with no browser and no operator action.
 
 **43E7DS (43Q60SEVS_02, serial type 43E7SE) — 09.60W.Q0612 (EU_A)**
 - `identity_gate` **working** — The gate blocks the websdk self-install (fileWrite on websdk/Appinfo.json -> 503); the FaaS fetcher write route is not gated.

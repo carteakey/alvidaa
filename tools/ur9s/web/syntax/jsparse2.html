@@ -1,0 +1,32 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>jsparse2</title></head>
+<body style="background:#111;color:#0f0;font:13px monospace"><pre id="o">pending</pre>
+<script>
+/* Syntax gate: load each probe as an INLINE script so the browser reports the
+ * exact line/column of a parse error. */
+var FILES = (location.hash || '#/pub/recon-probe3.js').slice(1).split(',');
+var out = document.getElementById('o');
+var lines = [];
+
+window.addEventListener('error', function (e) {
+  lines.push('ERROR line ' + e.lineno + ' col ' + e.colno + ' :: ' + e.message);
+  out.textContent = lines.join('\n');
+});
+
+(async function () {
+  for (var i = 0; i < FILES.length; i++) {
+    var t = await (await fetch(FILES[i])).text();
+    lines.push('--- ' + FILES[i] + ' (' + t.length + ' bytes) ---');
+    out.textContent = lines.join('\n');
+    try {
+      var s = document.createElement('script');
+      s.textContent = t;
+      document.body.appendChild(s);
+      lines.push('loaded (no parse error)');
+    } catch (e) {
+      lines.push('threw: ' + e.message);
+    }
+    out.textContent = lines.join('\n');
+    await new Promise(function (r) { setTimeout(r, 300); });
+  }
+})();
+</script></body></html>

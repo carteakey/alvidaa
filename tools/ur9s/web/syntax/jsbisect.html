@@ -1,0 +1,22 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>jsbisect</title></head>
+<body style="background:#111;color:#0f0;font:13px monospace"><pre id="o">pending</pre>
+<script>
+/* Bisect the syntax error: for every line, compile the file WITHOUT that line.
+ * A line whose removal makes the file compile is a culprit. */
+var FILE = (location.hash || '#/pub/recon-probe3.js').slice(1);
+var out = document.getElementById('o');
+function compiles(src) { try { new Function(src); return true; } catch (e) { return false; } }
+(async function () {
+  var t = await (await fetch(FILE)).text();
+  var lines = t.split('\n');
+  var base = compiles(t);
+  var res = ['file: ' + FILE + ' (' + lines.length + ' lines) baseline compiles: ' + base];
+  var culprits = [];
+  for (var i = 0; i < lines.length; i++) {
+    var copy = lines.slice(0, i).concat(lines.slice(i + 1)).join('\n');
+    if (compiles(copy)) { culprits.push(i + 1); res.push('CULPRIT line ' + (i + 1) + ' -> ' + lines[i].slice(0, 160)); }
+  }
+  if (!culprits.length) res.push('no single-line removal fixes it');
+  out.textContent = res.join('\n');
+})();
+</script></body></html>

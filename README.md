@@ -170,6 +170,7 @@ both regenerate from `docs/research/inventory.json`.
 | HE40E5600FFWTS | V0100.01.00A.N0410 | untested | achieved | [@oOHiyoriOo](https://github.com/oOHiyoriOo) |
 | 100U7Q | V0000.09.60I.Q0813 | untested | achieved | [@oOHiyoriOo](https://github.com/oOHiyoriOo) |
 | 75UR9S | V0000.09.60W.Q0624 | untested | achieved | [@EvzenP](https://github.com/EvzenP) |
+| 65UR9S | V0000.09.60V.Q0618 | untested | achieved | unit owner |
 | 43E7DS | 09.60W.Q0612 (EU_A) | working | achieved | [@ryjr2ddznn-lab](https://github.com/ryjr2ddznn-lab) |
 | 50A6Q | V0000.09.61B.Q0721 | untested | achieved | [@aadnaane](https://github.com/aadnaane) |
 | 55A7KAU | V0000.09.09O.P1015 | working | achieved | [@JacksonDCollins](https://github.com/JacksonDCollins) |

@@ -19,6 +19,7 @@
 | V0100.01.00A.N0410 (HE40E5600FFWTS, ? (EU, German-language docs)) | MT53xx / MT5863 class (armv7 Cortex-A53) | open | open | n-a | n-a | achieved | [@oOHiyoriOo](https://github.com/oOHiyoriOo) |
 | V0000.09.60I.Q0813 (100U7Q (100U70QEVS), EU_A) | MT9655 (32-bit ARM userland) | untested | untested | untested | untested | achieved | [@oOHiyoriOo](https://github.com/oOHiyoriOo) |
 | V0000.09.60W.Q0624 (75UR9S, EU (Czech Republic)) | MT9655 (32-bit ARM userland) | untested | untested | untested | untested | achieved | [@EvzenP](https://github.com/EvzenP) |
+| V0000.09.60V.Q0618 (65UR9S, ?) | MT9655 (32-bit ARM userland) | untested | untested | untested | untested | achieved | unit owner |
 | 09.60W.Q0612 (EU_A) (43E7DS (43Q60SEVS_02, serial type 43E7SE), EU_A (DEU)) | MTK9603 | closed | gated | working | untested | achieved | [@ryjr2ddznn-lab](https://github.com/ryjr2ddznn-lab) |
 | V0000.09.61B.Q0721 (50A6Q (50A60QXVT), UAE / intl (SSDP region 4)) | NT72690 (Novatek; aarch64 kernel, armhf ELF32 userland) | closed | gated | working | blocked | achieved | [@aadnaane](https://github.com/aadnaane) |
 | V0000.09.09O.P1015 (55A7KAU (internal 55U66GAVT), AU (AUS; GetCountryCode AUS, SSDP region 6)) | MTK9602 | working | untested | untested | untested | achieved | [@JacksonDCollins](https://github.com/JacksonDCollins) |

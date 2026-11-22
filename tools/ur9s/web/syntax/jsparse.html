@@ -1,0 +1,19 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>jsparse</title></head>
+<body style="background:#111;color:#0f0;font:13px monospace"><pre id="o">pending</pre>
+<script>
+/* Local syntax gate for the recon probes: compiles each file the way the TV's
+ * FaaS host does (new Function on the module source) before it is shipped. */
+var FILES = ['/pub/recon-probe.js', '/pub/recon-probe3.js'];
+var out = document.getElementById('o');
+(async function () {
+  var lines = [];
+  for (var i = 0; i < FILES.length; i++) {
+    try {
+      var t = await (await fetch(FILES[i])).text();
+      try { new Function(t); lines.push('PARSE OK   ' + FILES[i] + ' (' + t.length + ' bytes)'); }
+      catch (e) { lines.push('PARSE FAIL ' + FILES[i] + ' -> ' + e.message); }
+    } catch (e) { lines.push('FETCH FAIL ' + FILES[i] + ' -> ' + e); }
+  }
+  out.textContent = lines.join('\n');
+})();
+</script></body></html>
