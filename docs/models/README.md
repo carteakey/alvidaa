@@ -8,6 +8,7 @@ recorded on. Cross-model material lives in `docs/research/`.
 - [50A51HUV findings](50A51HUV/09.01O.P0813/FINDINGS.md)
 - [65A70LAVT / MTK9603 guide](65A70LAVT/V0000.09.60A.Q0707/README.md)
 - [65A85QEVS / MTK9618 guide](65A85QEVS/V0000.09.60A.Q0602/README.md)
+- [65A51HEVS / MTK9602 guide](65A51HEVS/V0000.09.09C.P0930/README.md)
 - [method inventory](../research/EXPLOITS.md)
 - [inventory](../research/inventory.json)
 ## Which guide applies to my TV?

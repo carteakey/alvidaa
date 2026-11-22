@@ -48,6 +48,7 @@ builds.
 | 55U67LEVS (55U6LE series) | EU_A | MTK9603 | U09.60 | V0000.09.60A.Q0707 (55U67LEVS) | ? | Chromium 111.5563.5.1 "Odin" (armv7l) | untested | achieved | [unit owner](https://github.com/carteakey/alvidaa) |
 | 65E86GEVS (serial type 65E8GE) | EM_B | MTK9618 (mt5879; aarch64 kernel, armhf userland) | U09.09 | V0000.09.09O.P0930 | ? | Chromium 111 "odin" (api 3.0.1) | untested | achieved | [@noctonca](https://github.com/noctonca) |
 | 65A70LAVT (serial type 65A7NA) | AU (EM_C, countryID AUS) | MTK9603 (MT5896) | U09.60 | V0000.09.60A.Q0707 (65A70LAVT) | ? | Chromium 111.5563.5.1 "Odin" (armv7l) | untested | achieved | [u/sl3yr84](https://reddit.com/user/sl3yr84) |
+| 65A51HEVS (serial type 65A5HE, retail family 65A6K) | EU_A | MTK9602 (board MT168B-20AT; armv7l) | U09.09 | V0000.09.09C.P0930 (65A51HEVS) | not read | Chromium (odin) - exact version not re-read on this unit | working | achieved | [@RaYVen1337](https://github.com/RaYVen1337) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -184,6 +185,11 @@ never hand-edit between the markers.
 - `file_bridge_traversal` **open** — bridge ../ escape verified with readable output (mode 0 -> /tmp, mode 4 -> /data).
 - `identity_gate` **working** — fileWrite -> 503 'client request permission check error, please check appconfig'; same gate as 43A5LE/55U67LEVS. Cross-confirmed on a second unit (85U8Q, V0000.09.60F.Q0528).
 - `root` **achieved** — uid 0 via the rc.local otaTest.sh hook; boot-persistent. Dropbear 2024.86 on :8008, key-only.
+
+**65A51HEVS (serial type 65A5HE, retail family 65A6K) — V0000.09.09C.P0930 (65A51HEVS)**
+- `launcher` **working** — MQTT launchapp + home watcher: opening a local page on HOME works, with a short stock-home flash because the page is a separate app. Native app launch works once appId is supplied (Netflix 1, Prime 2, YouTube 3); without it Netflix shows error 105.
+- `file_bridge_traversal` **open** — The native browser file bridge reached ../var/local/otaTest.sh and was used to stage the boot hook.
+- `root` **achieved** — Hook log shows uid=0(root) gid=0(root) with SELinux unconfined_process. Services survive a real cold boot (reboot -f, set powered off, owner pressed Power): the nc fallback, the TLS shell and the Node bridge came back without a browser console.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details

@@ -38,6 +38,7 @@
 | V0000.09.60A.Q0707 (55U67LEVS) (55U67LEVS (55U6LE series), EU_A) | MTK9603 | open | untested | untested | untested | achieved | [unit owner](https://github.com/carteakey/alvidaa) |
 | V0000.09.09O.P0930 (65E86GEVS (serial type 65E8GE), EM_B) | MTK9618 (mt5879; aarch64 kernel, armhf userland) | open | open | n-a | untested | achieved | [@noctonca](https://github.com/noctonca) |
 | V0000.09.60A.Q0707 (65A70LAVT) (65A70LAVT (serial type 65A7NA), AU (EM_C, countryID AUS)) | MTK9603 (MT5896) | open | gated | working | untested | achieved | [u/sl3yr84](https://reddit.com/user/sl3yr84) |
+| V0000.09.09C.P0930 (65A51HEVS) (65A51HEVS (serial type 65A5HE, retail family 65A6K), EU_A) | MTK9602 (board MT168B-20AT; armv7l) | open | open | untested | untested | achieved | [@RaYVen1337](https://github.com/RaYVen1337) |
 <!-- INVENTORY:END -->
 
 **Read of the table:** the July EU_A reporter observed `fileWrite` rejected
