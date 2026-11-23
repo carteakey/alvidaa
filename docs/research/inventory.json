@@ -844,6 +844,35 @@
         "identity_gate": "fileWrite -> 503 'client request permission check error, please check appconfig'; same gate as 43A5LE/55U67LEVS. Cross-confirmed on a second unit (85U8Q, V0000.09.60F.Q0528).",
         "root": "uid 0 via the rc.local otaTest.sh hook; boot-persistent. Dropbear 2024.86 on :8008, key-only."
       }
+    },
+    {
+      "id": "V0000.09.62M.Q0921",
+      "model": "85U7SE",
+      "region": "AU (owner-confirmed; AU presets in applist)",
+      "soc": "MTK9655 (MT5896 die, mt5877 family)",
+      "vidaa_os": "U09.62",
+      "transport_protocol": "not-exposed-over-SSDP",
+      "browser": "Chromium 111 \"odin\" WebViewer/3.0.0 (aarch64 UA, arm32 userland)",
+      "build_date": "2026-09-21",
+      "tested_by": [
+        "gh:vsinh14"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "untested",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "open",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "notes": "Owner-authorized full chain 2026-11-20: array-path hiutils traversal; basic/fetcher fetchFile write (no allowlist in fetchfile.js); sw2.js FaaS trigger -> superwatch 90:0; static aarch64 dropbear IPK (arch mtk9655) -> postinst uid 0 CapEff ffffffff; key-only SSH on 8008. Build trap: configure hardening -Wl,-pie defeats LDFLAGS=-static; relink with 'make LDFLAGS=\"-static -no-pie\"' after rm of binaries. Boot persistence (re_sshd pure-JS service, serviceList.json autoStart) staged, reboot verification pending. /var is tmpfs -> otaTest.sh hook does not persist on this unit. Device reports Name=85U7SE (owner-known retail line: UR8S).",
+        "native_home": "untested"
+      },
+      "capability_detail": {
+        "root": "Same chain as 75UR9S/75U8QTUK. Verified interactive root shell over key-only dropbear 2022.83 (static aarch64, no-pie relink required); postinst log retained at /APPS/.re_sshd/installer_log.txt. Rollback documented in the model guide.",
+        "pairing": "Modern-profile PIN pairing via the RemoteNow broker; applist 33 entries (AU presets)."
+      }
     }
   ]
 }

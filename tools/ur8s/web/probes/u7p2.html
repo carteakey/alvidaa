@@ -1,0 +1,26 @@
+<!doctype html>
+<!-- u7probe v2 — big-font minimal probe. POSTs full report to http://192.168.0.99:8798/api/probe -->
+<html><head><meta charset="utf-8"><title>u7p</title></head>
+<body style="background:#000;color:#0f0;font:34px monospace;padding:10px">
+<pre id="out">u7p…</pre>
+<script>
+(function(){
+"use strict";
+var out=document.getElementById("out");
+function line(t){out.textContent+="\n"+t;}
+function post(tag,obj){try{var x=new XMLHttpRequest();x.open("POST","http://192.168.0.99:8798/api/probe",true);
+x.setRequestHeader("Content-Type","application/json");x.send(JSON.stringify({tag:tag,d:obj}));}catch(e){}}
+var R={ua:navigator.userAgent,hi:typeof HiUtils_createRequest==="function",
+ws:typeof WebSDK_createFileRequest==="function",vo:typeof vowOS!=="undefined"};
+line("UA="+R.ua); line("hiutils="+R.hi+" websdk="+R.ws+" vowOS="+R.vo); post("start",R);
+if(R.hi){
+ try{var r=HiUtils_createRequest("fileRead",{path:["../proc/uptime"],mode:6});
+  line("uptime ret="+(r&&r.ret)+" len="+((r&&r.msg||"").length)); R.up=r&&r.ret; post("up",R);}catch(e){line("up EXC "+e);R.upexc=String(e);}
+ try{var p=HiUtils_createRequest("fileRead",{path:["../APPS/pkgs/tv.vidaa.jsservice.basic/CHA/package.json"],mode:6});
+  line("pkg ret="+(p&&p.ret)); R.pkg=p&&p.ret; post("pkg",R);}catch(e){line("pkg EXC "+e);}
+}
+if(R.vo&&vowOS.service){try{var f=vowOS.service.syncExecute("basic/fetcher",{api:"fetchFile",args:{url:"http://192.168.0.99:8799/probe_marker.txt",path:".recon_marker"}});
+ line("fetch ret="+(f&&f.ret)); R.f=f&&f.ret;}catch(e){line("fetch EXC "+String(e).slice(0,40));}post("fin",R);}
+else post("fin",R);
+})();
+</script></body></html>

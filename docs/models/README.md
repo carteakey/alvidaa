@@ -44,6 +44,7 @@ Every-boot DNS coverage has a same-day re-arm failure mode — see findings/09 f
 New guides start from [_TEMPLATE.md](_TEMPLATE.md), which carries the
 fingerprint, the evidence labels and the required *What this guide includes
 and leaves out* section.
+| `85U7SE` | `V0000.09.62M.Q0921` (VIDAA `U09.62`, AU (owner-confirmed; AU presets in applist)) | MTK9655 (MT5896 die, mt5877 family) | TODO: root method | TODO: persistence | [README](85U7SE/V0000.09.62M.Q0921/README.md) · [EVIDENCE](85U7SE/V0000.09.62M.Q0921/EVIDENCE.md) · [MODDING](85U7SE/V0000.09.62M.Q0921/MODDING.md) |
 
 This table is hand-maintained; the [tested-model matrix](../../README.md#tested-models)
 is generated from `inventory.json` and wins if the two disagree. `scripts/check.sh`

