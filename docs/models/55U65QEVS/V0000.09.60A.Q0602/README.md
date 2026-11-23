@@ -1,4 +1,4 @@
-# 55U65QEVS / V0000.09.60A.Q0602 — MTK9618, EU_A (GBR)
+# 55U65QEVS / V0000.09.60A.Q0602 — root, boot persistence, always-on ACR (MTK9618, EU_A/GBR)
 
 Firmware reference for the Hisense platform model **55U65QEVS** (retail
 `55U7QTUK`, serial type `55U6QE`, `ProjectId 140`), build `V0000.09.60A.Q0602`,
@@ -11,6 +11,10 @@ build stamp `a20260727u`.
 - Boot persistence: vendor js-service autostart (`BaseService`), no boot-chain
   writes, no `eval` at boot.
 - Launcher: lane-3 component swap, `operationui` channel CHB.
+- Background telemetry: `HamService` (Nexxen ACR SDK) fingerprints the TV's
+  decoded audio continuously and on every input, HDMI included, and matches it
+  against a fingerprint server; `voicesdk_server` runs the always-on
+  microphone pipeline; usage logs are tagged with serial and MAC.
 
 ## Platform
 
