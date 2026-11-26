@@ -191,6 +191,7 @@ both regenerate from `docs/research/inventory.json`.
 | 65E86GEVS | V0000.09.09O.P0930 | untested | achieved | [@noctonca](https://github.com/noctonca) |
 | 65A70LAVT | V0000.09.60A.Q0707 (65A70LAVT) | untested | achieved | [u/sl3yr84](https://reddit.com/user/sl3yr84) |
 | 55U65QEVS | V0000.09.60A.Q0602 (55U65QEVS) | working | achieved | [@gwerneckp](https://github.com/gwerneckp) |
+| 65U7NQTUK | 09.61B.Q0704 | blocked | untested | [@ponciusz](https://github.com/ponciusz) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — add a firmware entry to [inventory.json](docs/research/inventory.json) (single source of truth; fields and where to find them: [TESTED-MODELS.md](docs/research/TESTED-MODELS.md)) and run `scripts/gen-inventory.py` — every table in the repo regenerates from it.

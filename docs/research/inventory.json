@@ -876,6 +876,34 @@
         "identity_gate": "Hisense_SupportAppConfig() = true; editing websdk/Appinfo.json byte-identically still returns the 503.",
         "pairing": "Sidee, modern profile; used only as an out-of-band way to open the browser during development."
       }
+    },
+    {
+      "id": "09.61B.Q0704",
+      "model": "65U7NQTUK",
+      "region": "UK",
+      "soc": "unknown",
+      "vidaa_os": "U09.61",
+      "transport_protocol": "unknown",
+      "browser": "unknown",
+      "build_date": "2026-07-04",
+      "tested_by": [
+        "gh:ponciusz"
+      ],
+      "capabilities": {
+        "pairing": "working",
+        "launcher": "blocked",
+        "file_bridge_traversal": "untested",
+        "file_bridge_write": "untested",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "untested",
+        "notes": "MQTT pairing works on the 'modern' profile using vidaa_cert.pem / vidaa_key.pem extracted from client_mobile_android.p12 (legacy 2018 RemoteNOW cert is rejected on-screen as incompatible). Launcher web UI loads in the TV browser and displays live sources/inputs, but the browser traps both remote D-pad and USB keyboard arrow keys for virtual cursor movement (?pan=1&setup required to reach the install tile). Non-root 'INSTALL AS APP' fails with 'install failed: client request permission check error please check appconfig', and hisense://debug is disabled. File-bridge and root lanes not tested."
+      },
+      "capability_detail": {
+        "pairing": "Modern profile verified with client_mobile_android.p12 cert/key and colon-separated TV_MAC; PIN accepted and tokens.json written.",
+        "launcher": "Web UI + live state work in TV browser, but non-root app installation is blocked by the appconfig permission check ('client request permission check error please check appconfig') and hisense://debug is unavailable."
+      }
     }
   ]
 }
