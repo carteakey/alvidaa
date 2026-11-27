@@ -3,6 +3,7 @@
 This directory holds **model- and firmware-specific** root and modding guides.
 A guide is published only for the exact model *and* firmware string it was
 recorded on. Cross-model material lives in `docs/research/`.
+
 - [43A5FE / MTK9602 guide](43A5FE/V0010.09.09A.P0930/README.md)
 - [50A51HUV / MTK9602 guide](50A51HUV/09.01O.P0813/README.md)
 - [50A51HUV findings](50A51HUV/09.01O.P0813/FINDINGS.md)
@@ -13,10 +14,12 @@ recorded on. Cross-model material lives in `docs/research/`.
 - [55U65QEVS / MTK9618 guide](55U65QEVS/V0000.09.60A.Q0602/README.md)
 - [method inventory](../research/EXPLOITS.md)
 - [inventory](../research/inventory.json)
+
 ## Which guide applies to my TV?
 
 Only the one whose **model and firmware both match**. Check the firmware string
 in the TV's system information and compare it character by character.
+
 | Model | Firmware | SoC class | Result | Persistence | Guides |
 |---|---|---|---|---|---|
 | `43A5FE` | `V0010.09.09A.P0930` (VIDAA `U07.51`, SDK 6.1.2) | MediaTek MTK9602 | root via browser path traversal + `otaTest.sh` boot hook; native Node v20; native UI debloat | `rc.local` hook, observed across cold reboots | [README](43A5FE/V0010.09.09A.P0930/README.md) |
@@ -38,8 +41,7 @@ in the TV's system information and compare it character by character.
 | `VS1165UD1_0400` (Toshiba / Vestel) | `V0000.06.10S.N1222` (VIDAA `U06.10`, EU_A) | MediaTek MT9602, ARMv7 | MQTT pairing working; alvidaa recon v8 returned empty responses from `WebSDK_createFileRequest`; browser root method unsuccessful; IPK prerequisites inconclusive; root not achieved | Not tested | [README](VS1165UD1_0400/V0000.06.10S.N1222/README.md) |
 | `75U8QTUK` | `V0000.09.60I.Q0813` (VIDAA `U09.60`, UK/GBR) | MediaTek MTK9655, aarch64 kernel | [root achieved](75U8QTUK/V0000.09.60I.Q0813/README.md) — the 100U7Q fetcher → superwatch → IPK postinst chain armed (uid 0, CapEff `000001ffffffffff`), key-only SSH on 8008; native DOM Home installed and owner-verified (findings/07, /09, /10) | **verified** — the `re_sshd` service autostart re-armed SSH after a supervised reboot (uptime 84000 s → up again at uptime 16.39 s), [findings/11](75U8QTUK/V0000.09.60I.Q0813/findings/11-boot-persistence.md) | [README](75U8QTUK/V0000.09.60I.Q0813/README.md) · [EVIDENCE](75U8QTUK/V0000.09.60I.Q0813/EVIDENCE.md) · [MODDING](75U8QTUK/V0000.09.60I.Q0813/MODDING.md) |
 | `32A35HUV` | `V0000.09.01O.P0814` (VIDAA `U09.01`, CAN) | MTK9602 | [root achieved](32A35HUV/V0000.09.01O.P0814/README.md) — the [50A51HUV reference chain](50A51HUV/09.01O.P0813/README.md) replayed unchanged on a second MTK9602 board: bridge traversal open, `fileWrite` of `/var/local/otaTest.sh`, proof hook logged `uid=0` at uptime ~6 s, dropbear 2025.88 key-only on 2222 | **verified** — `/etc/rc.d/rc.local` → `otaTest.sh` boot hook proven after a real power cycle (standby does not re-run `rc.local`) | [README](32A35HUV/V0000.09.01O.P0814/README.md) · [EVIDENCE](32A35HUV/V0000.09.01O.P0814/EVIDENCE.md) · [MODDING](32A35HUV/V0000.09.01O.P0814/MODDING.md) |
-| `55E7QTUK` (internal `55E70QEVS_0002`, serial type `55E7QE`) | `V0000.09.09D.P1001` (VIDAA `U09.09`, UK/GBR) | MediaTek MTK9603, armv7 | **root achieved — boot-persistent** (2026-11-08, owner-authorized): launcher self-install verified; recon v1–v4; pre-root hook lane blocked by enforcing SELinux (first measured `09.09D` divergence); the superwatch chain fired instead — wire `4B-LE length+payload`, install id `53` / uninstall `54`, opkg `mtk9603`; static ARMv7 dropbear 2026.94 (own build; aarch64 ENOEXEC + MULTIUSER flag traps), keys-only `0.0.0.0:8008` with `-D authorized_keys dir`, `Uid 0` `CapEff 000001ffffffffff`; OTA freeze (DoH lane + ota CDN IP) first in the postinst, then adsfw ad block and a dnsmasq device resolver on the same boot-timed postinst | **boot-persistent** (`re_sshd` serviceList autostart, cold-boot verified 2026-11-08 via kernel sysrq; ad block + OTA freeze re-apply every cold boot). 
-Every-boot DNS coverage has a same-day re-arm failure mode — see findings/09 for the states and the no-SSH recovery playbook | [README](55E7QTUK/V0000.09.09D.P1001/README.md) · [EVIDENCE](55E7QTUK/V0000.09.09D.P1001/EVIDENCE.md) · [MODDING](55E7QTUK/V0000.09.09D.P1001/MODDING.md) · [00](55E7QTUK/V0000.09.09D.P1001/findings/00-fingerprint.md) · [05](55E7QTUK/V0000.09.09D.P1001/findings/05-root-ssh.md) · [06](55E7QTUK/V0000.09.09D.P1001/findings/06-boot-persistence.md) · [09](55E7QTUK/V0000.09.09D.P1001/findings/09-device-dns-resolver.md) |
+| `55E7QTUK` (internal `55E70QEVS_0002`, serial type `55E7QE`) | `V0000.09.09D.P1001` (VIDAA `U09.09`, UK/GBR) | MediaTek MTK9603, armv7 | **root achieved — boot-persistent** (2026-11-08, owner-authorized): launcher self-install verified; recon v1–v4; pre-root hook lane blocked by enforcing SELinux (first measured `09.09D` divergence); the superwatch chain fired instead — wire `4B-LE length+payload`, install id `53` / uninstall `54`, opkg `mtk9603`; static ARMv7 dropbear 2026.94 (own build; aarch64 ENOEXEC + MULTIUSER flag traps), keys-only `0.0.0.0:8008` with `-D authorized_keys dir`, `Uid 0` `CapEff 000001ffffffffff`; OTA freeze (DoH lane + ota CDN IP) first in the postinst, then adsfw ad block and a dnsmasq device resolver on the same boot-timed postinst | **boot-persistent** (`re_sshd` serviceList autostart, cold-boot verified 2026-11-08 via kernel sysrq; ad block + OTA freeze re-apply every cold boot). Every-boot DNS coverage has a same-day re-arm failure mode — see findings/09 for the states and the no-SSH recovery playbook | [README](55E7QTUK/V0000.09.09D.P1001/README.md) · [EVIDENCE](55E7QTUK/V0000.09.09D.P1001/EVIDENCE.md) · [MODDING](55E7QTUK/V0000.09.09D.P1001/MODDING.md) · [00](55E7QTUK/V0000.09.09D.P1001/findings/00-fingerprint.md) · [05](55E7QTUK/V0000.09.09D.P1001/findings/05-root-ssh.md) · [06](55E7QTUK/V0000.09.09D.P1001/findings/06-boot-persistence.md) · [09](55E7QTUK/V0000.09.09D.P1001/findings/09-device-dns-resolver.md) |
 | `55U61KEVS` (retail `55U7KQ`) | `V0000.09.62C.Q0924` (VIDAA `U09.62`, EU_A/DEU) | MediaTek MTK9618, aarch64 kernel + armhf userland | root via `fetcher` write + superwatch `83`/`82` + IPK `postinst` (uid 0, `CapEff 0000003fffffffff`); key-only Dropbear on 8008 | **boot-persistent** (`re_sshd` serviceList autostart, verified across a cold boot) | [README](55U61KEVS/V0000.09.62C.Q0924/README.md) · [EVIDENCE](55U61KEVS/V0000.09.62C.Q0924/EVIDENCE.md) · [MODDING](55U61KEVS/V0000.09.62C.Q0924/MODDING.md) |
 | `43A6K` (internal `43A53FEVS_0011`) | `V0000.09.09C.P0930` (VIDAA `U09.09`, EU_A) | DevKit MTK9602, armv7l | root via native file bridge + stock `otaTest.sh` hook; password/key SSH commands and SFTP on 2222; ordinary PTY remains broken | observed across kernel restart and owner Power-on without browser re-arm; separate mains-removal test unconfirmed | [README](43A6K/V0000.09.09C.P0930/README.md) |
 | `50U7DSE` (internal `50U73SEVS_01`, serial type `50U7SE`) | `V0000.09.62N.Q0923` (VIDAA `U09.62`, EU_A/DEU) | MediaTek MTK9618 (mt16587/mt5879), aarch64 kernel + armhf userland | root via `fetcher` write → superwatch 83/82 → IPK postinst uid 0; key-only static ARM32 Dropbear on 8008; native lane-3 Home (Free My TV 75U8QTUK adapter); browser self-install gated (503 appconfig) | **boot-persistent** (`re_sshd` serviceList autostart, re-arms ~30 s after each of two cold boots; native Home survives reboot byte-identically) | [README](50U7DSE/V0000.09.62N.Q0923/README.md) |
@@ -60,12 +62,14 @@ is generated from `inventory.json` and wins if the two disagree. `scripts/check.
 fails if a guide exists here without a row.
 
 These chains are **different and not interchangeable**:
+
 | | 50A51HUV | HE40 | 100U7Q |
 |---|---|---|---|
 | Entry point | browser file bridge `../` | browser runs as root; file-API whitelist bypass | app-context FaaS write + privileged package socket |
 | Root execution | `rc.local` `otaTest.sh` hook | shadow library `DT_INIT` in the browser | IPK `postinst` via the root package daemon |
 | Boot persistence | `rc.local` hook, observed across boot | `HamService` wrapper (owner-verified) | none; manual re-arm |
 | Recovery | remove the hook + reboot | `rollback.sh` + reboot | uninstall `83` + operator cleanup |
+
 The 50A51HUV entry is the original MTK9602 record; it shares no steps with the
 other two. Do not apply one model's paths to another.
 
@@ -73,13 +77,16 @@ other two. Do not apply one model's paths to another.
 same `postinst`, same 8008 daemon. Only the FaaS package that hosts `fetch`
 differs (`tv.vidaa.jsservice.basic` instead of `...system`). Read the 100U7Q
 guide first, then the [75UR9S deltas](75UR9S/V0000.09.60W.Q0624/README.md).
+
 **43Q60SEVS is the same entry point again** (fetcher write → `/function` exec →
 superwatch install), on MTK9603. What differs is the exit: this build ships no
 Dropbear, so persistence comes from the vendor's own service manager instead of
 a shipped daemon. See the [43Q60SEVS guide](43Q60SEVS/V0000.09.60W.Q0612/README.md).
+
 ## How to read the labels
 
 Every guide uses the same vocabulary:
+
 | Label | Meaning |
 |---|---|
 | **CONFIRMED live (recorded)** | the author's record reports a device observation, usually with output or an artifact. A record claim, not an independent re-test. |
@@ -88,13 +95,16 @@ Every guide uses the same vocabulary:
 | **documented code** | quoted device source/configuration or a build recipe. |
 | **UNVERIFIED** | not tested, or explicitly open. Never a recipe. |
 | **DEAD END** | tried and rejected; listed so nobody repeats it. |
+
 The HE40 and 100U7Q pages carry an EVIDENCE.md claim matrix with a `file:line`
 basis and short quotes; the 50A51HUV record uses FINDINGS.md as its lab-notebook
 index. The README page carries the procedure. The MODDING page carries the
 system layout and the modding surface, with its own verified/unverified table.
+
 ## Ground rules
 
 These guides are for **hardware you own**, on your own LAN.
+
 - **No flashing, no `.pkg`, no UART, no case opening** is the design property of
   these chains. Read-only partitions stay untouched; verified boot stays green.
 - **No vendor binaries and no keys are shipped.** Payloads and SSH binaries are
@@ -108,11 +118,14 @@ These guides are for **hardware you own**, on your own LAN.
   access on your LAN.
 - **A failed observation applies to one route and one device.** It is not proof
   that a firmware is safe in general.
+
 See [SECURITY.md](../../SECURITY.md) for the disclosure stance and
 [AGENTS.md](../../AGENTS.md) if an AI session is doing the work.
+
 ## Tools
 
 The scripts referenced by the guides live under [tools/](../../tools/):
+
 | Tree | Contents |
 |---|---|
 | [tools/he40/](../../tools/he40/) | USB prep, recon server/page, payload and Dropbear builds, TV-side deploy/verify/rollback, templates |
@@ -120,8 +133,10 @@ The scripts referenced by the guides live under [tools/](../../tools/):
 | [tools/fw/](../../tools/fw/) | firmware inventory/map/OTA tooling (not used by the device chains) |
 | [tools/tvshell.py](../../tools/tvshell.py) | generic SSH wrapper |
 | [tools/deploy-overlay.sh](../../tools/deploy-overlay.sh) | launcher deployment helper |
+
 `tools/*/bin` and `tools/*/tools/pub` are **drop points**, not binary
 distributions. Build or supply your own.
+
 ## Contributing a model
 
 Add the model to [inventory.json](../research/inventory.json) first, then report

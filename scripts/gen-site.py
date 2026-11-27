@@ -1335,6 +1335,25 @@ def render_pager(page_rel: str, order: list, pages: dict, url: str) -> str:
     return f'<nav class="pager" aria-label="Page navigation">{card(prev_rel, "← Previous", "prev")}{card(next_rel, "Next →", "next")}</nav>'
 
 
+def preprocess_markdown(text: str) -> str:
+    """Normalize GFM-valid tables/lists that lack a preceding blank line so
+    Python-Markdown renders them consistently."""
+    lines = text.splitlines()
+    out = []
+    in_code = False
+    sep_re = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+            out.append(line)
+            continue
+        if not in_code and i + 1 < len(lines) and "|" in line and sep_re.match(lines[i + 1]):
+            if out and out[-1].strip() and not out[-1].lstrip().startswith("|"):
+                out.append("")
+        out.append(line)
+    return "\n".join(out) + ("\n" if text.endswith("\n") else "")
+
+
 def render(
     page_rel: str,
     pages: dict,
@@ -1343,7 +1362,7 @@ def render(
     stats: dict,
     asset_set=frozenset(),
 ) -> tuple[str, dict]:
-    text = (ROOT / page_rel).read_text(encoding="utf-8", errors="ignore")
+    text = preprocess_markdown((ROOT / page_rel).read_text(encoding="utf-8", errors="ignore"))
     md = markdown.Markdown(
         extensions=["tables", "fenced_code", "sane_lists", "toc"],
         extension_configs={"toc": {"slugify": slugger(), "permalink": False}},
