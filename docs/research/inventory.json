@@ -1057,6 +1057,36 @@
       "capability_detail": {
         "root": "Root shell on TCP 8008 verified 2026-11-22 (uid 0, CapEff 000001ffffffffff, from the operator PC over the LAN). Boot persistence verified across a real reboot: the re_sshd service armed the channel on its first attempt, ~31 s after boot, with no browser and no operator action."
       }
+    },
+    {
+      "id": "V0000.09.61B.Q0704 (EU_B)",
+      "model": "85U75LEVS (serial type 85U7LE)",
+      "region": "EU_B (RUS)",
+      "soc": "MTK9618 (aarch64 kernel 5.4.302, armhf userland)",
+      "vidaa_os": "U09.61",
+      "transport_protocol": "?",
+      "browser": "Chromium 111 \"odin\" (Browser/8.3.2, aarch64 UA)",
+      "build_date": "2026-07-03",
+      "tested_by": [
+        "gh:vitokornelio"
+      ],
+      "capabilities": {
+        "pairing": "untested",
+        "launcher": "untested",
+        "native_home": "untested",
+        "file_bridge_traversal": "open",
+        "file_bridge_write": "open",
+        "identity_gate": "untested",
+        "euladpp_untar": "untested",
+        "devtools_forge": "untested",
+        "root": "achieved",
+        "notes": "Model guide: docs/models/85U75LEVS/V0000.09.61B.Q0704/. Second recorded unit on V0000.09.61B.Q0704 (after 55E75LEVS EU_A/BIH), first 85-inch and EU_B/RUS unit. MTK9618 with aarch64 kernel (Linux 5.4.302, Jul 3 2026) and 32-bit ARM userland (process.arch 'arm'). Reached from the TV browser: basic/fetcher fetchFile writes as uid 314, hiutils.fileRead traverses with a one-element array path (bare strings rejected 'invalid path'), /var/run/superwatch_socket is 660 root:616 (cmd 85 -> 901:0; uninstall 83 / install 82 accepted), /var/local is app-writable. IPK (Architecture: mtk9618) postinst ran as uid 0 with CapEff 0000003fffffffff and started patched static ARMv7 musl Dropbear 2022.83 key-only on :22 (fallback :8008) with PTY (/dev/ptmx 0666) and FIREWALL_IN_EULAON ACCEPT rules. Build trap: -E is invalid in --disable-syslog Dropbear builds (use plain daemonizing start); postinst PATH lacks id/uname/tail. Boot persistence via re_sshd BaseService in tv.vidaa.jsservice.basic/CHA/services + serviceList.json autoStart, verified across /sbin/reboot (ARMED ~30 s, SSH back ~45-50 s, no browser). Verified boot green (/dev/dm-0 squashfs ro); OTA off in stock config (/OAD/AppUpgradeSwitch.json upgradeFlag 0 for RUS, /var/local/nightupdate.ini dcm_update=0). Pairing and launcher lanes not exercised."
+      },
+      "capability_detail": {
+        "file_bridge_traversal": "hiutils.fileRead traverses with a one-element array path (['../proc/uptime'] read); bare-string paths are rejected 'invalid path'.",
+        "file_bridge_write": "basic/fetcher fetchFile wrote markers, sw2.js, and installer.ipk as uid 314 (ret:true 'download finished') to /APPS and tv.vidaa.jsservice.basic/CHA/functions/fetch/; direct hiutils.fileWrite was not probed.",
+        "root": "fetcher.fetchFile -> superwatch 83/82 -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 musl Dropbear 2022.83 key-only on :22 with PTY; boot-persistent via re_sshd serviceList autostart (verified across /sbin/reboot on 2026-11-27, SSH back ~45-50 s after boot)."
+      }
     }
   ]
 }
