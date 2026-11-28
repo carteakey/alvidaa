@@ -161,6 +161,7 @@ Compact scan — model / firmware / launcher / root / reporter. The full table w
 | 55A6NV | V0000.09.60L.Q0623 | working | untested | [@TioLen](https://github.com/TioLen) |
 | 85U7SE | V0000.09.62M.Q0921 | untested | achieved | [@vsinh14](https://github.com/vsinh14) |
 | 65UR9S | V0000.09.60V.Q0618 | untested | achieved | unit owner |
+| 43E7HQ | V0000.09.09G.P0930 | untested | achieved | [@AlexBsrd](https://github.com/AlexBsrd) |
 <!-- INVENTORY:END -->
 
 **Report yours by PR, not issue** — run `python3 scripts/report.py` (or add a row to [inventory.json](docs/research/inventory.json) and run `scripts/gen-inventory.py`). Model report PRs are **docs + JSON only** (`./scripts/check.sh` enforces this).

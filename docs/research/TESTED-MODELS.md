@@ -55,6 +55,7 @@ builds.
 | 55A6NV (platform model 55A60QUV) | BRA (Hisense_GetRegion AM; SSDP region ?) | MTK9603 | U09.60 | V0000.09.60L.Q0623 | ? | Chromium 111.5563.5.1 "Odin" (armv7l) | working | untested | [@TioLen](https://github.com/TioLen) |
 | 85U7SE | AU (owner-confirmed; AU presets in applist) | MTK9655 (MT5896 die, mt5877 family) | U09.62 | V0000.09.62M.Q0921 | not-exposed-over-SSDP | Chromium 111 "odin" WebViewer/3.0.0 (aarch64 UA, arm32 userland) | untested | achieved | [@vsinh14](https://github.com/vsinh14) |
 | 65UR9S | ? | MT9655 (32-bit ARM userland) | U09.0 (from the 09.60 firmware generation; not read from the device) | V0000.09.60V.Q0618 | untested | Chromium 111 "WebViewer/7.0.15" (Cobalt, aarch64 UA) | untested | achieved | unit owner |
+| 43E7HQ (internal 43A56FEVS) | FR (EU) | MTK9602 (armv7l) | U09.09 (build family; Hisense_GetOSVersion not read) | V0000.09.09G.P0930 | ? | Chromium 111 (Linux armv7l) | untested | achieved | [@AlexBsrd](https://github.com/AlexBsrd) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -227,6 +228,17 @@ never hand-edit between the markers.
 
 **65UR9S — V0000.09.60V.Q0618**
 - `root` **achieved** — Root shell on TCP 8008 verified 2026-11-22 (uid 0, CapEff 000001ffffffffff, from the operator PC over the LAN). Boot persistence verified across a real reboot: the re_sshd service armed the channel on its first attempt, ~31 s after boot, with no browser and no operator action.
+
+**43E7HQ (internal 43A56FEVS) — V0000.09.09G.P0930**
+- `pairing` **working** — server/pair.py with the 2024 app certificate, profile 'modern': PIN accepted, tokens issued (2026-11-26).
+- `launcher` **untested** — Lane-1 bridge started and paired, launcher not installed as an app; home watcher not exercised.
+- `native_home` **working** — Generic native-platform.js + native-entry.js route swap on /APPS/channelA/operation-ui/apps/launcher/js/app.js (stock md5 e988dfe7…, 305:305, mode 0664). Rendered (HAL screenshot); owner launched apps from it and returned with Home. Input switching with a live source not specifically confirmed.
+- `file_bridge_traversal` **open** — fileRead mode 6 with ../ from a plain TV Browser page reads /etc/rc.d/rc.local, /proc and /sys/fs/selinux/enforce.
+- `file_bridge_write` **open** — fileWrite (writedata, mode 6) under ../var/local writes and reads back byte-identical. A write followed by a quick mains pull left a 0-byte file: wait or sync.
+- `identity_gate` **untested** — Not tested; not needed for the hook chain.
+- `euladpp_untar` **untested** — Not tested; the rc.local otaTest.sh hook was used instead.
+- `devtools_forge` **untested** — Not tested.
+- `root` **achieved** — Verified 2026-11-26: hook log shows Uid 0 at uptime ~6 s; persists across cold boot and /bin/reboot (busybox reboot is ignored). /sys/fs/selinux/enforce = 0.
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details
