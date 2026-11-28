@@ -13,6 +13,7 @@ recorded on. Cross-model material lives in `docs/research/`.
 - [65UR9S / MTK9655 guide](65UR9S/V0000.09.60V.Q0618/README.md)
 - [75U7KQ / U09.09 guide](75U7KQ/V0000.09.09O.P0930/README.md)
 - [55U65QEVS / MTK9618 guide](55U65QEVS/V0000.09.60A.Q0602/README.md)
+- [85U75LEVS / MTK9618 guide](85U75LEVS/V0000.09.61B.Q0704/README.md)
 - [method inventory](../research/EXPLOITS.md)
 - [inventory](../research/inventory.json)
 
@@ -54,6 +55,7 @@ in the TV's system information and compare it character by character.
 | `100U7SAU` (`100U7QE`) | `V02.09.50U.Q0311` (OperationUI `9.05.00`, AU) | MediaTek MT9655, aarch64 kernel + aarch64 userland | pairing, lane 2 (retired), lane 3 native Home (75U8QTUK adapter), and boot-persistent key-only root SSH on 8009 via fetcher → superwatch → opkg postinst | **boot-persistent** (`re_sshd` BaseService + `serviceList.json` autoStart, verified across two cold boots) | [README](100U7SAU/V02.09.50U.Q0311/README.md) |
 | `85U7SE` (UR8S) | `V0000.09.62M.Q0921` (VIDAA `U09.62`, AU) | MediaTek MTK9655 (`MT5896`, aarch64 kernel + arm32 userland) | root via fetcher write → superwatch → IPK `postinst` (uid 0, full CapEff); aarch64 static Dropbear key-only on 8008 + SFTP; OTA uid-304 block | **boot-persistent** (`re_sshd` serviceList autostart, verified across cold reboot) | [README](85U7SE/V0000.09.62M.Q0921/README.md) · [EVIDENCE](85U7SE/V0000.09.62M.Q0921/EVIDENCE.md) · [MODDING](85U7SE/V0000.09.62M.Q0921/MODDING.md) |
 | `65UR9S` (UR9S family, sibling of the `75UR9S`) | `V0000.09.60V.Q0618` (VIDAA `U09.60`, region not read) | MediaTek MTK9655, 32-bit ARM userland | root via fetcher FaaS write → superwatch `83`/`82` → IPK `postinst` uid 0; root shell is the vendor Node runtime on `:8008` (no sshd, no dropbear, no nc/wget/curl, busybox without an `nc` applet) | **boot-persistent** (`re_sshd` serviceList autostart, verified 2026-11-22 across a real reboot — channel armed ~31 s after boot, no browser and no operator action) | [README](65UR9S/V0000.09.60V.Q0618/README.md) · [01](65UR9S/V0000.09.60V.Q0618/findings/01-recon.md) · [02](65UR9S/V0000.09.60V.Q0618/findings/02-install-chain.md) · [03](65UR9S/V0000.09.60V.Q0618/findings/03-root-and-persistence.md) |
+| `85U75LEVS` (serial type `85U7LE`) | `V0000.09.61B.Q0704` (VIDAA `U09.61`, `EU_B`/RUS) | MediaTek MTK9618, aarch64 kernel (`5.4.302`) + 32-bit ARM userland | root via `basic/fetcher` write → superwatch `83`/`82` → IPK `postinst` (uid 0, `CapEff 0000003fffffffff`); patched static ARMv7 Dropbear 2022.83 key-only on `:22` with PTY; verified boot green | **boot-persistent** (`re_sshd` serviceList autostart, verified 2026-11-27 across `/sbin/reboot` — SSH back ~45–50 s after boot, no browser) | [README](85U75LEVS/V0000.09.61B.Q0704/README.md) |
 
 New guides start from [_TEMPLATE.md](_TEMPLATE.md), which carries the
 fingerprint, the evidence labels and the required *What this guide includes

@@ -46,6 +46,7 @@
 | V0000.09.62M.Q0921 (85U7SE, AU (owner-confirmed; AU presets in applist)) | MTK9655 (MT5896 die, mt5877 family) | open | open | untested | untested | achieved | [@vsinh14](https://github.com/vsinh14) |
 | V0000.09.60V.Q0618 (65UR9S, ?) | MT9655 (32-bit ARM userland) | untested | untested | untested | untested | achieved | unit owner |
 | V0000.09.09G.P0930 (43E7HQ (internal 43A56FEVS), FR (EU)) | MTK9602 (armv7l) | open | open | untested | untested | achieved | [@AlexBsrd](https://github.com/AlexBsrd) |
+| V0000.09.61B.Q0704 (EU_B) (85U75LEVS (serial type 85U7LE), EU_B (RUS)) | MTK9618 (aarch64 kernel 5.4.302, armhf userland) | open | open | untested | untested | achieved | [@vitokornelio](https://github.com/vitokornelio) |
 <!-- INVENTORY:END -->
 
 **Read of the table:** the July EU_A reporter observed `fileWrite` rejected

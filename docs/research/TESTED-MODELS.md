@@ -56,6 +56,7 @@ builds.
 | 85U7SE | AU (owner-confirmed; AU presets in applist) | MTK9655 (MT5896 die, mt5877 family) | U09.62 | V0000.09.62M.Q0921 | not-exposed-over-SSDP | Chromium 111 "odin" WebViewer/3.0.0 (aarch64 UA, arm32 userland) | untested | achieved | [@vsinh14](https://github.com/vsinh14) |
 | 65UR9S | ? | MT9655 (32-bit ARM userland) | U09.0 (from the 09.60 firmware generation; not read from the device) | V0000.09.60V.Q0618 | untested | Chromium 111 "WebViewer/7.0.15" (Cobalt, aarch64 UA) | untested | achieved | unit owner |
 | 43E7HQ (internal 43A56FEVS) | FR (EU) | MTK9602 (armv7l) | U09.09 (build family; Hisense_GetOSVersion not read) | V0000.09.09G.P0930 | ? | Chromium 111 (Linux armv7l) | untested | achieved | [@AlexBsrd](https://github.com/AlexBsrd) |
+| 85U75LEVS (serial type 85U7LE) | EU_B (RUS) | MTK9618 (aarch64 kernel 5.4.302, armhf userland) | U09.61 | V0000.09.61B.Q0704 (EU_B) | ? | Chromium 111 "odin" (Browser/8.3.2, aarch64 UA) | untested | achieved | [@vitokornelio](https://github.com/vitokornelio) |
 <!-- INVENTORY:END -->
 
 ## What each token means on each unit
@@ -239,6 +240,11 @@ never hand-edit between the markers.
 - `euladpp_untar` **untested** — Not tested; the rc.local otaTest.sh hook was used instead.
 - `devtools_forge` **untested** — Not tested.
 - `root` **achieved** — Verified 2026-11-26: hook log shows Uid 0 at uptime ~6 s; persists across cold boot and /bin/reboot (busybox reboot is ignored). /sys/fs/selinux/enforce = 0.
+
+**85U75LEVS (serial type 85U7LE) — V0000.09.61B.Q0704 (EU_B)**
+- `file_bridge_traversal` **open** — hiutils.fileRead traverses with a one-element array path (['../proc/uptime'] read); bare-string paths are rejected 'invalid path'.
+- `file_bridge_write` **open** — basic/fetcher fetchFile wrote markers, sw2.js, and installer.ipk as uid 314 (ret:true 'download finished') to /APPS and tv.vidaa.jsservice.basic/CHA/functions/fetch/; direct hiutils.fileWrite was not probed.
+- `root` **achieved** — fetcher.fetchFile -> superwatch 83/82 -> vendor opkg postinst as uid 0 (CapEff 0000003fffffffff); patched static ARMv7 musl Dropbear 2022.83 key-only on :22 with PTY; boot-persistent via re_sshd serviceList autostart (verified across /sbin/reboot on 2026-11-27, SSH back ~45-50 s after boot).
 <!-- INVENTORY_DETAIL:END -->
 
 ## Community reports awaiting details
